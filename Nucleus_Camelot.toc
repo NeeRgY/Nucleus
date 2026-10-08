@@ -1,0 +1,65 @@
+## Interface: 16001
+## Title: Nucleus
+## Notes: Modern raid and party frames.
+## Notes-deDE: Moderne Schlachtzugs- und Gruppenrahmen.
+## Author: NeRgY
+## IconTexture: Interface\AddOns\Nucleus\Media\Textures\Logo
+## Version: 1.0.0
+## SavedVariables: NucleusDB_Forever
+## X-Category: Unit Frames
+## X-License: All Rights Reserved
+## X-Client: Forever (Camelot)
+
+Libs\LibStub\LibStub.lua
+Libs\LibDeflate\LibDeflate.lua
+Libs\LibSerialize\LibSerialize.lua
+
+src\Forever\Core\Init.lua
+src\Forever\Core\Util.lua
+src\Forever\Core\Secret.lua
+src\Forever\Core\Locale.lua
+src\Forever\Locales\enUS.lua
+src\Forever\Locales\deDE.lua
+src\Forever\Core\Media.lua
+src\Forever\Core\Classic.lua
+src\Forever\Core\Defaults.lua
+src\Forever\Core\SpellClasses.lua
+src\Forever\Core\Profiles.lua
+src\Forever\Core\CellImport.lua
+src\Forever\Core\Database.lua
+src\Forever\Core\Translit.lua
+src\Forever\Core\About.lua
+src\Forever\Core\Changelog.lua
+
+src\Forever\UI\Skin.lua
+src\Forever\UI\ColorPicker.lua
+src\Forever\UI\Widgets.lua
+src\Forever\UI\Dialog.lua
+src\Forever\UI\OptionsFrame.lua
+src\Forever\UI\Supporters.lua
+src\Forever\UI\ProfilesPanel.lua
+src\Forever\UI\CopyPanel.lua
+src\Forever\UI\Minimap.lua
+
+src\Forever\Frames\Indicators.lua
+src\Forever\Frames\TargetedSpellBars.lua
+src\Forever\Frames\MissingBuffs.lua
+src\Forever\Frames\Actions.lua
+src\Forever\Frames\GroupSpec.lua
+src\Forever\Frames\GroupLabels.lua
+src\Forever\Frames\Tools.lua
+src\Forever\Frames\Tooltip.lua
+src\Forever\Frames\UnitFrame.lua
+src\Forever\Frames\AuraEngine.lua
+src\Forever\Frames\Auras.lua
+src\Forever\Frames\CustomIndicators.lua
+src\Forever\Frames\HeaderGroup.lua
+src\Forever\Frames\ClickCasting.lua
+src\Forever\Frames\TestMode.lua
+src\Forever\Frames\Preview.lua
+src\Forever\Frames\HideBlizzard.lua
+src\Forever\Frames\Layout.lua
+
+src\Forever\Integrations\Ping.lua
+
+src\Forever\Bootstrap.lua

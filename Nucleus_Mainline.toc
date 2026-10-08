@@ -1,0 +1,64 @@
+## Interface: 120100
+## Title: Nucleus
+## Notes: Modern raid and party frames.
+## Notes-deDE: Moderne Schlachtzugs- und Gruppenrahmen.
+## Author: NeRgY
+## IconTexture: Interface\AddOns\Nucleus\Media\Textures\Logo
+## Version: 1.0.0
+## SavedVariables: NucleusDB_Mainline
+## X-Category: Unit Frames
+## X-License: All Rights Reserved
+## X-Client: Retail
+
+Libs\LibStub\LibStub.lua
+Libs\LibDeflate\LibDeflate.lua
+Libs\LibSerialize\LibSerialize.lua
+
+src\Mainline\Core\Init.lua
+src\Mainline\Core\Util.lua
+src\Mainline\Core\Secret.lua
+src\Mainline\Core\Locale.lua
+src\Mainline\Locales\enUS.lua
+src\Mainline\Locales\deDE.lua
+src\Mainline\Core\Media.lua
+src\Mainline\Core\Defaults.lua
+src\Mainline\Core\SpellClasses.lua
+src\Mainline\Core\Profiles.lua
+src\Mainline\Core\CellImport.lua
+src\Mainline\Core\Database.lua
+src\Mainline\Core\Translit.lua
+src\Mainline\Core\About.lua
+src\Mainline\Core\Changelog.lua
+
+src\Mainline\UI\Skin.lua
+src\Mainline\UI\ColorPicker.lua
+src\Mainline\UI\Widgets.lua
+src\Mainline\UI\Dialog.lua
+src\Mainline\UI\OptionsFrame.lua
+src\Mainline\UI\Supporters.lua
+src\Mainline\UI\ProfilesPanel.lua
+src\Mainline\UI\CopyPanel.lua
+src\Mainline\UI\Minimap.lua
+
+src\Mainline\Frames\Indicators.lua
+src\Mainline\Frames\TargetedSpellBars.lua
+src\Mainline\Frames\MissingBuffs.lua
+src\Mainline\Frames\Actions.lua
+src\Mainline\Frames\GroupSpec.lua
+src\Mainline\Frames\GroupLabels.lua
+src\Mainline\Frames\Tools.lua
+src\Mainline\Frames\Tooltip.lua
+src\Mainline\Frames\UnitFrame.lua
+src\Mainline\Frames\AuraEngine.lua
+src\Mainline\Frames\Auras.lua
+src\Mainline\Frames\CustomIndicators.lua
+src\Mainline\Frames\HeaderGroup.lua
+src\Mainline\Frames\ClickCasting.lua
+src\Mainline\Frames\TestMode.lua
+src\Mainline\Frames\Preview.lua
+src\Mainline\Frames\HideBlizzard.lua
+src\Mainline\Frames\Layout.lua
+
+src\Mainline\Integrations\Ping.lua
+
+src\Mainline\Bootstrap.lua

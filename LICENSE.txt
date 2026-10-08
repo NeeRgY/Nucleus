@@ -1,0 +1,17 @@
+Copyright © 2026 NeeRgY | nergy-dev@proton.me.
+
+The contents of this addon, excluding third-party resources, are
+copyrighted to its author with all rights reserved.
+
+You are granted the following rights:
+
+	1. You may modify this addon for private use only, unless the
+	   author has granted you explicit written permission otherwise.
+	2. You may not redistribute this addon or any modified version
+	   of it, in whole or in part, in any form.
+	3. You may not change the name of this addon, including its
+	   folder names.
+
+All rights not explicitly granted here are reserved by the author.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.

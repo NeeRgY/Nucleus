@@ -1,0 +1,83 @@
+local _, ns = ...
+local N = ns.N
+
+-- "Secret values": on Midnight (build >= 12.0) combat-sensitive unit info
+-- (UnitHealth, UnitPower, incoming heals, absorbs, threat, dead state, role)
+-- comes back as a *secret* number/string when the calling execution is tainted
+-- by an addon. Secrets may be passed to a small allowlist (StatusBar:SetValue,
+-- SetMinMaxValues, ...) but ANY arithmetic, comparison or string.format on one
+-- throws. Everything here is the guard layer around that.
+
+local issecret  = _G.issecretvalue
+local anysecret = _G.hasanysecretvalues
+
+N.MIDNIGHT = select(4, GetBuildInfo()) >= 120000
+
+function N.IsSecret(v)
+    return (issecret and issecret(v)) or false
+end
+
+function N.AnySecret(...)
+    if anysecret then return anysecret(...) end
+    if issecret then
+        for i = 1, select("#", ...) do
+            if issecret((select(i, ...))) then return true end
+        end
+    end
+    return false
+end
+
+-- Health as a 0..1 fraction that is safe to use for text/logic. Prefers the
+-- engine's UnitHealthPercent (non-secret by design) and falls back to raw
+-- division only when the raw values are not secret. nil when unavailable.
+local UnitHealthPercent = _G.UnitHealthPercent
+local ScaleTo100 = _G.CurveConstants and _G.CurveConstants.ScaleTo100
+
+-- Health percent 0..100. May itself be a *secret* number - safe to pass to
+-- FontString:SetFormattedText, never to arithmetic. nil if unavailable.
+function N.HealthPercent(unit)
+    if UnitHealthPercent then
+        if ScaleTo100 then
+            local ok, p = pcall(UnitHealthPercent, unit, true, ScaleTo100)
+            if ok then
+                if N.IsSecret(p) then return p end       -- already 0..100
+                if type(p) == "number" then return p end
+            end
+        end
+        local function tryPercent(...)
+            local ok, p = pcall(UnitHealthPercent, ...)
+            if not ok then return end
+            if N.IsSecret(p) then return p end
+            if type(p) == "number" then return (p > 1) and p or (p * 100) end
+        end
+        local r = tryPercent(unit, true)
+        if r ~= nil then return r end
+        r = tryPercent(unit)
+        if r ~= nil then return r end
+    end
+    local hp, hpMax = UnitHealth(unit), UnitHealthMax(unit)
+    if not N.AnySecret(hp, hpMax) and hpMax and hpMax > 0 then
+        return hp / hpMax * 100
+    end
+    return nil
+end
+
+function N.HealthFraction(unit)
+    if UnitHealthPercent then
+        local ok, p
+        if ScaleTo100 then
+            ok, p = pcall(UnitHealthPercent, unit, true, ScaleTo100)
+            if ok and p and not N.IsSecret(p) then return p / 100 end
+        else
+            ok, p = pcall(UnitHealthPercent, unit, true)
+            if ok and p and not N.IsSecret(p) then
+                return p > 1 and p / 100 or p
+            end
+        end
+    end
+    local hp, hpMax = UnitHealth(unit), UnitHealthMax(unit)
+    if not N.AnySecret(hp, hpMax) and hpMax and hpMax > 0 then
+        return hp / hpMax
+    end
+    return nil
+end
