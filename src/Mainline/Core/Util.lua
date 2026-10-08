@@ -1,11 +1,10 @@
 local _, ns = ...
 local N = ns.N
 
--- A default table counts as a list (kept whole, never merged key by key) when
--- it has entries, or is flagged `_list = true` (an empty list of user entries).
+-- A default table counts as a list (kept whole, not merged key by key) if it has entries or is
+-- flagged _list = true.
 local function isArray(t) return type(t) == "table" and (t[1] ~= nil or t._list == true) end
 
--- Deep copy of plain data (tables, numbers, strings, booleans).
 function N.DeepCopy(v)
     if type(v) ~= "table" then return v end
     local out = {}
@@ -13,10 +12,9 @@ function N.DeepCopy(v)
     return out
 end
 
--- Deep-merge defaults into a saved table without overwriting existing keys.
--- A default that is a LIST (e.g. the click-cast bindings) is treated as one
--- value: it seeds a missing list but never re-adds entries the user removed.
--- Returns the target table.
+-- Merges defaults into a saved table without overwriting existing keys. Lists (e.g. click-cast
+-- bindings) count as one value: they seed a missing list but never re-add entries the user
+-- removed.
 function N.MergeDefaults(target, defaults)
     if type(target) ~= "table" then target = {} end
     for k, v in pairs(defaults) do
@@ -31,9 +29,7 @@ function N.MergeDefaults(target, defaults)
     return target
 end
 
--- Remove keys from tbl that no longer exist in defaults so stale settings do
--- not accumulate in SavedVariables across versions. Lists are left alone
--- (their length is the user's, not the defaults').
+-- Drops keys that no longer exist in defaults. Lists are left alone.
 function N.PruneStale(tbl, defaults)
     if type(tbl) ~= "table" or type(defaults) ~= "table" then return end
     for k, v in pairs(tbl) do
@@ -45,8 +41,7 @@ function N.PruneStale(tbl, defaults)
     end
 end
 
--- Combat-safe task queue. Frame layout / secure attribute changes are illegal
--- during combat lockdown; callers hand them here and they run on the next
+-- Queue for work that is not allowed in combat (layout, secure attributes). Runs on
 -- PLAYER_REGEN_ENABLED.
 local queue = {}
 local queueFrame = CreateFrame("Frame")
@@ -60,8 +55,7 @@ queueFrame:SetScript("OnEvent", function()
     end
 end)
 
--- Run fn now if out of combat, otherwise defer it. Optional key deduplicates
--- repeated deferrals of the same logical action.
+-- Runs fn now, or after combat. A key replaces an earlier deferral of the same action.
 function N.RunWhenSafe(fn, key)
     if not InCombatLockdown() then
         fn()
@@ -70,7 +64,7 @@ function N.RunWhenSafe(fn, key)
     if key then
         for i = 1, #queue do
             if queue[i].key == key then
-                queue[i].fn = fn -- the newer closure replaces the waiting one
+                queue[i].fn = fn
                 return
             end
         end
@@ -78,15 +72,12 @@ function N.RunWhenSafe(fn, key)
     queue[#queue + 1] = { fn = fn, key = key }
 end
 
--- Round to a pixel-aligned value for the current UI scale.
 function N.Round(v)
     return floor(v + 0.5)
 end
 
--- `v` UI units as a whole number of physical pixels at `frame`'s scale. Plain 1-unit
--- insets and edge thicknesses land on different sub-pixels at the top-left and the
--- bottom-right when the UI scale is not 1, so two sides of a frame or icon look
--- thicker than the other two. Use this for every 1px border / inset.
+-- v UI units as whole physical pixels at frame's scale. Plain 1-unit insets land on different
+-- sub-pixels on opposite sides when the scale is not 1, so use this for every 1px border or inset.
 function N.Snap(frame, v)
     local PU = _G.PixelUtil
     if PU and PU.GetNearestPixelSize and frame and frame.GetEffectiveScale then

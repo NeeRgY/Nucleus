@@ -2,9 +2,8 @@ local _, ns = ...
 local N = ns.N
 local M = N.Media
 
--- Custom HSV colour picker (ported from the author's Key Herald addon):
--- a saturation/value square, a hue strip, a hex field, preset swatches and a
--- live preview. Replaces Blizzard's ColorPickerFrame.
+-- Custom HSV color picker: a saturation/value square, a hue strip, a hex field, preset swatches
+-- and a live preview. Replaces Blizzard's ColorPickerFrame.
 
 local CP = {}
 N.ColorPicker = CP
@@ -56,7 +55,6 @@ local PRESETS = {
     "FF5C8A", "B55CFF", "7A5CFF", "E0E0E0", "9AA0A6",
 }
 
--- A rounded, bordered container (the same skin the options window uses).
 local function panel(parent)
     local f = CreateFrame("Frame", nil, parent)
     N.SkinRound(f, M.color.base, M.color.line, true)
@@ -95,7 +93,6 @@ local function build()
     N.SkinRound(frame, M.color.windowBg, M.color.line)
     N.AddShadow(frame, 14, 0.7, -5)
 
-    -- Header: draggable title strip with a close button.
     local header = CreateFrame("Frame", nil, frame)
     header:SetPoint("TOPLEFT", 0, 0)
     header:SetPoint("TOPRIGHT", 0, 0)
@@ -139,7 +136,6 @@ local function build()
     frame.h, frame.s, frame.v = 0, 0, 1
     local function currentRGB() return hsv2rgb(frame.h, frame.s, frame.v) end
 
-    -- Saturation / value square.
     local sv = panel(frame)
     sv:SetSize(SV_W, SV_H)
     sv:SetPoint("TOPLEFT", PAD, -50)
@@ -158,7 +154,6 @@ local function build()
     blackGrad:SetColorTexture(0, 0, 0, 1)
     blackGrad:SetGradient("VERTICAL", CreateColor(0, 0, 0, 1), CreateColor(0, 0, 0, 0))
 
-    -- Round marker: a dark ring around a bright dot.
     local svRing = sv:CreateTexture(nil, "OVERLAY", nil, 6)
     svRing:SetSize(14, 14)
     svRing:SetTexture(M.tex.circle)
@@ -167,7 +162,6 @@ local function build()
     svDot:SetSize(10, 10)
     svDot:SetTexture(M.tex.circle)
 
-    -- Hue strip.
     local hue = panel(frame)
     hue:SetSize(HUE_W, SV_H)
     hue:SetPoint("TOPLEFT", sv, "TOPRIGHT", 12, 0)
@@ -191,7 +185,6 @@ local function build()
     hueDot:SetSize(HUE_W + 2, 4)
     hueDot:SetColorTexture(1, 1, 1, 1)
 
-    -- Preview swatch + hex field.
     local prevBox = CreateFrame("Frame", nil, frame)
     prevBox:SetSize(44, 24)
     prevBox:SetPoint("TOPLEFT", sv, "BOTTOMLEFT", 0, -12)
@@ -210,14 +203,13 @@ local function build()
     hex:SetPoint("TOPLEFT", 8, 0)
     hex:SetPoint("BOTTOMRIGHT", -8, 0)
     hex:SetAutoFocus(false)
-    hex:SetFont(M.font, 12, "")
+    hex:SetFont(M.fontUI, 12, "")
     N.RegisterFont(hex, 12, "")
     hex:SetTextColor(M.color.text[1], M.color.text[2], M.color.text[3])
     hex:SetMaxLetters(6)
     hex:SetScript("OnEditFocusGained", function() N.SetPanelBorder(hexBox, M.color.accent) end)
     hex:SetScript("OnEditFocusLost", function() N.SetPanelBorder(hexBox, M.color.line) end)
 
-    -- Preset swatches (2 rows of 5).
     local cols, gap = 5, 8
     local swW = (SV_W + 12 + HUE_W - (cols - 1) * gap) / cols
     for i, hexStr in ipairs(PRESETS) do
@@ -236,7 +228,6 @@ local function build()
         end)
     end
 
-    -- Buttons in the same style as the options window; OK in the accent colour.
     local function mkBtn(label, accent)
         local b = CreateFrame("Button", nil, frame)
         b:SetSize(100, 28)

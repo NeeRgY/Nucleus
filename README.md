@@ -1,11 +1,34 @@
+<div align="center">
+
 # Nucleus
 
-Modern, highly customizable party and raid frames for World of Warcraft.
+### Modern, highly customizable party and raid frames for World of Warcraft
+
+<img src="https://img.shields.io/github/v/release/NeeRgY/Nucleus?style=for-the-badge" />
+<img src="https://img.shields.io/github/last-commit/NeeRgY/Nucleus?style=for-the-badge" />
+<img src="https://img.shields.io/github/issues/NeeRgY/Nucleus?style=for-the-badge" />
+<img src="https://img.shields.io/github/stars/NeeRgY/Nucleus?style=for-the-badge" />
+<br><br>
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/neergy)
+
+**Donations and tips support the development and maintenance of Nucleus.**
+
+[![Discord](https://img.shields.io/discord/1538823169446645762?style=for-the-badge&label=Discord&color=5865F2)](https://discord.gg/YjfyDKckCS)
+
+For help, feel free to join the Discord server. I'm usually very active there.
+
+---
+
+**Current version:** `1.0.0`
+
+</div>
+
+<br>
 
 Until today I maintained a fork of Cell. Alongside that I built Nucleus from
-scratch, without taking any of Cell's code. Other frame addons (Cell,
-DandersFrames, EllesmereUI) served as a reference for what a good frame addon
-should do, never for how it is coded.
+scratch, without taking any of Cell's code.
+https://github.com/NeeRgY/Cell
 
 ## Features
 
@@ -78,9 +101,6 @@ Frames/         secure headers, unit frames, layout, indicators
 Integrations/   client-specific hooks (for example ping)
 Bootstrap.lua   brings the modules up on login
 ```
-
-`tools/check.ps1` runs a syntax check and static analysis on both trees, and
-`tools/sync.ps1` copies the addon into the game folders.
 
 ## Support
 

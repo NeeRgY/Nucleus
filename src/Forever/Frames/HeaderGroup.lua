@@ -1,12 +1,23 @@
 local _, ns = ...
 local N = ns.N
 
--- Secure group headers. Blizzard's SecureGroupHeaderTemplate owns child
--- creation, visibility and unit assignment; Nucleus only feeds it attributes
--- (out of combat) and skins each child once via CallMethod.
+-- Secure group headers. Blizzard's SecureGroupHeaderTemplate owns child creation, visibility and
+-- unit assignment; we only feed it attributes (out of combat) and skin each child once via
+-- CallMethod.
 
 local HG = {}
 N.HeaderGroup = HG
+
+-- Blizzard's group headers are secure frames: nothing of ours is stored in their Lua tables.
+local headerInfo = setmetatable({}, { __mode = "k" })
+function N.HeaderKey(frame)
+    local i = headerInfo[frame]
+    return i and i.key or frame.groupKey
+end
+function N.HeaderHolder(frame)
+    local i = headerInfo[frame]
+    return i and i.holder
+end
 N.headers = {}
 
 local INITIAL_CONFIG = [[
@@ -28,30 +39,29 @@ local function forChildren(header, fn)
 end
 
 local function applyChildSize(header)
-    local w, h = N.db[header.groupKey].width, N.db[header.groupKey].height
+    local w, h = N.db[N.HeaderKey(header)].width, N.db[N.HeaderKey(header)].height
     forChildren(header, function(child) child:SetSize(w, h) end)
 end
 
--- Style + bind every child. The initialConfigFunction already does this via
--- CallMethod for freshly created children; this is the belt-and-braces pass
--- that also runs on roster/zone events and right after (re)configuration.
--- Wrapped so a single bad child can't abort header setup.
+-- Styles and binds every child. The initialConfigFunction already does it via CallMethod for new
+-- children; this extra pass also runs on roster/zone events and after (re)configuration. Wrapped
+-- so one bad child can't abort header setup.
 local function styleChildren(header)
     forChildren(header, function(child)
         local ok, err = pcall(function()
             N.StyleUnitButton(child:GetName())
-            if child.NucleusBind then child:NucleusBind() end
+            N.UnitFrame.BindChild(child)
         end)
         if not ok then N:Print("|cffff5555style error:|r " .. tostring(err)) end
     end)
 end
 HG.StyleChildren = styleChildren
 
-local CLASS_ORDER = table.concat(N.Classic.CLASSES, ",") -- Forever: the nine Classic classes
+local CLASS_ORDER = table.concat(N.Classic.CLASSES, ",")
 
--- Translate the orientation/reverse settings into the header anchor attributes.
--- vertical  = unit rows stacked, extra groups form columns to the right.
--- horizontal = unit columns side by side, extra groups stack downward.
+-- Translates the orientation/reverse settings into the header's anchor attributes.
+--   vertical    unit rows stacked, extra groups form columns to the right
+--   horizontal  unit columns side by side, extra groups stack downward
 local function applyFlow(header, cfg)
     if cfg.orientation == "horizontal" then
         header:SetAttribute("point", cfg.reverse and "RIGHT" or "LEFT")
@@ -78,9 +88,9 @@ local function isNpcUnit(unit)
     return UnitExists(unit) and UnitInPartyIsAI and UnitInPartyIsAI(unit) and true or false
 end
 
--- While the NPC frames are on, party members that are NPCs leave the party
--- frames: the header is given an explicit name list without them. Returns nil
--- when nothing needs filtering (no NPC in the group, or the feature is off).
+-- While the NPC frames are on, NPC party members leave the party frames: the header gets an
+-- explicit name list without them. Returns nil when nothing needs filtering (no NPC in the group,
+-- or the feature is off).
 local function partyNameFilter()
     if not (N.db.npc and N.db.npc.enabled) or IsInRaid() then return nil end
     local any, names = false, {}
@@ -96,9 +106,9 @@ local function partyNameFilter()
     return table.concat(names, ",")
 end
 
--- Spotlight: the units its entries stand for right now (out of combat only - it reads
--- the roster and the assigned roles). "target" / "focus" stay tokens of their own, the
--- rest become the group member's raid / party token.
+-- Spotlight: the units its entries stand for right now (out of combat only, it reads the roster
+-- and assigned roles). "target" / "focus" stay tokens of their own, the rest become the member's
+-- raid/party token.
 local function spotlightUnits()
     local cfg = N.db.spotlight
     local out, used = {}, {}
@@ -158,11 +168,10 @@ local function placeInContainer(container, buttons, cfg, count)
     else container:SetSize(w, n * h + (n - 1) * sp) end
 end
 
--- Custom order (Appearance > Layout > Sorting) -------------------------------------
--- The game's group header can sort by role or class, but cannot put chosen people
--- first. So when a custom order is wanted, the whole roster is ordered here and
--- handed to the header as an explicit name list (sortMethod NAMELIST). That only
--- changes outside combat, like every header attribute.
+-- Custom order (Appearance > Layout > Sorting) ----------------------------------
+-- The header can sort by role or class but can't put chosen people first. For a custom order the
+-- whole roster is ordered here and handed to the header as an explicit name list (sortMethod
+-- NAMELIST). That only changes out of combat, like every header attribute.
 
 -- Returns the rank of each role (1 = first) and the pinned names, or nil when
 -- the custom order is off.
@@ -177,7 +186,6 @@ local function sortConfig(key)
     end
     return rank, pins
 end
--- Raid groups the player wants frames for (Layout > Raid groups).
 local function raidGroupAllowed(group)
     local raid = N.db.raid
     if raid and type(raid.maxGroups) == "number" and group > raid.maxGroups then return false end
@@ -185,10 +193,20 @@ local function raidGroupAllowed(group)
     return not (type(gf) == "table" and gf[group] == false)
 end
 
+-- Role order without pinned names needs no name list: the header sorts by assigned role itself
+-- (groupBy ASSIGNEDROLE), which also follows role changes on its own. Returns the grouping order
+-- or nil.
+local function nativeRoleOrder(key)
+    local rank, pins = sortConfig(key)
+    if not rank or #pins > 0 then return nil end
+    local o = N.db[key].ordering
+    return ("%s,%s,%s,NONE"):format(o.first or "TANK", o.second or "HEALER", o.third or "DAMAGER")
+end
+
 -- nil when the default (native) ordering is wanted, else the ordered name list.
 local function customNameList(key)
     local rank, pins = sortConfig(key)
-    if not rank then return nil end
+    if not rank or #pins == 0 then return nil end
 
     local units = {}
     if key == "party" then
@@ -209,6 +227,9 @@ local function customNameList(key)
         local group = inRaid and select(3, GetRaidRosterInfo(i)) or nil
         if UnitExists(u) and not (npcOut and isNpcUnit(u)) and (not group or raidGroupAllowed(group)) then
             local full = GetUnitName(u, true)
+            -- A name the client does not know yet ("Unknown"): ordering by it would be wrong, so
+            -- keep the native order until UNIT_NAME_UPDATE brings the real names.
+            if full == _G.UNKNOWNOBJECT or full == _G.UNKNOWN then return nil end
             if full and full ~= "" then
                 local role = UnitGroupRolesAssigned(u)
                 list[#list + 1] = {
@@ -245,7 +266,6 @@ local SIDES = {
     TOP = { "BOTTOMLEFT", "TOPLEFT" }, BOTTOM = { "TOPLEFT", "BOTTOMLEFT" },
 }
 
--- The unit button currently showing `ownerUnit` ("party2", "raid7", "player").
 local function findOwnerButton(ownerUnit)
     for pass = 1, 2 do
         for _, key in ipairs({ "party", "raid" }) do
@@ -284,8 +304,8 @@ end
 
 HG.AttachTo = attachTo
 
--- Pets of group members, each bound to its owner's frame: one secure button per
--- possible pet (party1-4 / raid1-40); each shows itself while its pet exists.
+-- Pets of group members, each bound to its owner's frame: one secure button per possible pet
+-- (party1-4 / raid1-40), each shows itself while its pet exists.
 local ATTACH_PARTY, ATTACH_RAID = 4, 40
 
 local function createAttachedPets()
@@ -325,13 +345,12 @@ local function layoutAttachedPets(c)
             attachTo(b, owner, cfg)
             b:SetAlpha(1)
         else
-            b:SetAlpha(0) -- no frame to sit next to
+            b:SetAlpha(0)
         end
     end
     styleChildren(c)
 end
 
--- groupPets has two forms: the normal pet header, or the attached buttons.
 local function applyGroupPetsMode()
     local cfg = N.db.groupPets
     local header, att = N.headers.groupPets, N.headers.groupPetsAttached
@@ -375,7 +394,6 @@ local function configurePetContainer(container)
         for _, b in ipairs(container.bossButtons) do order[#order + 1] = b end
         count = #order
     elseif key == "spotlight" then
-        -- One slot per chosen unit; a slot shows itself only while its unit exists.
         local units = cfg.enabled and spotlightUnits() or {}
         order = {}
         for i, b in ipairs(container.buttons) do
@@ -402,10 +420,10 @@ local function configurePetContainer(container)
     styleChildren(container)
 end
 
--- Push the full attribute set from SavedVariables onto the header. Must run
--- outside combat; SecureGroupHeader_Update relays it to the children.
+-- Pushes the full attribute set from SavedVariables onto the header. Must run out of combat;
+-- SecureGroupHeader_Update relays it to the children.
 local function configure(header)
-    local key = header.groupKey
+    local key = N.HeaderKey(header)
     local cfg = N.db[key]
     if key == "ownPet" or key == "npc" or key == "spotlight" then
         configurePetContainer(header)
@@ -428,8 +446,13 @@ local function configure(header)
         header:SetAttribute("unitsPerColumn", 5)
         header:SetAttribute("groupBy", nil)
         header:SetAttribute("groupingOrder", nil)
-        header:SetAttribute("sortMethod", "INDEX")
         header:SetAttribute("nameList", nil)
+        local roleOrder = nativeRoleOrder("party")
+        if roleOrder then
+            header:SetAttribute("groupingOrder", roleOrder)
+            header:SetAttribute("groupBy", "ASSIGNEDROLE")
+        end
+        header:SetAttribute("sortMethod", "INDEX")
         local names = customNameList("party") or partyNameFilter()
         if names then
             header:SetAttribute("sortMethod", "NAMELIST")
@@ -452,19 +475,28 @@ local function configure(header)
         header:SetAttribute("maxColumns", cfg.maxColumns)
         header:SetAttribute("sortMethod", cfg.sortMethod)
 
+        -- groupingOrder goes in before groupBy: setting groupBy alone already triggers a header
+        -- update, which errors without it. A stale nameList is dropped first for the same reason.
+        header:SetAttribute("nameList", nil)
         if cfg.groupBy == "GROUP" then
-            header:SetAttribute("groupBy", "GROUP")
             header:SetAttribute("groupingOrder", "1,2,3,4,5,6,7,8")
+            header:SetAttribute("groupBy", "GROUP")
             header:SetAttribute("unitsPerColumn", 5)
         elseif cfg.groupBy == "CLASS" then
-            header:SetAttribute("groupBy", "CLASS")
             header:SetAttribute("groupingOrder", CLASS_ORDER)
+            header:SetAttribute("groupBy", "CLASS")
         elseif cfg.groupBy == "ROLE" then
-            header:SetAttribute("groupBy", "ASSIGNEDROLE")
             header:SetAttribute("groupingOrder", "TANK,HEALER,DAMAGER,NONE")
+            header:SetAttribute("groupBy", "ASSIGNEDROLE")
         else
             header:SetAttribute("groupBy", nil)
             header:SetAttribute("groupingOrder", nil)
+        end
+
+        local roleOrder = nativeRoleOrder("raid")
+        if roleOrder then
+            header:SetAttribute("groupingOrder", roleOrder)
+            header:SetAttribute("groupBy", "ASSIGNEDROLE")
         end
 
         -- Only the chosen raid groups (the explicit name list below does its own filtering).
@@ -497,7 +529,6 @@ local function configure(header)
     if key == "groupPets" then applyGroupPetsMode() end
 end
 
--- Re-anchor the attached pet frames to their owners (roster / layout changes).
 function HG.RefreshAttach()
     N.RunWhenSafe(function()
         if N.db.groupPets.enabled and N.db.groupPets.attachEnabled and N.headers.groupPetsAttached then
@@ -551,32 +582,26 @@ local function createHeader(key)
         return c
     end
     local template = (key == "groupPets") and "SecureGroupPetHeaderTemplate" or "SecureGroupHeaderTemplate"
-    -- Party / raid headers sit inside a plain holder frame: the show/hide state
-    -- driver goes on the holder, never on the header itself (the header then
-    -- re-reads the roster when the holder is shown). A driver on the header made
-    -- the game's own header update run tainted in combat and get blocked.
+    -- Party/raid headers sit inside a plain holder frame: the show/hide state driver goes on the
+    -- holder, never on the header (the header re-reads the roster when the holder is shown). A
+    -- driver on the header made the game's own header update run tainted in combat and get
+    -- blocked.
     local holder
     if key == "party" or key == "raid" then
         holder = CreateFrame("Frame", name .. "Holder", UIParent, "SecureFrameTemplate")
         holder:SetAllPoints(UIParent)
     end
     local header = CreateFrame("Frame", name, holder or UIParent, template)
-    header.holder = holder
-    header.groupKey = key
+    headerInfo[header] = { key = key, holder = holder }
     header:SetMovable(true)
     header:SetClampedToScreen(true)
-
-    function header:StyleChild(childName)
-        N.StyleUnitButton(childName)
-    end
 
     N.headers[key] = header
     configure(header)
 
-    -- Have the header create every child it could ever need now, out of combat.
-    -- A child born inside the header's own update during combat runs our insecure
-    -- styling in the middle of it, and the game then blocks that update (the
-    -- SetPoint on the first child).
+    -- Have the header create every child it could ever need now, out of combat. A child born
+    -- inside the header's own update in combat runs our insecure styling in the middle of it, and
+    -- the game then blocks that update (the SetPoint on the first child).
     local perColumn = tonumber(header:GetAttribute("unitsPerColumn")) or 5
     local columns = tonumber(header:GetAttribute("maxColumns")) or 1
     header:SetAttribute("startingIndex", -(perColumn * columns))
@@ -589,22 +614,20 @@ local function createHeader(key)
     return header
 end
 
--- Show/hide is driven securely so it also works during combat lockdown.
 applyVisibility = function(header)
-    -- An auto-switch rule can hide the frames outright for a situation.
     if N.profileHidden then
-        if header.groupKey == "ownPet" then
+        if N.HeaderKey(header) == "ownPet" then
             RegisterStateDriver(header.buttons[1], "visibility", "hide")
-        elseif header.groupKey == "groupPets" then
+        elseif N.HeaderKey(header) == "groupPets" then
             applyGroupPetsMode()
-        elseif header.groupKey == "npc" or header.groupKey == "spotlight" then
+        elseif N.HeaderKey(header) == "npc" or N.HeaderKey(header) == "spotlight" then
             header:Hide()
         else
-            RegisterStateDriver(header.holder or header, "visibility", "hide")
+            RegisterStateDriver(N.HeaderHolder(header) or header, "visibility", "hide")
         end
         return
     end
-    local key = header.groupKey
+    local key = N.HeaderKey(header)
     if key == "ownPet" then
         -- The pet button shows only while a pet exists; the container (and with
         -- it the drag handle) stays up.
@@ -619,10 +642,10 @@ applyVisibility = function(header)
         return
     end
     local solo = N.db[key].showSolo and "show" or "hide"
-    local target = header.holder or header
+    local target = N.HeaderHolder(header) or header
     if key == "party" then
         RegisterStateDriver(target, "visibility",
-            "[@raid6,exists] hide; [group] show; " .. solo)
+            "[group:raid] hide; [group] show; " .. solo)
     else
         RegisterStateDriver(target, "visibility", "[group:raid] show; " .. solo)
     end
@@ -635,15 +658,18 @@ function HG.Init()
         end
     end
 
-    -- Re-style whenever the header may have (re)built its children.
     local rosterFrame = CreateFrame("Frame")
     rosterFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
     rosterFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     rosterFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
     local lastFilter
     rosterFrame:SetScript("OnEvent", function()
-        for _, header in pairs(N.headers) do
-            styleChildren(header)
+        -- Restyling touches the secure children: not while the game may be rearranging them in
+        -- combat (PLAYER_REGEN_ENABLED brings the pass back right after).
+        if not InCombatLockdown() then
+            for _, header in pairs(N.headers) do
+                styleChildren(header)
+            end
         end
         -- NPC companions: reassign their frames and re-filter the party frames
         -- (only when the NPC list actually changed).
@@ -685,18 +711,17 @@ function HG.Init()
     end)
     rosterFrame:HookScript("OnEvent", function()
         HG.RefreshAttach()
-        C_Timer.After(0.5, HG.RefreshAttach) -- the headers assign units a moment later
+        C_Timer.After(0.5, HG.RefreshAttach)
     end)
 end
 
--- React to option changes. Section is "party" / "raid" / "general" / ...
--- Indicator and appearance sub-keys are handled by their own modules; the
--- header only cares about layout / size / visibility.
+-- React to option changes. Section is "party" / "raid" / "general" / ...; indicator and appearance
+-- sub-keys are handled by their own modules, the header only cares about layout, size and
+-- visibility.
 N:On("NUCLEUS_SETTING_CHANGED", function(_, section, path)
     if not N.GROUP_KEYS[section] then return end
     if path and (path:find("%.indicators%.") or path:find("%.appearance%.") or path:find("%.auras%.") or path:find("%.customIndicators")) then return end
 
-    -- The NPC frames decide what the party frames list.
     if section == "npc" and N.headers.party then
         N.RunWhenSafe(function() configure(N.headers.party) end, "configure-party-npc")
     end
@@ -713,7 +738,7 @@ N:On("NUCLEUS_SETTING_CHANGED", function(_, section, path)
                 N.RunWhenSafe(function() applyVisibility(header); configure(header) end, "reenable-" .. section)
             else
                 N.RunWhenSafe(function()
-                    local target = header.holder or header
+                    local target = N.HeaderHolder(header) or header
                     UnregisterStateDriver(target, "visibility")
                     target:Hide()
                 end, "hide-" .. section)
@@ -727,3 +752,87 @@ N:On("NUCLEUS_SETTING_CHANGED", function(_, section, path)
     end
     N.RunWhenSafe(N.RefreshAllButtons, "refresh-buttons")
 end)
+
+-- /nucorder: what the custom order produced for the raid and why (for bug reports).
+SLASH_NUCLEUSORDER1 = "/nucorder"
+SlashCmdList.NUCLEUSORDER = function()
+    local h = N.headers.raid
+    N:Print("order enabled:", tostring(N.db.raid.ordering and N.db.raid.ordering.enabled),
+        "| first/second/third:", tostring(N.db.raid.ordering and N.db.raid.ordering.first),
+        tostring(N.db.raid.ordering and N.db.raid.ordering.second), tostring(N.db.raid.ordering and N.db.raid.ordering.third))
+    N:Print("computed list:", tostring(customNameList("raid")))
+    if h then
+        N:Print("header sortMethod:", tostring(h:GetAttribute("sortMethod")), "| groupBy:", tostring(h:GetAttribute("groupBy")),
+            "| nameList:", tostring(h:GetAttribute("nameList")))
+        N:Print("reverse growth:", tostring(N.db.raid.reverse), "| orientation:", tostring(N.db.raid.orientation),
+            "| unitsPerColumn:", tostring(h:GetAttribute("unitsPerColumn")))
+    end
+    for i = 1, GetNumGroupMembers() do
+        local u = "raid" .. i
+        if UnitExists(u) then N:Print(i, GetUnitName(u, true), UnitGroupRolesAssigned(u)) end
+    end
+    if h then
+        for i = 1, 10 do
+            local child = _G[h:GetName() .. "UnitButton" .. i]
+            if child and child:IsShown() then
+                local top, left = child:GetTop(), child:GetLeft()
+                N:Print("child", i, tostring(child:GetAttribute("unit")),
+                    (function() local bb = N.UnitFrame.ButtonOf(child); return bb and bb.unit and GetUnitName(bb.unit, true) or "?" end)(),
+                    ("top=%s left=%s"):format(top and math.floor(top) or "?", left and math.floor(left) or "?"))
+            end
+        end
+    end
+end
+
+-- /nuctaint: scans the header frames for fields written insecurely and reports the last blocked
+-- action together with the combat state at that moment (for taint bug reports).
+do
+    local events, blocked = {}, {}
+    local function note(text)
+        events[#events + 1] = ("%.1f %s"):format(GetTime(), text)
+        if #events > 12 then table.remove(events, 1) end
+    end
+    local watcher = CreateFrame("Frame")
+    for _, e in ipairs({ "ADDON_ACTION_BLOCKED", "GROUP_ROSTER_UPDATE", "PLAYER_REGEN_DISABLED",
+        "PLAYER_REGEN_ENABLED", "PLAYER_ENTERING_WORLD" }) do
+        watcher:RegisterEvent(e)
+    end
+    watcher:SetScript("OnEvent", function(_, event, addon, func)
+        if event == "ADDON_ACTION_BLOCKED" then
+            if addon == "Nucleus" then
+                blocked[#blocked + 1] = ("%.1f %s | combat=%s | secure=%s"):format(GetTime(),
+                    tostring(func), tostring(InCombatLockdown()), tostring(issecure()))
+                if #blocked > 5 then table.remove(blocked, 1) end
+            end
+        else
+            note(event .. (InCombatLockdown() and " (combat)" or ""))
+        end
+    end)
+
+    local function scan(label, t)
+        local bad = {}
+        for k in pairs(t) do
+            if not issecurevariable(t, k) then bad[#bad + 1] = tostring(k) end
+        end
+        if #bad > 0 then N:Print(label, "insecure fields:", table.concat(bad, ", ")) end
+    end
+
+    SLASH_NUCLEUSTAINT1 = "/nuctaint"
+    SlashCmdList.NUCLEUSTAINT = function()
+        N:Print("combat:", tostring(InCombatLockdown()), "| group:", tostring(IsInGroup()),
+            "| raid:", tostring(IsInRaid()))
+        for key, h in pairs(N.headers or {}) do
+            scan(key, h)
+            local i, child = 1, _G[h:GetName() .. "UnitButton1"]
+            while child do
+                scan(key .. " child " .. i, child)
+                i = i + 1
+                child = _G[h:GetName() .. "UnitButton" .. i]
+            end
+        end
+        N:Print("recent events:")
+        for _, line in ipairs(events) do N:Print("  " .. line) end
+        N:Print("blocked actions (" .. #blocked .. "):")
+        for _, line in ipairs(blocked) do N:Print("  " .. line) end
+    end
+end

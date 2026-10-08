@@ -1,13 +1,13 @@
 local _, ns = ...
 local N = ns.N
 
--- WoW Forever is a Classic game on Retail's API. This file is the one place that
--- says what is different from Retail: which classes exist, what each can dispel,
--- the spell lists for the aura rows, the raid buffs to check, and the potions
--- Actions reacts to. Everything else in the Forever copy reads from here.
+-- WoW Forever is a Classic game on Retail's API. This file is the one place that says what differs
+-- from Retail: which classes exist, what each can dispel, the spell lists for the aura rows, the
+-- raid buffs to check and the potions Actions reacts to. Everything else in the Forever copy reads
+-- from here.
 --
--- Spell IDs are Classic (rank by rank) and are read as facts; a rank the client
--- does not know is dropped at load (N.Classic.Known), so a wrong ID costs nothing.
+-- Spell IDs are Classic, rank by rank. A rank the client doesn't know is dropped at load
+-- (N.Classic.Known), so a wrong ID costs nothing.
 
 N.IS_FOREVER = true
 local C = {}
@@ -33,10 +33,8 @@ C.DISPEL = {
     MAGE    = { Curse = true },                                  -- Remove Lesser Curse
 }
 
--- ---------------------------------------------------------------------------
--- Spell lists (aura rows). Each entry: the class it belongs to and the IDs of
--- every rank / variant of the aura.
--- ---------------------------------------------------------------------------
+-- Spell lists (aura rows). Each entry: the class it belongs to and the IDs of every rank/variant
+-- of the aura.
 
 local function ids(...) return { ... } end
 
@@ -65,15 +63,14 @@ C.OFFENSIVES = {
     DRUID   = { ids(17116), ids(5217) },                                          -- Nature's Swiftness, Tiger's Fury
     PALADIN = { ids(20216) },                                                     -- Divine Favor
 }
--- Healing-over-time buffs worth a glance on a frame (the "Buffs" row list).
 C.HEALING_BUFFS = {
     PRIEST = { ids(6074, 139, 6075, 6076, 6077, 6078, 10927, 10928, 10929, 25315),          -- Renew
                ids(592, 17, 600, 3747, 6065, 6066, 10898, 10899, 10900, 10901) },            -- Power Word: Shield
     DRUID  = { ids(1058, 774, 1430, 2090, 2091, 3627, 8910, 9839, 9840, 9841, 25299),       -- Rejuvenation
                ids(8938, 8936, 8939, 8940, 8941, 9750, 9856, 9857, 9858) },                  -- Regrowth
+    SHAMAN = { ids(974, 32593, 32594) },                                                    -- Earth Shield
 }
 
--- Flatten a class -> { id groups } table into "id,id,id" and into { [id] = class }.
 local function flatten(byClass)
     local list, class = {}, {}
     for cls, groups in pairs(byClass) do
@@ -120,15 +117,14 @@ C.LIST = {
     buffs = csv(C.healingList),
 }
 
--- ---------------------------------------------------------------------------
--- Raid buffs (Missing Buffs). Every family lists all the spells that give the
--- buff, the group version and every rank included. `class` = who can provide it.
--- ---------------------------------------------------------------------------
--- Each family: `ids` = every spell that puts the buff on a member (all ranks, the group
--- version, NPC and item casts); `cast` = the ranks the player trains (and the group
--- version) - what "the player can cast it" is tested with; `icon` = the spell whose
--- icon stands for the buff. All five Paladin blessings are ONE entry: a member is
--- missing it only while he has none of them (normal or Greater).
+-- Raid buffs (Missing Buffs). Every family lists all spells that give the buff: group version and
+-- every rank included. `class` = who can provide it.
+--
+-- Each family: `ids` = every spell that puts the buff on a member (all ranks, the group version,
+-- NPC and item casts); `cast` = the ranks the player trains plus the group version, used to test
+-- "the player can cast it"; `icon` = the spell whose icon stands for the buff. The five Paladin
+-- blessings are ONE entry: a member only counts as missing it while they have none of them (normal
+-- or Greater).
 local FAMILY = {
     fort = { ids = { 1243, 1244, 1245, 2791, 10937, 10938, 10939, 10940, 13864, 23947, 23948, 21562, 21564, 450086 },
              cast = { 1243, 1244, 1245, 2791, 10937, 10938, 21562, 21564 } },
@@ -174,22 +170,16 @@ C.BUFFS = {
       ids = union({ "might", "wisdom", "kings", "salvation", "light" }, "ids"),
       cast = union({ "might", "wisdom", "kings", "salvation", "light" }, "cast") },
 }
--- Ticked in the settings out of the box.
 C.BUFF_DEFAULT = { fort = true, spirit = true, intellect = true, mark = true, thorns = true, shout = true, blessing = true }
--- ---------------------------------------------------------------------------
--- Actions: a short animation when a group member uses one of these.
--- ---------------------------------------------------------------------------
 C.ACTIONS = {
     { spell = 17534, anim = "sweep", color = { 1.00, 0.10, 0.10 } }, -- Major Healing Potion
     { spell = 17531, anim = "sweep", color = { 0.20, 0.50, 1.00 } }, -- Major Mana Potion
     { spell = 6262,  anim = "sweep", color = { 0.40, 1.00, 0.00 } }, -- Healthstone
 }
 
--- ---------------------------------------------------------------------------
--- Numbers: Classic health values are small, so nothing under 10,000 is abbreviated
--- (9999 stays "9999", 12345 reads "12.3K"). The client's own AbbreviateNumbers does the
--- work with these tiers, so a hidden (secret) number stays safe.
--- ---------------------------------------------------------------------------
+-- Numbers: Classic health values are small, so nothing under 10,000 is abbreviated (9999 stays
+-- "9999", 12345 reads "12.3K"). The client's AbbreviateNumbers does the work with these tiers, so
+-- a hidden (secret) number stays safe.
 local abbrevOpts
 function N.Abbreviate(n)
     if abbrevOpts == nil then
@@ -207,33 +197,34 @@ function N.Abbreviate(n)
     return AbbreviateNumbers(n)
 end
 
--- ---------------------------------------------------------------------------
--- Names: a Forever character has a surname - UnitName's second return (on Retail that
--- slot is the realm). "First Surname" is how Blizzard's own frames show it; the Name
--- indicator can reduce it to the first or the last word.
--- ---------------------------------------------------------------------------
-local joined = {}
+-- Names: a Forever character has a surname, UnitName's second return (on Retail that slot is the
+-- realm). "First Surname" is how Blizzard's own frames show it; the Name indicator can reduce it
+-- to the first or the last word.
+local fullNames = {}
 local function surnameSeparator()
     local consts = _G.Constants and Constants.CharacterNameSeparatorConsts
     return (consts and consts.CHARACTERNAME_SURNAME_SEPARATOR) or " "
 end
 
-function N.WithSurname(name, surname)
-    if not (type(name) == "string" and type(surname) == "string" and surname ~= "") then return name end
-    if N.IsSecret(name) or N.IsSecret(surname) then return name end
-    -- Your own surname can be switched off in the game's settings.
+-- True when this is the player's own name and the game is set to hide their surname.
+local function ownSurnameHidden(name, surname)
     local info = _G.C_PlayerInfo
-    if info and info.ShouldDisplaySurname and not info.ShouldDisplaySurname() then
-        local myName, mySurname = UnitName("player")
-        if name == myName and surname == mySurname then return name end
-    end
-    local row = joined[name]
-    if not row then row = {}; joined[name] = row end
-    local full = row[surname]
+    if not (info and info.ShouldDisplaySurname) or info.ShouldDisplaySurname() then return false end
+    local mine, mySurname = UnitName("player")
+    return name == mine and surname == mySurname
+end
+
+function N.WithSurname(name, surname)
+    if type(name) ~= "string" or type(surname) ~= "string" or surname == "" then return name end
+    if N.IsSecret(name) or N.IsSecret(surname) then return name end
+    if ownSurnameHidden(name, surname) then return name end
+    local key = name .. "\31" .. surname
+    local full = fullNames[key]
     if not full then
         local tail = surnameSeparator() .. surname
-        full = (name:sub(-#tail) == tail) and name or (name .. tail) -- some units already carry it
-        row[surname] = full
+        -- some units already carry the surname in their name
+        full = (name:sub(-#tail) == tail) and name or (name .. tail)
+        fullNames[key] = full
     end
     return full
 end

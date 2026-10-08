@@ -4,14 +4,14 @@ local M = N.Media
 local L = N.L
 local IsSecret = N.IsSecret
 
--- Utilities: three small free-standing displays, each with its own movable
--- frame and its own settings (N.db.tools.*):
---   readyPull   a Ready Check button and a Pull Timer button
---   battleRes   the raid's combat-resurrection charges and recharge timer
---   marks       a bar of target markers and / or world markers
+-- Utilities: three small free-standing displays, each with its own movable frame and settings
+-- (N.db.tools.*):
+--   readyPull  a Ready Check button and a Pull Timer button
+--   battleRes  the raid's battle-res charges and recharge timer
+--   marks      a bar of target markers and/or world markers
 --
--- They are dragged while "Move tools" is switched on (Options > Utilities) and
--- are always shown then, so they can be placed without being in a raid.
+-- They can be dragged while "Move tools" is on (Options > Utilities) and are always shown then, so
+-- they can be placed without being in a raid.
 
 local T = {}
 N.Tools = T
@@ -24,7 +24,6 @@ local function unlocked()
     return T.moving == true
 end
 
--- Tools are moved with their own switch (independent of the unit frames).
 function T.SetMoving(on)
     T.moving = on and true or false
     if T.Refresh then T.Refresh() end
@@ -102,7 +101,7 @@ end
 -- Ready Check + Pull Timer
 --------------------------------------------------------------------------------
 
-local rp -- the host
+local rp
 local pullEnd, pullTotal
 
 local function pullMacros(c)
@@ -151,8 +150,6 @@ local function buildReadyPull()
     bar:SetFrameLevel(pull:GetFrameLevel() + 1)
     bar:Hide()
     pull.bar = bar
-    -- The label lives on its own frame above the bar, so it stays visible
-    -- whether or not the bar is shown.
     local labelHost = CreateFrame("Frame", nil, pull)
     labelHost:SetAllPoints(pull)
     labelHost:SetFrameLevel(pull:GetFrameLevel() + 5)
@@ -302,7 +299,6 @@ function T.UpdateBattleRes()
     local charges, start, dur
     if info then charges, start, dur = info.currentCharges, info.cooldownStartTime, info.cooldownDuration end
     if charges == nil then
-        -- Placeholder while placing the frame outside a raid.
         br.count:SetText("1")
         br.count:SetTextColor(0.25, 0.85, 0.35)
         br.timer:SetText("5:00")
@@ -336,7 +332,6 @@ local mk
 -- World marker button j shows the matching raid-target icon.
 local WORLD_TO_ICON = { 6, 4, 3, 7, 1, 2, 5, 8 }
 
--- Raid-target icon i (1-8) from the 4x2 icon sheet.
 local function setIcon(tex, i)
     local idx = i - 1
     local col, row = idx % 4, math.floor(idx / 4)
@@ -427,7 +422,6 @@ local function updateMarks()
     local show = c.enabled and (unlocked() or (c.onlyLeader == false or canControl()))
     setVisible(mk, show and true or false)
     mk.handle:SetShown(c.enabled and unlocked() and true or false)
-    -- Target marks need a target to act on.
     local has = UnitExists("target") and true or false
     for _, b in ipairs(mk.target) do b:SetAlpha(has and 1 or 0.45) end
 end

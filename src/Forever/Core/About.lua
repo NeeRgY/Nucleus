@@ -1,19 +1,16 @@
 local _, ns = ...
 local N = ns.N
 
--- Data for the Options > About section. Rendered by UI/OptionsFrame.lua.
--- Icon textures are optional; drop matching .tga files in Media/ to enable
--- them. The options renderer ignores color/icon fields it cannot use yet.
+-- Data for Options > About. Icon textures are optional (drop a matching .tga in Media/).
 
 local MEDIA = "Interface\\AddOns\\Nucleus\\Media\\"
 
 N.About = {
     author = "NeRgY",
-    -- Where "Support Nucleus" in the Supporters pane leads (nil = no button).
+    -- Target of the Support button in the Supporters pane (nil = no button).
     supportUrl = "https://ko-fi.com/neergy",
-    -- The Supporters pane (About tab): tiers, best first. Add names to a tier's `names`
-    -- list (a name as they like to be shown); a tier without names is not shown, and with no names at all
-    -- the pane says nobody is listed yet. `color` = { r, g, b }.
+    -- Supporters pane: tiers, best first. Add names to a tier's `names`; empty tiers are hidden.
+    -- color = { r, g, b }.
     supporters = {
         { name = "Gold",      color = { 1.00, 0.82, 0.25 }, names = {} },
         { name = "Silver",    color = { 0.78, 0.82, 0.88 }, names = {} },

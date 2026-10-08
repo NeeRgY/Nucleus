@@ -5,10 +5,9 @@ local L = N.L
 
 local function uc(c) return c[1], c[2], c[3], c[4] or 1 end
 
--- Nucleus' own message dialog, in the look of the options window. It replaces the
--- game's StaticPopup for every question or notice the addon raises (reload, delete
--- confirmations, name prompts, the copy-link box). One dialog is up at a time; the
--- next waits in a queue.
+-- Nucleus' own message dialog in the options window's look. Replaces the game's StaticPopup for
+-- every question or notice (reload, delete confirmations, name prompts, the copy-link box). One
+-- dialog is up at a time, the next waits in a queue.
 --
 --   N.Dialog.Show{ title, text, input = { text, maxLetters, readOnly },
 --                  buttons = { { text, onClick(inputText), primary }, ... } }
@@ -28,10 +27,11 @@ local current
 
 local function build()
     local f = CreateFrame("Frame", "NucleusDialog", UIParent)
+    f._nucFace = true
     f:SetAllPoints(UIParent)
     f:SetFrameStrata("FULLSCREEN_DIALOG")
     f:SetFrameLevel(200)
-    f:EnableMouse(true) -- nothing behind the dialog can be clicked
+    f:EnableMouse(true)
     f:EnableKeyboard(true)
     f:Hide()
 
@@ -64,7 +64,6 @@ local function build()
     f.msg:SetWordWrap(true)
     f.msg:SetTextColor(uc(M.color.text))
 
-    -- Optional one-line text box.
     local inbox = CreateFrame("Frame", nil, box)
     inbox:SetHeight(24)
     inbox:SetPoint("LEFT", box, "LEFT", PAD, 0)
@@ -73,7 +72,7 @@ local function build()
     local edit = CreateFrame("EditBox", nil, inbox)
     edit:SetPoint("TOPLEFT", 6, 0)
     edit:SetPoint("BOTTOMRIGHT", -6, 0)
-    edit:SetFont(M.font, 12, "")
+    edit:SetFont(M.fontUI, 12, "")
     N.RegisterFont(edit, 12, "")
     edit:SetTextColor(uc(M.color.text))
     edit:SetAutoFocus(false)
@@ -97,7 +96,6 @@ end
 
 local close
 
--- Runs a button (or Escape = the last "cancel" style button, if any).
 local function press(spec, btn)
     local text = spec.input and frame.edit:GetText() or nil
     close()
@@ -129,7 +127,6 @@ local function open(spec)
         f.edit:SetText("")
     end
 
-    -- Buttons, right-aligned; the last one is the main action.
     local list = spec.buttons
     if not list or #list == 0 then list = { { text = L["Close"], primary = true } } end
     for i, def in ipairs(list) do
@@ -143,7 +140,6 @@ local function open(spec)
         b:Show()
     end
     for i = #list + 1, #f.buttons do f.buttons[i]:Hide() end
-    -- right to left, last button rightmost
     local x = -PAD
     for i = #list, 1, -1 do
         local b = f.buttons[i]

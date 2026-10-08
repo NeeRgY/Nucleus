@@ -2,18 +2,17 @@ local _, ns = ...
 local N = ns.N
 local IsSecret = N.IsSecret
 
--- Actions (after Cell's): a short animation on a group member's frame when they
--- use a listed spell - a potion, a Healthstone, a trinket. The list, the
--- animation and its colour are settings (N.db.actions); the display is global,
--- not per party/raid, because it reacts to casts, not to a unit state.
+-- Actions: a short animation on a group member's frame when they use a listed spell (potion,
+-- Healthstone, trinket). The list, animation and color are settings (N.db.actions). The display is
+-- global, not per party/raid, because it reacts to casts, not to unit state.
 --
--- The cast is read from UNIT_SPELLCAST_SUCCEEDED, whose spell ID can be hidden
--- on Midnight; a hidden ID is simply ignored.
+-- The cast comes from UNIT_SPELLCAST_SUCCEEDED, whose spell ID can be hidden on Midnight; a hidden
+-- ID is ignored.
 --
--- Animations (all drawn clipped to the frame):
---   sweep   a coloured band rises from the bottom to the top
---   wipe    a coloured band travels from the left to the right
---   rise    the spell's icon floats up from the middle and fades
+-- Animations (all clipped to the frame):
+--   sweep  a colored band rises from the bottom to the top
+--   wipe   a colored band moves from left to right
+--   rise   the spell icon floats up from the middle and fades
 
 local Actions = {}
 N.Actions = Actions
@@ -51,7 +50,6 @@ local function paintBand(set, c, vertical)
     end
 end
 
--- One lazily built animation set per unit button.
 local function build(b)
     local set = {}
     local clip = CreateFrame("Frame", nil, b.overlay or b)
@@ -61,9 +59,9 @@ local function build(b)
     clip:Hide()
     set.clip = clip
 
-    -- sweep / wipe: one band, re-anchored per play. It is built from a few solid
-    -- strips of rising opacity (a soft leading edge) instead of a gradient
-    -- texture, so the colour is exactly the chosen one from start to finish.
+    -- sweep / wipe: one band, re-anchored per play. Built from a few solid strips of rising
+    -- opacity (soft leading edge) instead of a gradient texture, so the color stays exactly the
+    -- chosen one.
     local band = CreateFrame("Frame", nil, clip)
     band:Hide()
     set.band = band
@@ -82,7 +80,6 @@ local function build(b)
     ag:SetScript("OnFinished", function() clip:Hide() end)
     set.bandAG, set.bandMove, set.bandFade = ag, move, fade
 
-    -- rise: the spell icon.
     local icon = clip:CreateTexture(nil, "OVERLAY")
     icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     set.icon = icon
@@ -139,7 +136,7 @@ local function play(b, entry)
         set.bandFade:SetStartDelay(0.25 / sp)
         set.band:Show()
         set.bandAG:Play()
-    else -- "sweep"
+    else
         set.band:ClearAllPoints()
         set.band:SetPoint("TOPLEFT", set.clip, "BOTTOMLEFT", 0, 0)
         set.band:SetPoint("TOPRIGHT", set.clip, "BOTTOMRIGHT", 0, 0)
@@ -165,13 +162,12 @@ local function buttonForUnit(unit)
     return found
 end
 
--- Plays an entry on the frame of `unit`.
 function Actions.Play(unit, entry)
     local b = buttonForUnit(unit)
     if b then play(b, entry) end
 end
 
--- The options Test button: on the preview frame (always there) and on your own frame.
+-- The options Test button: plays on the preview frame (always there) and on your own frame.
 function Actions.Test(entry)
     if N.Preview and N.Preview.EachActionsPreview then
         N.Preview.EachActionsPreview(function(b) play(b, entry) end)
@@ -184,7 +180,6 @@ frame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
 frame:SetScript("OnEvent", function(_, _, unit, _, spellID)
     local cfg = config()
     if not (cfg and cfg.enabled) or type(unit) ~= "string" then return end
-    -- Group members only (and yourself / your pet).
     if not (unit == "player" or unit == "pet" or unit:find("^party%d") or unit:find("^raid%d")) then return end
     if spellID == nil or IsSecret(spellID) then return end
     for _, entry in ipairs(cfg.list or {}) do

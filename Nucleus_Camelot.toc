@@ -2,6 +2,15 @@
 ## Title: Nucleus
 ## Notes: Modern raid and party frames.
 ## Notes-deDE: Moderne Schlachtzugs- und Gruppenrahmen.
+## Notes-esES: Marcos modernos de banda y de grupo.
+## Notes-esMX: Marcos modernos de banda y de grupo.
+## Notes-frFR: Cadres modernes de raid et de groupe.
+## Notes-itIT: Riquadri moderni per incursioni e gruppi.
+## Notes-ptBR: Quadros modernos de raide e de grupo.
+## Notes-ruRU: Современные рамки рейда и группы.
+## Notes-koKR: 현대적인 공격대 및 파티 프레임.
+## Notes-zhCN: 现代化的团队和小队框体。
+## Notes-zhTW: 現代化的團隊和隊伍框架。
 ## Author: NeRgY
 ## IconTexture: Interface\AddOns\Nucleus\Media\Textures\Logo
 ## Version: 1.0.0
@@ -20,6 +29,15 @@ src\Forever\Core\Secret.lua
 src\Forever\Core\Locale.lua
 src\Forever\Locales\enUS.lua
 src\Forever\Locales\deDE.lua
+src\Forever\Locales\esES.lua
+src\Forever\Locales\esMX.lua
+src\Forever\Locales\frFR.lua
+src\Forever\Locales\itIT.lua
+src\Forever\Locales\ptBR.lua
+src\Forever\Locales\ruRU.lua
+src\Forever\Locales\koKR.lua
+src\Forever\Locales\zhCN.lua
+src\Forever\Locales\zhTW.lua
 src\Forever\Core\Media.lua
 src\Forever\Core\Classic.lua
 src\Forever\Core\Defaults.lua

@@ -1,6 +1,5 @@
--- Retail (Mainline) entry point.
--- Establishes the addon namespace and a lightweight event dispatcher so no
--- external library (Ace3, CallbackHandler, ...) is required.
+-- Retail entry point. Sets up the namespace and a small event dispatcher, no external libraries
+-- needed.
 
 local addonName, ns = ...
 
@@ -8,15 +7,13 @@ ns.CLIENT = "Mainline"
 ns.ADDON = addonName
 ns.VERSION = C_AddOns and C_AddOns.GetAddOnMetadata(addonName, "Version") or "1.0.0"
 
--- Public API table. Modules attach their entry points here.
 local N = {}
 ns.N = N
 _G.Nucleus = N
 
--- Internal callback registry: event name -> ordered list of handlers.
+-- event name -> list of handlers
 local handlers = {}
 
--- Frame that receives every Blizzard event we subscribe to and fans it out.
 local dispatcher = CreateFrame("Frame")
 dispatcher:SetScript("OnEvent", function(_, event, ...)
     local list = handlers[event]
@@ -26,8 +23,7 @@ dispatcher:SetScript("OnEvent", function(_, event, ...)
     end
 end)
 
--- Register a handler for a Blizzard event. Also used for internal messages
--- (fired via N:Fire), which are never passed to RegisterEvent.
+-- Registers a handler for a game event or an internal message (see N:Fire).
 function N:On(event, fn)
     local list = handlers[event]
     if not list then
@@ -40,7 +36,7 @@ function N:On(event, fn)
     list[#list + 1] = fn
 end
 
--- Fire an internal message. Convention: names are prefixed NUCLEUS_.
+-- Internal messages are prefixed NUCLEUS_.
 function N:Fire(message, ...)
     local list = handlers[message]
     if not list then return end

@@ -1,12 +1,9 @@
 local _, ns = ...
 local N = ns.N
 
--- "Secret values": on Midnight (build >= 12.0) combat-sensitive unit info
--- (UnitHealth, UnitPower, incoming heals, absorbs, threat, dead state, role)
--- comes back as a *secret* number/string when the calling execution is tainted
--- by an addon. Secrets may be passed to a small allowlist (StatusBar:SetValue,
--- SetMinMaxValues, ...) but ANY arithmetic, comparison or string.format on one
--- throws. Everything here is the guard layer around that.
+-- Secret values: on Midnight, combat-sensitive unit info comes back as a secret value when the
+-- caller is tainted. Secrets can go to a few APIs (StatusBar:SetValue, SetMinMaxValues, ...), but
+-- any arithmetic, comparison or string.format on one errors. This file guards against that.
 
 local issecret  = _G.issecretvalue
 local anysecret = _G.hasanysecretvalues
@@ -27,20 +24,18 @@ function N.AnySecret(...)
     return false
 end
 
--- Health as a 0..1 fraction that is safe to use for text/logic. Prefers the
--- engine's UnitHealthPercent (non-secret by design) and falls back to raw
--- division only when the raw values are not secret. nil when unavailable.
+-- Health as a 0..1 fraction. Uses UnitHealthPercent when available, otherwise divides the raw
+-- values if they are not secret. nil if neither works.
 local UnitHealthPercent = _G.UnitHealthPercent
 local ScaleTo100 = _G.CurveConstants and _G.CurveConstants.ScaleTo100
 
--- Health percent 0..100. May itself be a *secret* number - safe to pass to
--- FontString:SetFormattedText, never to arithmetic. nil if unavailable.
+-- Health percent 0..100. May be secret: fine for SetFormattedText, never for math.
 function N.HealthPercent(unit)
     if UnitHealthPercent then
         if ScaleTo100 then
             local ok, p = pcall(UnitHealthPercent, unit, true, ScaleTo100)
             if ok then
-                if N.IsSecret(p) then return p end       -- already 0..100
+                if N.IsSecret(p) then return p end
                 if type(p) == "number" then return p end
             end
         end

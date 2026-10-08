@@ -2,9 +2,8 @@ local _, ns = ...
 local N = ns.N
 local UF = N.UnitFrame
 
--- Preview mode: spawns insecure mock unit frames so the layout and look can be
--- tuned without a group. Uses the exact same visual layer as the real frames
--- (UF.CreateVisual); only the data is fake.
+-- Preview mode: insecure mock unit frames so layout and look can be tuned without a group. Same
+-- visual layer as the real frames (UF.CreateVisual), only the data is fake.
 
 local TM = {}
 N.TestMode = TM
@@ -22,7 +21,7 @@ local NAMES = {
     "Perah Sunstrider", "Quill Marshwalker", "Roan Emberstone", "Sable Nightshade", "Tavin Redwater",
     "Ula Windrunner", "Vex Shadowmend", "Wren Goldleaf", "Xander Ravenhill",
 }
-local CLASSES = N.Classic.CLASSES -- Forever: the nine Classic classes
+local CLASSES = N.Classic.CLASSES
 
 -- The power each class runs on in Classic (a Druid changes with the form; the mock
 -- shows the caster form, a Hunter has mana).
@@ -91,7 +90,6 @@ local function mockFor(i)
         externals = externals,
         offensives = offensives,
         crowd = crowd,
-        -- A few frames show as out of range, so Appearance > Range can be tuned.
         outOfRange = (i == 3) or (i % 7 == 4),
         raidMarker = (i <= 8) and i or nil,
         targetedBy = i % 3,
@@ -162,8 +160,8 @@ local function place(container, key, pool, n)
     end
 end
 
--- Drag handle above a test container (same look as the real anchors); shown
--- while the frames are unlocked, and it moves the saved position.
+-- Drag handle above a test container (same look as the real anchors). Shown while unlocked, moves
+-- the saved position.
 local function makeHandle(container, key)
     local M = N.Media
     container:SetMovable(true)
@@ -200,7 +198,6 @@ end
 local PET_NAMES = { ownPet = { "Fenrir" }, groupPets = { "Spirit Wolf", "Imp", "Ghoul", "Water Elemental" }, npc = { "Brann" } }
 
 local function buildKey(key, force)
-    -- Pet-side groups are previewed even while off, so they can be set up.
     if not force and not N.db[key].enabled and not N.PET_KEYS[key] and key ~= "spotlight" then return end
 
     local container = containers[key]
@@ -251,10 +248,9 @@ local function buildKey(key, force)
     end)
 end
 
--- Only the group type currently being edited is previewed, so the preview
--- tracks the Group / Raid switch in the options window.
--- Pets bound to their owner: show them next to the matching mock party frames
--- (the Hunter is frame 3), so the placement can be tuned.
+-- Only the group type being edited is previewed, so it follows the Group / Raid switch.
+-- Pets bound to their owner sit next to the matching mock party frames (the Hunter is frame 3) so
+-- the placement can be tuned.
 local function attachPreview(key)
     local c = containers[key]
     local pool, owners = pools[key], pools.party

@@ -5,24 +5,27 @@ local A = N.Auras
 local Indicators = N.Indicators
 local IsSecret = N.IsSecret
 
--- Custom indicators: the player builds their own from Options > Indicators > "+".
--- Each one watches a list of spells (buffs or debuffs, optionally only the
--- player's own) on every unit frame and shows up while one of them is present.
+-- Custom indicators: the player builds their own from Options > Indicators > "+". Each watches a
+-- list of spells (buffs or debuffs, optionally only the player's own) on every unit frame and
+-- shows while one of them is present.
 --
---   icon     one aura icon (cooldown, stacks)        icons   up to N aura icons
---   text     stacks / remaining time / fixed text    rect    a coloured block
---   bar      a small bar that runs down with the aura
---   glow     the whole frame glows (pixel lines, sparks, proc, halo or pulsing border)
---   border   a coloured frame border                 overlay a tint over the health bar
+--   icon / icons  one aura icon (cooldown, stacks) / up to N icons
+--   text          stacks, remaining time or fixed text
+--   rect          a colored block (works like an icon)
+--   color         a colored area (solid, gradient or class color)
+--   bar           a small bar that runs down with the aura
+--   glow          the whole frame glows (pixel, halo or pulse)
+--   border        a colored frame border
+--   overlay       a tint over the health bar
 --
--- Entries live in N.db[group].customIndicators (a list). Matching needs the
--- aura's spell ID: when the game hides it (some auras in combat) nothing
--- matches. With "only mine" the game itself limits the auras to the player's.
+-- Entries live in N.db[group].customIndicators (a list). Matching needs the aura's spell ID: when
+-- the game hides it nothing matches. With "only mine" the game itself limits the auras to the
+-- player's.
 
 local CI = {}
 N.CustomIndicators = CI
 
-CI.TYPES = { "icon", "icons", "text", "rect", "bar", "border", "overlay", "glow" }
+CI.TYPES = { "icon", "icons", "text", "rect", "color", "bar", "border", "overlay", "glow" }
 CI.GLOWS = { "pixel", "halo", "pulse" }
 
 local ROW = { kind = "custom" }
@@ -36,34 +39,31 @@ function CI.NewEntry(kind, name)
         id = newID(), name = name, type = kind, enabled = true,
         aura = "buff", mine = true, spells = "",
         point = "TOPRIGHT", x = 0, y = 0, color = { 1.00, 0.80, 0.20 },
-        -- icon / icons (same field names as the aura rows)
         size = 16, max = 3, spacing = 1, growth = "LEFT",
         showStacks = true, showCooldown = true, cdStyle = "spiral", showTime = false,
         timeSize = 10, timeX = 0, timeY = 0, stackSize = 10, stackX = 1, stackY = -1,
-        -- text
         textKind = "fixed", text = "{stacks}", fontSize = 12,
-        -- rect / bar
         width = 12, height = 12,
-        -- border / overlay
         thickness = 2, opacity = 0.35, around = "frame", -- border: "frame" | "health"
         -- glow: style (see CI.GLOWS), particles, speed (turns per second / pulses), length
         glow = "pixel", count = 8, speed = 0.3, length = 8, offset = 0,
         fill = "left", -- bar: the way it runs down: "left" | "right" | "down" | "up"
+        colorMode = "solid", color2 = { 0.90, 0.25, 0.25 }, -- color: "solid" | "class" | "gradient-v" | "gradient-h"
+        colorArea = "free", -- color: "free" | "frame" | "health" | "health-current" | "health-loss"
     }
     if kind == "bar" then e.width, e.height, e.point = 40, 5, "BOTTOM" end
     if kind == "rect" then e.point = "TOPLEFT" end
+    if kind == "color" then e.width, e.height, e.point, e.opacity = 40, 12, "CENTER", 1 end
     return e
 end
 
--- Spells offered as suggestions in the options: healing buffs plus the defensive,
--- external and offensive cooldown lists, every class (the options show the
--- player's own class first). Debuffs have no suggestion list.
+-- Suggestions for the options: healing buffs plus the defensive, external and offensive cooldown
+-- lists, all classes (the options list the player's own class first). Debuffs have none.
 function CI.Suggestions(aura)
     local out = {}
     if aura == "debuff" then return out end
     local seen = {}
     local function add(id)
-        -- Only spells that belong to a class are suggested.
         if not seen[id] and N.SpellClass and N.SpellClass[id] then seen[id] = true; out[#out + 1] = id end
     end
     for _, id in ipairs((N.SpellPool and N.SpellPool.buffs) or {}) do add(id) end
@@ -73,7 +73,6 @@ function CI.Suggestions(aura)
     end
     return out
 end
--- Spell-ID list "774, 8936" -> { [774] = true, ... }, remembered per string.
 local setCache = {}
 local function parseList(str)
     if not str or str == "" then return nil end
@@ -182,7 +181,6 @@ builders.text = function(b)
     w.cd:SetFrameLevel(b.overlay:GetFrameLevel() + 3)
     w.ticker = CreateFrame("Frame", nil, b.overlay)
 
-    -- Fills the placeholders and writes the text.
     function w.render()
         local d, tpl = w.aura, w.tpl
         if not (d and tpl) then return end
@@ -254,7 +252,6 @@ builders.text = function(b)
             w.aura = d
             w.render()
             w.fs:Show()
-            -- {time} counts down, so it needs a ticker.
             if w.tpl:find("{time}", 1, true) then
                 local acc = 0
                 w.ticker:SetScript("OnUpdate", function(_, dt)
@@ -271,8 +268,8 @@ builders.text = function(b)
 end
 
 -- rect -------------------------------------------------------------------------
--- A block behaves like a spell icon, just filled with a colour instead of the
--- spell's picture: cooldown animation, remaining time and stacks all work.
+-- A block behaves like a spell icon, just filled with a color instead of the spell picture:
+-- cooldown animation, remaining time and stacks all work.
 builders.rect = function(b)
     local w = {}
     function w.show(e, auras)
@@ -286,6 +283,85 @@ builders.rect = function(b)
         ic.tex:SetVertexColor(rgb(e))
     end
     function w.hide() if w.ic then w.ic:Hide() end end
+    return w
+end
+
+-- color ------------------------------------------------------------------------
+-- A colored area: one color, the unit's class color, or a gradient of two.
+-- Returns mode ("solid" | "gradient-v" | "gradient-h"), first color, second color.
+function CI.ResolveColor(e, unit)
+    local mode = e.colorMode or "solid"
+    local c1 = e.color or { 1, 1, 1 }
+    local c2 = e.color2 or c1
+    if mode == "class" then
+        local r, g, bl = 0.7, 0.7, 0.7
+        if unit and UnitExists(unit) then
+            local _, token = UnitClass(unit)
+            if token and not IsSecret(token) then r, g, bl = N.ClassRGB(token) end
+        end
+        return "solid", { r, g, bl }, { r, g, bl }
+    end
+    if mode ~= "gradient-v" and mode ~= "gradient-h" then mode = "solid" end
+    return mode, c1, c2
+end
+
+-- Fits a texture to an area of the frame: the whole frame, the health bar, its filled part
+-- (current health) or its empty part (missing health).
+function CI.AnchorArea(tex, b, area)
+    tex:ClearAllPoints()
+    local hb = b.health
+    if area == "health" and hb then
+        tex:SetAllPoints(hb)
+    elseif (area == "health-current" or area == "health-loss") and hb and hb.GetStatusBarTexture then
+        local ft = hb:GetStatusBarTexture()
+        if area == "health-current" then
+            tex:SetAllPoints(ft)
+        else
+            tex:SetPoint("TOPLEFT", ft, "TOPRIGHT")
+            tex:SetPoint("BOTTOMRIGHT", hb, "BOTTOMRIGHT")
+        end
+    else
+        tex:SetAllPoints(b)
+    end
+end
+
+-- Paints a texture with the resolved colours (a solid colour is a flat gradient).
+function CI.PaintFill(tex, mode, c1, c2)
+    tex:SetTexture(M.flat)
+    tex:SetVertexColor(1, 1, 1, 1)
+    local a = CreateColor(c1[1], c1[2], c1[3], 1)
+    local z = CreateColor(c2[1], c2[2], c2[3], 1)
+    if mode == "gradient-v" then
+        tex:SetGradient("VERTICAL", z, a) -- first colour on top
+    elseif mode == "gradient-h" then
+        tex:SetGradient("HORIZONTAL", a, z) -- first colour on the left
+    else
+        tex:SetGradient("HORIZONTAL", a, a)
+    end
+end
+
+builders.color = function(b)
+    local w = {}
+    w.frame = CreateFrame("Frame", nil, b.overlay)
+    w.frame:SetFrameLevel(b.overlay:GetFrameLevel() + 2)
+    w.tex = w.frame:CreateTexture(nil, "ARTWORK")
+    function w.show(e)
+        if (e.colorArea or "free") == "free" then
+            w.tex:ClearAllPoints()
+            w.tex:SetAllPoints(w.frame)
+            w.frame:SetSize(e.width or 40, e.height or 12)
+            anchorOf(b, e, w.frame)
+        else
+            w.frame:ClearAllPoints()
+            w.frame:SetAllPoints(b)
+            CI.AnchorArea(w.tex, b, e.colorArea)
+        end
+        local mode, c1, c2 = CI.ResolveColor(e, b.unit)
+        CI.PaintFill(w.tex, mode, c1, c2)
+        w.tex:SetAlpha(e.opacity or 1)
+        w.frame:Show()
+    end
+    function w.hide() w.frame:Hide() end
     return w
 end
 
@@ -330,7 +406,6 @@ builders.border = function(b)
     end
     function w.show(e)
         local th = N.Snap(b, e.thickness or 2)
-        -- Around the whole frame, or just the health bar (not the power bar).
         local t = (e.around == "health" and b.health) or b
         local top, bottom, left, right = w.edges[1], w.edges[2], w.edges[3], w.edges[4]
         for i = 1, 4 do w.edges[i]:SetVertexColor(rgb(e)); w.edges[i]:Show() end
@@ -349,10 +424,10 @@ builders.overlay = function(b)
     w.tex = b.overlay:CreateTexture(nil, "ARTWORK", nil, 4)
     w.tex:SetTexture(M.flat)
     function w.show(e)
-        w.tex:ClearAllPoints()
-        w.tex:SetAllPoints(b.health)
-        local r, g, bl = rgb(e)
-        w.tex:SetVertexColor(r, g, bl, e.opacity or 0.35)
+        CI.AnchorArea(w.tex, b, e.colorArea or "health")
+        local mode, c1, c2 = CI.ResolveColor(e, b.unit)
+        CI.PaintFill(w.tex, mode, c1, c2)
+        w.tex:SetAlpha(e.opacity or 0.35)
         w.tex:Show()
     end
     function w.hide() w.tex:Hide() end
@@ -361,11 +436,9 @@ end
 
 -- glow -------------------------------------------------------------------------
 -- A glow around the whole frame, drawn with plain textures and animations:
---   pixel     short lines running around the border
---   autocast  sparks circling the border, shimmering
---   proc      Blizzard's animated proc border (the ants), scaled to the frame
---   halo      a soft coloured glow behind the frame, pulsing
---   pulse     a solid coloured border that pulses
+--   pixel  short lines running around the border
+--   halo   a soft colored glow behind the frame, pulsing
+--   pulse  a solid colored border that pulses
 local PROC_ATLAS = "UI-HUD-ActionBar-Proc-Loop-Flipbook"
 
 -- Position s (0..1, clockwise from the top-left corner) on a w x h rectangle:
@@ -406,7 +479,7 @@ builders.glow = function(b)
 end
 local function widgetFor(b, obj, e)
     local w = obj.items[e.id]
-    if w and w.kind ~= e.type then -- the entry changed type: start over
+    if w and w.kind ~= e.type then
         w.hide()
         w = nil
     end
@@ -437,6 +510,7 @@ local function engineSpec(b, e)
     local filter = e.mine and (base .. "|PLAYER") or base
     local appearance = N.db[b.groupKey].appearance
     local shape = (e.type == "icons" or e.type == "icon") and "icon" or e.type
+    if e.type == "color" then shape = ((e.colorArea or "free") == "free") and "rect" or "overlay" end
     local max = (e.type == "icons") and (e.max or 3) or 1
     local spec = {
         shape = shape, point = e.point, x = e.x, y = e.y, growth = e.growth, spacing = e.spacing,
@@ -448,8 +522,16 @@ local function engineSpec(b, e)
         stackSize = e.stackSize, stackX = e.stackX, stackY = e.stackY,
         timeColor = appearance and appearance.timeColor, fontSize = e.fontSize,
         glow = e.glow, offset = e.offset, speed = e.speed, length = e.length,
+        isColor = (e.type == "color" or e.type == "overlay") or nil,
         groups = { { key = "ci", filter = filter, candidate = { includeSpellIDs = set }, max = max } },
     }
+    if e.type == "color" or e.type == "overlay" then
+        local mode, c1, c2 = CI.ResolveColor(e, b.unit)
+        spec.colorMode, spec.color, spec.color2 = mode, c1, c2
+        spec.colorArea = e.colorArea or (e.type == "overlay" and "health" or "free")
+        spec.opacity = e.opacity or (e.type == "overlay" and 0.35 or 1)
+        spec.cd, spec.stacks, spec.time = "none", false, false
+    end
     if shape == "text" then
         if e.textKind == "duration" then spec.text = "{time}"
         elseif e.textKind == "stacks" then spec.text = "{stacks}"
@@ -470,7 +552,7 @@ local function engineSync(b, obj)
         end
     end
     for id in pairs(obj.ids) do
-        if not seen[id] then E.Remove(b, "ci:" .. id); obj.ids[id] = nil end -- deleted entry
+        if not seen[id] then E.Remove(b, "ci:" .. id); obj.ids[id] = nil end
     end
 end
 
@@ -505,12 +587,11 @@ Indicators.Register("custom", {
             end
         end
         for id, w in pairs(obj.items) do
-            if not seen[id] then w.hide() end -- deleted entry
+            if not seen[id] then w.hide() end
         end
     end,
 })
 
--- Any change to a custom indicator repaints every frame.
 N:On("NUCLEUS_SETTING_CHANGED", function(_, _, path)
     if not (path and path:find("%.customIndicators")) then return end
     if N.UnitFrame then
@@ -520,7 +601,6 @@ N:On("NUCLEUS_SETTING_CHANGED", function(_, _, path)
     end
 end)
 
--- The aura cache (Frames/Auras.lua) tells us when a unit's auras changed.
 N.AuraCache.OnChange(function(unit)
     if not (N.db and N.UnitFrame) then return end
     N.UnitFrame.ForEachButton(function(child)

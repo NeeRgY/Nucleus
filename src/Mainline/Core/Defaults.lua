@@ -1,13 +1,9 @@
 local _, ns = ...
 local N = ns.N
 
--- Default SavedVariables layout for the Retail client. Stored in
--- NucleusDB_Mainline (see TOC). One flat profile for now; a profile manager
--- can wrap this later without changing the schema.
---
--- party/raid are fully independent: layout, appearance and indicators all live
--- under each so editing one group type never touches the other. Only `general`
--- and `core` are shared.
+-- Default SavedVariables layout for Retail (NucleusDB_Mainline, see TOC). party/raid are fully
+-- independent: layout, appearance and indicators live under each, so editing one never touches the
+-- other. Only `general` and `core` are shared.
 
 -- The roles each class can play, in the order the options list the classes.
 -- The power bar can be switched on / off per class and role.
@@ -52,7 +48,7 @@ local function groupDefaults(overrides)
         width = 72,
         height = 50,
         spacing = 3,
-        hideBlizzard = true,      -- suppress the matching Blizzard frames
+        hideBlizzard = true,
         orientation = "vertical", -- vertical | horizontal
         reverse = false,          -- grow up/left instead of down/right
         showPlayer = true,        -- party only
@@ -81,32 +77,28 @@ local function groupDefaults(overrides)
             healthColorMode = "class",       -- "class" | "custom" | "gradient"
             healthCustomColor = { 0.20, 0.55, 0.95 },
             healthLossColor = { 0.065, 0.068, 0.075 },
-            -- Shield / heal-absorb / heal-prediction overlays (Appearance >
-            -- Shield). style is "flat" | "striped" (heal-prediction has no
-            -- style of its own - it's always a plain translucent wash).
+            -- Shield / heal-absorb / heal-prediction overlays (Appearance > Shield). style is
+            -- "flat" | "striped"; heal-prediction has no style of its own, it's always a plain
+            -- translucent wash.
             showOvershield = true,
             absorb     = { enabled = true, style = "striped", opacity = 0.35, color = { 1.00, 1.00, 1.00 }, invertFill = false },
             overshieldColor = { 0.75, 0.90, 1.00 },
             healAbsorb = { enabled = true, style = "flat", opacity = 0.75, color = { 0.55, 0.20, 0.75 } },
             healPredict = { enabled = true, opacity = 0.30, color = { 1.00, 1.00, 1.00 } },
-            -- Same default look as before (accentBright blue outline, plain
-            -- white hover), now its own setting instead of following the
-            -- options-window accent color.
             targetBorder = { color = { 0.42, 0.70, 1.00 }, thickness = 1 },
             hoverBorder  = { color = { 1.00, 1.00, 1.00 }, thickness = 1 },
-            -- The time text of aura icons turns `color` once less than `seconds` are left
-            -- Below `decimals` seconds (0 = never) the time counts in tenths ("3.3").
+            -- The time text of aura icons turns `color` once less than `seconds` are left. Below
+            -- `decimals` seconds (0 = never) it counts in tenths ("3.3").
             timeColor    = { enabled = true, seconds = 3, color = { 1.00, 0.15, 0.15 }, decimals = 0 },
-            -- The border around every frame (inside its edge).
             frameBorder  = { enabled = true, color = { 0.00, 0.00, 0.00 }, thickness = 1 },
-            -- Cell-style: dim the whole frame (reusing outOfRangeAlpha) once
-            -- a unit's health reaches threshold, so healthy raid members recede.
+            -- Dims the whole frame (reusing outOfRangeAlpha) once a unit's health reaches
+            -- threshold, so healthy raid members recede.
             healthFade = { enabled = false, threshold = 1.0 },
         },
         -- Every on-frame element is an entry here and gets its own options tab:
         -- enabled + placement (x/y) + type-specific fields.
         indicators = {
-            custom     = { enabled = true }, -- switch for the custom indicators as a whole
+            custom     = { enabled = true },
             name       = { enabled = true,  size = 11, x = 0, y = 0, color = { 0.92, 0.92, 0.94 }, position = "center", colorMode = "custom" },
             -- format/textFormat "custom" uses customFormat instead: a typed
             -- template with {p}=percent, {v}=value, {m}=max, {d}=deficit.
@@ -120,11 +112,10 @@ local function groupDefaults(overrides)
                            text = false, textFormat = "percent", customFormat = "{p}%",
                            textSize = 9, textPosition = "bottom", textX = 0, textY = 0,
                            textColorMode = "power", textColor = { 1, 1, 1 } },
-            -- Status: a small pill (rounded badge) that names the unit's state -
-            -- Offline / AFK / Feign Death / Ghost / Dead and the three summon states -
-            -- in a colour per state, with an optional running timer (Offline / AFK).
-            -- anchor = top / center / bottom of the health bar, align = left / center /
-            -- right along it. `show` switches individual states on or off.
+            -- Status: a small pill that names the unit's state (Offline / AFK / Feign Death /
+            -- Ghost / Dead and the three summon states) in a color per state, with an optional
+            -- running timer (Offline / AFK). anchor = top / center / bottom of the health bar,
+            -- align = left / center / right along it. `show` switches individual states on or off.
             status     = { enabled = true, size = 11, anchor = "bottom", align = "center", y = 2,
                            showTimer = true, showBackground = true,
                            stateColors = {
@@ -178,8 +169,8 @@ local function groupDefaults(overrides)
             -- percentages (e.g. an execute range). A list of { pct, color }.
             healthThresholds = { enabled = false, thickness = 1,
                                  thresholds = { { pct = 90, color = { 1.00, 0.00, 0.00 } } } },
-            -- Aggro Border: warnColor = orange "almost aggro", tankColor = red "aggro"
-            -- (Blizzard's threat colours, as Cell shows them); gradient = fade inward.
+            -- Aggro Border: warnColor = orange "almost aggro", tankColor = red "aggro" (Blizzard's
+            -- threat colors); gradient = fade inward.
             aggroBorder   = { enabled = true, thickness = 2, gradient = true,
                               warnColor = { 1.00, 0.60, 0.00 }, tankColor = { 1.00, 0.00, 0.00 } },
             -- Level Text: format = "full" (Level 80) | "short" (Lvl 80) | "number" (80)
@@ -210,6 +201,7 @@ local function groupDefaults(overrides)
                 -- Filters: with showAll off only debuffs matching the ticked filters
                 -- show (match = "any" | "all").
                 showAll = true, match = "any",
+                onlyNonPlayer = true, -- hide debuffs cast by players or their pets (e.g. the Bloodlust exhaustion)
                 filters = { nonplayer = false, priority = false, cc = false, bossaura = false,
                             roleaura = false, raid = false, raidcombat = false,
                             dispellable = false, dispeltyped = false },
@@ -225,29 +217,28 @@ local function groupDefaults(overrides)
                                Poison = { 0, 0.6, 0 }, Bleed = { 1, 0.2, 0.6 } },
                 enabled = true, max = 3, size = 18, spacing = 2,
                 point = "TOP", growth = "RIGHT", x = 0, y = 0,
-                -- Highlight on the health bar: "none" | "edge-top" | "edge-bottom" | "fill" | "full"
-                -- (opacity applies to fill / full). Border + dispel-type icons as in Cell.
+                -- Highlight on the health bar: "none" | "edge-top" | "edge-bottom" | "fill" |
+                -- "full" (opacity applies to fill / full). Border and dispel-type icons below.
                 highlightType = "edge-bottom", highlightOpacity = 50,
                 frameBorder = false, frameBorderThickness = 2,
                 typeIcons = true, typeIconSize = 12, typeIconPoint = "BOTTOMRIGHT",
                 typeIconGrowth = "LEFT", typeIconX = 0, typeIconY = 4,
                 showStacks = true, showCooldown = true, cdStyle = "spiral", showTime = true, timeSize = 10, timeX = 0, timeY = 0, stackSize = 10, stackX = 1, stackY = -1, dispelBorder = true,
             },
-            -- Cooldown rows. `list` = spell IDs this row shows. When an aura's
-            -- spell ID is readable the list decides; when the game hides it (some
-            -- situations on Midnight) `useFilter` falls back to Blizzard's own
-            -- classification (BIG_DEFENSIVE / EXTERNAL_DEFENSIVE). Defensives sit
-            -- on the far left of the frame, externals on the far right.
+            -- Cooldown rows. `list` = spell IDs the row shows. When an aura's spell ID is readable
+            -- the list decides; when the game hides it (some situations on Midnight), `useFilter`
+            -- falls back to Blizzard's own classification (BIG_DEFENSIVE / EXTERNAL_DEFENSIVE).
+            -- Defensives sit far left of the frame, externals far right.
             defensives = {
                 enabled = true, max = 2, size = 16, spacing = 2,
                 point = "LEFT", growth = "RIGHT", x = 0, y = 6,
-                showStacks = false, showCooldown = true, cdStyle = "vertical", showTime = true, timeSize = 10, timeX = 0, timeY = 0, stackSize = 10, stackX = 1, stackY = -1, useFilter = true,
+                showStacks = false, showCooldown = true, cdStyle = "vertical", showTime = true, timeSize = 10, timeX = 0, timeY = 0, stackSize = 10, stackX = 1, stackY = -1, useFilter = false,
                 list = "48707,444741,48792,55233,101568,212800,187827,207771,22812,22842,61336,1261872,404381,363916,374349,186265,264735,342246,45438,414658,449336,1309793,122783,115203,120954,125174,132578,322507,1241059,498,403876,642,31850,86659,212641,19236,47585,586,193065,27827,31224,5277,1966,185311,108271,260881,108416,104773,132413,387636,118038,184364,190456,1277297,147833,385391,871",
             },
             externals = {
                 enabled = true, max = 2, size = 16, spacing = 2,
                 point = "RIGHT", growth = "LEFT", x = 0, y = 6,
-                showStacks = false, showCooldown = true, cdStyle = "vertical", showTime = true, timeSize = 10, timeX = 0, timeY = 0, stackSize = 10, stackX = 1, stackY = -1, useFilter = true,
+                showStacks = false, showCooldown = true, cdStyle = "vertical", showTime = true, timeSize = 10, timeX = 0, timeY = 0, stackSize = 10, stackX = 1, stackY = -1, useFilter = false,
                 list = "102342,357170,53480,116849,1022,1309794,6940,204018,387804,47788,33206,145629,51052,209426,196718,374227,31821,317929,81782,62618,325174,98008,97463,97462",
             },
             offensives = {
@@ -256,8 +247,8 @@ local function groupDefaults(overrides)
                 showStacks = false, showCooldown = true, cdStyle = "vertical", showTime = true, timeSize = 10, timeX = 0, timeY = 0, stackSize = 10, stackX = 1, stackY = -1,
                 list = "1249658,152279,42650,51271,191427,321067,321068,162264,471306,1217605,473671,1217607,194223,102560,106951,102543,375087,186254,1235388,1285912,19574,288613,1250646,1251703,190319,365350,365362,1247908,1249625,31884,231895,454351,216331,10060,194249,13750,121471,1249810,114050,114051,114052,1219480,466772,442726,1276166,266087,417282,107574,1719,1225789,1241937,1265063,459808,1234189,185422,51690,394095,385627,13877,265187,205180,111685,446035,227847",
             },
-            -- Crowd controls come from Blizzard's own CROWD_CONTROL aura filter -
-            -- there is deliberately no spell list.
+            -- Crowd controls come from Blizzard's CROWD_CONTROL aura filter, so there is
+            -- deliberately no spell list.
             crowdControls = {
                 enabled = false, max = 3, size = 22, spacing = 2,
                 point = "CENTER", growth = "RIGHT", x = 0, y = 0,
@@ -304,26 +295,28 @@ end
 N.Defaults = {
     dbVersion = 1,
 
-    -- Which group type the options window is currently editing.
     editMode = "party", -- party | raid | ownPet | groupPets | npc | spotlight
     lastPetMode = "ownPet", -- the pet-side group the "Pets" switch opens
 
     locale = "deDE",
-    locked = true, -- frames locked in place (drag anchors hidden)
-    translitNames = false, -- write out Cyrillic player names in Latin letters
+    locked = true,
+    translitNames = false,
     welcomeMessage = true, -- the "Nucleus loaded - version X" line in the chat at login / reload
+    firstRunShown = false, -- the one-time welcome window has been shown
+    blizzFilterOff = false, -- one-time migration: Blizzard-classification fallback switched off
 
-    -- Indicators tab: the little inline preview above each indicator's own
-    -- settings. Global (not per party/raid) - it's a tool for editing, not a
-    -- frame appearance setting.
+    -- Indicators tab: the small inline preview above each indicator's settings. Global (not per
+    -- party/raid): it's an editing tool, not a frame appearance setting.
     previewSettings = {
         cycleHealth = false,    -- rotate the mock health through dead/25/50/75/100%
         showAllEnabled = false, -- show every currently-enabled indicator, not just this one
         healthPercent = 100,    -- static mock health % used whenever cycleHealth is off
     },
-    fontScale = 1.0, -- General > Interface: text size inside the options windows
-    uiScale = 1.0,   -- General > Interface: scales the whole options window
-    accentColor = { 0.20, 0.55, 0.95 }, -- General > Interface: options window highlight color
+    fontScale = 1.0,
+    fontUI = "nucleus",    -- General > Fonts: options window font
+    fontFrame = "nucleus", -- General > Fonts: font of every text on the frames
+    uiScale = 1.0,
+    accentColor = { 0.20, 0.55, 0.95 },
 
     core = {
         rangeUpdateInterval = 0.15,
@@ -346,11 +339,9 @@ N.Defaults = {
 
     raid = groupDefaults({
         showSolo = false,
-        -- Which raid groups (1-8) get frames.
         groupFilter = { true, true, true, true, true, true, true, true },
         -- How many groups are shown at most (1-8): groups 1..maxGroups.
         maxGroups = 8,
-        -- A "Group n" text on the first frame of each raid group (Group by: Raid group).
         groupNames = { enabled = false, position = "above", size = 11, x = 0, y = 0, color = { 1, 1, 1 } },
     }),
 
@@ -381,9 +372,9 @@ N.Defaults = {
         indicators = { powerBar = { enabled = true } },
     }),
 
-    -- Actions (after Cell): a short animation on a group member's frame when they
-    -- use a listed spell (potions, Healthstone, ...). Each entry: spell = spell ID,
-    -- anim = "sweep" | "diagonal" | "rise", color = {r, g, b}.
+    -- Actions: a short animation on a group member's frame when they use a listed spell (potions,
+    -- Healthstone, ...). Each entry: spell = spell ID, anim = "sweep" | "wipe" | "rise", color =
+    -- {r, g, b}.
     actions = {
         enabled = true,
         speed = 1,
@@ -416,10 +407,9 @@ N.Defaults = {
         },
     },
 
-    -- Floating stack of enemy cast bars showing who each cast is aimed at.
-    -- Global (not per party/raid): it is a free-standing display, not a part
-    -- of any unit frame. orientation = top-to-bottom | bottom-to-top |
-    -- left-to-right | right-to-left; where = both | party | raid.
+    -- Floating stack of enemy cast bars showing who each cast is aimed at. Global (not per
+    -- party/raid): a free-standing display, not part of any unit frame. orientation =
+    -- top-to-bottom | bottom-to-top | left-to-right | right-to-left; where = both | party | raid.
     targetedSpellBars = {
         enabled = false,
         where = "both",
@@ -437,7 +427,7 @@ N.Defaults = {
         enabled = true,
         duration = 4, -- how long the icon stays up; Blizzard's own is a few seconds
         scale = 1.0,  -- multiplies the auto-sized icon (proportional to frame size)
-        x = 0, y = 0, -- offset from the frame's center
+        x = 0, y = 0,
     },
 
     -- Modifier+click -> spell/item/macro directly from a frame. Global (not

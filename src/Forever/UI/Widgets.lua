@@ -2,36 +2,32 @@ local _, ns = ...
 local N = ns.N
 local M = N.Media
 
--- Widget set for the options window. Every control is a full-width row: a
--- label on the left, its control on the right. Cards (see MakeCard) own the
--- vertical stacking and width. Extend here rather than pulling in a UI lib.
+-- Widget set for the options window. Every control is a full-width row, label left, control right.
+-- Cards (MakeCard) own vertical stacking and width. Extend here instead of pulling in a UI
+-- library.
 
 local function unpackColor(c) return c[1], c[2], c[3], c[4] or 1 end
 
 local ROW_CHECK = 24
 local ROW_CONTROL = 30
 
---------------------------------------------------------------------------------
--- Section card: a rounded surface with a small accent tab and the title on top,
--- a hairline beneath it, rows flowing below with inner padding.
---------------------------------------------------------------------------------
+-- Section card: a rounded surface with a small accent tab and the title on top, a hairline beneath
+-- it and rows flowing below with inner padding.
 
 local CARD_PAD = 12
 local CARD_HEADER = 32
 local ROW_GAP = 8
 
--- Exposed so panels that lay out their own text inside a card (hints, about
--- text) line up with the standard rows: x inset, and y where content starts.
+-- Exposed so panels that lay out their own text inside a card line up with the standard rows: x
+-- inset, and y where content starts.
 N.CARD_PAD = CARD_PAD
 N.CARD_TOP = CARD_HEADER + ROW_GAP
 
 N.CONTENT_WIDTH = 512
 
---------------------------------------------------------------------------------
 -- Tooltip in the options window's own style: rounded card, shadow, accent title.
--- N.SetTip(widget, title, text, colorFn) hooks a widget; title / text may be
--- strings or functions; colorFn() -> {r,g,b} adds a colour chip beside the title.
---------------------------------------------------------------------------------
+-- N.SetTip(widget, title, text, colorFn) hooks a widget; title / text may be strings or functions;
+-- colorFn() -> {r,g,b} adds a color chip beside the title.
 
 local tip
 local TIP_W, TIP_PAD = 250, 9
@@ -90,7 +86,6 @@ function N.ShowTip(owner, title, text, color)
     tip:ClearAllPoints()
     tip:SetPoint("LEFT", owner, "RIGHT", 12, 0)
     tip:Show()
-    -- If it would run off the right edge, flip to the left of the widget.
     local right = tip:GetRight()
     if right and right > UIParent:GetRight() then
         tip:ClearAllPoints()
@@ -159,7 +154,6 @@ end
 -- Controls
 --------------------------------------------------------------------------------
 
--- get() -> {r,g,b}  ;  set({r,g,b}). Swatch on the left, label to its right.
 function N.MakeColorPicker(parent, label, get, set, desc)
     local f = CreateFrame("Button", nil, parent)
     f._rowHeight = 20
@@ -168,7 +162,7 @@ function N.MakeColorPicker(parent, label, get, set, desc)
     sw:SetSize(20, 14)
     sw:SetPoint("LEFT")
     N.SkinRound(sw, M.color.base, M.color.line, true)
-    local tex = sw._nucFill -- the swatch colour IS the rounded fill
+    local tex = sw._nucFill
     sw:SetScript("OnEnter", function() N.SetPanelBorder(sw, M.color.accent) end)
     sw:SetScript("OnLeave", function() N.SetPanelBorder(sw, M.color.line) end)
 
@@ -191,7 +185,6 @@ function N.MakeColorPicker(parent, label, get, set, desc)
     end
     sw:SetScript("OnClick", open)
     f:SetScript("OnClick", open)
-    -- Tooltip: the colour as hex + RGB (and an optional explanation).
     local function colorText()
         local c = get()
         local r, g, b = math.floor(c[1] * 255 + 0.5), math.floor(c[2] * 255 + 0.5), math.floor(c[3] * 255 + 0.5)
@@ -216,7 +209,6 @@ function N.MakeCheckbox(parent, label, get, set)
     box:SetPoint("LEFT")
     N.SkinRound(box, M.color.base, M.color.line, true)
 
-    -- Tick: a short and a long bar at +/-45 degrees meeting at the bottom.
     local ticks = {}
     for i, d in ipairs({
         { rot = -45, w = 4.5, x = -2.6, y = -1.2 },
@@ -273,9 +265,9 @@ function N.MakeSlider(parent, label, minV, maxV, step, get, set)
     slider:SetValueStep(step)
     slider:SetObeyStepOnDrag(true)
 
-    -- Capsule bars are built from a flat body plus half-circle end caps (the
-    -- circle texture split at its middle), so a 5px-tall bar still gets truly
-    -- round ends - 9-slicing cannot shrink its corners below the margin.
+    -- Capsule bars are a flat body plus half-circle end caps (the circle texture split at its
+    -- middle), so even a 5px bar gets truly round ends; 9-slicing can't shrink corners below its
+    -- margin.
     local BAR_H = 5
     local function capsule(layer, color, rightCap)
         local parts = {}
@@ -326,7 +318,7 @@ function N.MakeSlider(parent, label, minV, maxV, step, get, set)
     local eb = CreateFrame("EditBox", nil, f)
     eb:SetSize(54, 18)
     eb:SetPoint("TOPRIGHT", 0, 1)
-    eb:SetFont(M.font, 11, "")
+    eb:SetFont(M.fontUI, 11, "")
     N.RegisterFont(eb, 11, "")
     eb:SetJustifyH("CENTER")
     eb:SetAutoFocus(false)
@@ -364,11 +356,9 @@ function N.MakeSlider(parent, label, minV, maxV, step, get, set)
     return f
 end
 
--- Single-line text field. Label above, full-width box below, commits on
--- Enter or focus loss (Cell-style: label above the control, not beside it).
+-- Single-line text field. Label above, full-width box below, commits on Enter or focus loss.
 function N.MakeTextInput(parent, label, get, set)
     local f = CreateFrame("Frame", nil, parent)
-    -- label == nil -> compact: no caption, box fills the row (table-style rows).
     local compact = (label == nil)
     f._rowHeight = compact and 24 or 42
 
@@ -387,7 +377,7 @@ function N.MakeTextInput(parent, label, get, set)
     local edit = CreateFrame("EditBox", nil, box)
     edit:SetPoint("TOPLEFT", 6, 0)
     edit:SetPoint("BOTTOMRIGHT", -6, 0)
-    edit:SetFont(M.font, 12, "")
+    edit:SetFont(M.fontUI, 12, "")
     N.RegisterFont(edit, 12, "")
     edit:SetTextColor(unpackColor(M.color.text))
     edit:SetAutoFocus(false)
@@ -421,7 +411,7 @@ function N.MakeMultiEdit(parent, label, get, set)
     edit:SetMultiLine(true)
     edit:SetPoint("TOPLEFT", 6, -5)
     edit:SetPoint("BOTTOMRIGHT", -6, 5)
-    edit:SetFont(M.font, 12, "")
+    edit:SetFont(M.fontUI, 12, "")
     N.RegisterFont(edit, 12, "")
     edit:SetTextColor(unpackColor(M.color.text))
     edit:SetAutoFocus(false)
@@ -465,10 +455,8 @@ local function shapeCaret(tex, dir)
     end
 end
 
--- options: array of { value = <stored>, text = <shown> }. Label above the button.
 function N.MakeDropdown(parent, label, options, get, set)
     local f = CreateFrame("Frame", nil, parent)
-    -- label == nil -> compact: no caption, button fills the row.
     local compact = (label == nil)
     f._rowHeight = compact and 24 or 42
 
@@ -594,10 +582,8 @@ function N.MakeDropdown(parent, label, options, get, set)
     return f
 end
 
---------------------------------------------------------------------------------
--- Key capture: a button that, once clicked, waits for the next modifier + mouse
--- click anywhere on screen and reports it. Used for click-cast bindings.
---------------------------------------------------------------------------------
+-- Key capture: a button that, once clicked, waits for the next modifier + mouse click anywhere and
+-- reports it. Used for click-cast bindings.
 
 local grabber
 local function getGrabber()
@@ -641,7 +627,7 @@ local function getGrabber()
             self:Hide()
             if cancel then cancel() end
         else
-            self:SetPropagateKeyboardInput(true) -- let modifier keys through
+            self:SetPropagateKeyboardInput(true)
         end
     end)
     return grabber
@@ -696,12 +682,10 @@ function N.MakeKeyCapture(parent, getText, onCapture)
     return b
 end
 
---------------------------------------------------------------------------------
--- Icon picker: a compact dropdown whose entries carry icons, with a search box
--- and a scrolling list - for long lists (spells, macros, items).
+-- Icon picker: a compact dropdown whose entries carry icons, with a search box and a scrolling
+-- list, for long lists (spells, macros, items).
 --   getOptions() -> { { value, text, icon }, ... }   built each time it opens
 --   resolve(value) -> text, icon   for a saved value that is not in the list
---------------------------------------------------------------------------------
 
 local PICK_ROW, PICK_VISIBLE, PICK_MIN_W = 22, 9, 250
 local QUESTION_ICON = 134400
@@ -760,7 +744,6 @@ function N.MakeIconPicker(parent, getOptions, get, set, resolve)
         N.SetPanelBorder(button, open and M.color.accent or M.color.line)
     end
 
-    -- Dropdown list: search box on top, scrolling icon rows below.
     local list = CreateFrame("Frame", nil, UIParent)
     list._nucUI = true
     list:SetFrameStrata("FULLSCREEN_DIALOG")
@@ -774,7 +757,7 @@ function N.MakeIconPicker(parent, getOptions, get, set, resolve)
     search:SetPoint("TOPLEFT", 6, -6)
     search:SetPoint("TOPRIGHT", -6, -6)
     search:SetHeight(22)
-    search:SetFont(M.font, 12, "")
+    search:SetFont(M.fontUI, 12, "")
     N.RegisterFont(search, 12, "")
     search:SetTextInsets(8, 8, 0, 0)
     search:SetAutoFocus(false)
@@ -885,9 +868,7 @@ function N.MakeIconPicker(parent, getOptions, get, set, resolve)
     return f
 end
 
---------------------------------------------------------------------------------
--- Custom scroll area: thin auto-hiding accent scrollbar, wheel support.
---------------------------------------------------------------------------------
+-- Custom scroll area: thin auto-hiding accent scrollbar with wheel support.
 
 -- trackX: how far the bar sits right of the scroll area's edge (default 10, i.e.
 -- in the margin; pass a negative number to tuck it inside a small panel).

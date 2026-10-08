@@ -2,26 +2,23 @@ local _, ns = ...
 local N = ns.N
 local M = N.Media
 
--- On-frame aura display. Independent rows, all rendered from the same icon
--- primitive:
+-- On-frame aura display: independent rows, all drawn from the same icon primitive:
 --   buffs          HELPFUL auras (optionally only the player's own)
 --   debuffs        all HARMFUL auras
 --   dispels        HARMFUL auras the player's class can remove
---   defensives     personal defensive cooldowns   (default: far left of the frame)
+--   defensives     personal defensive cooldowns (default: far left)
 --   externals      external cooldowns from others (default: far right)
 --   offensives     offensive cooldowns / buffs
 --   crowdControls  stuns, fears, incapacitates ... (Blizzard's CROWD_CONTROL filter)
 --
--- Plus the Retail private-aura anchors (C_UnitAuras.AddPrivateAuraAnchor),
--- whose lifecycle is tied to the button's unit assignment.
+-- Plus the private-aura anchors (C_UnitAuras.AddPrivateAuraAnchor), tied to the button's unit
+-- assignment.
 --
--- Midnight: aura fields (applications / duration / expirationTime / spellId /
--- dispelName) can be secret. The cooldown spiral then runs from the aura's
--- duration object instead of numbers; the stack count is formatted straight
--- into the FontString; dispelName and spellId are checked with IsSecret before
--- they index any table. The cooldown rows decide with the spell-ID list when
--- an aura's ID is readable and fall back to Blizzard's own filters
--- (BIG_DEFENSIVE / EXTERNAL_DEFENSIVE / CROWD_CONTROL) when it is not.
+-- Midnight: aura fields (applications, duration, expirationTime, spellId, dispelName) can be
+-- secret. The cooldown spiral then runs from the aura's duration object, the stack count is
+-- formatted straight into the FontString, and dispelName/spellId are checked with IsSecret before
+-- they index a table. The cooldown rows decide by spell-ID list when the ID is readable and fall
+-- back to Blizzard's filters (BIG_DEFENSIVE / EXTERNAL_DEFENSIVE / CROWD_CONTROL) when it is not.
 
 local A = {}
 N.Auras = A
@@ -43,15 +40,12 @@ local ROWS = {
 }
 A.ROWS = ROWS
 
---------------------------------------------------------------------------------
 -- Aura cache
--- In combat the game refuses addon code a live scan of a unit's auras (the
--- GetAuraDataByIndex family). What stays allowed is looking an aura up by its
--- instance ID, which the UNIT_AURA event hands out. So every unit that is asked
--- about gets a cache of its auras: filled by a scan while that is allowed, and
--- kept current from the UNIT_AURA payload (added / updated / removed). The rows
--- read the cache, and classify each aura with IsAuraFilteredOutByInstanceID.
---------------------------------------------------------------------------------
+-- In combat the game refuses a live scan of a unit's auras (the GetAuraDataByIndex family).
+-- Looking an aura up by instance ID, as handed out by UNIT_AURA, stays allowed. So every unit that
+-- is asked about gets a cache: filled by a scan while that's allowed, kept current from the
+-- UNIT_AURA payload (added / updated / removed). Rows read the cache and classify each aura with
+-- IsAuraFilteredOutByInstanceID.
 
 local AC = {}
 N.AuraCache = AC
@@ -115,7 +109,7 @@ acFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 acFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 acFrame:SetScript("OnEvent", function(_, event, unit, info)
     if event ~= "UNIT_AURA" then
-        -- Unit tokens may now point at other people; scan again when allowed.
+        -- Unit tokens can point at other people now; scan again when allowed.
         for u, e in pairs(cache) do
             e.auras, e.scanned, e.refused = {}, false, false
             if not InCombatLockdown() then entry(u) end
@@ -125,8 +119,8 @@ acFrame:SetScript("OnEvent", function(_, event, unit, info)
     end
     local e = cache[unit]
     if not e then return end
-    -- In combat the payload is sealed (secret): it cannot even be tested. Then the
-    -- unit is scanned again when the game allows it; a refused scan keeps the old cache.
+    -- In combat the payload is sealed (secret) and can't even be tested. Then the unit is scanned
+    -- again when the game allows; a refused scan keeps the old cache.
     local sealed = info ~= nil and (IsSecret(info) or IsSecret(info.isFullUpdate)
         or IsSecret(info.addedAuras) or IsSecret(info.updatedAuraInstanceIDs)
         or IsSecret(info.removedAuraInstanceIDs))
@@ -156,12 +150,10 @@ acFrame:SetScript("OnEvent", function(_, event, unit, info)
     notify(unit)
 end)
 
---------------------------------------------------------------------------------
--- Class dispel capability (class-level; spec nuance is intentionally ignored -
--- a few types here are only usable in a healing spec).
---------------------------------------------------------------------------------
+-- Class dispel capability. Class level only; spec nuance is ignored (a few types are only usable
+-- in a healing spec).
 
-local DISPEL_BY_CLASS = N.Classic.DISPEL -- Forever (Classic): see Core/Classic.lua
+local DISPEL_BY_CLASS = N.Classic.DISPEL
 local dispelSet
 local function dispelTypes()
     if not dispelSet then
@@ -170,7 +162,6 @@ local function dispelTypes()
     return dispelSet
 end
 
--- Spell-ID list string -> { [spellId] = true }, memoised on the string value.
 local wlCache = {}
 local function parseList(str)
     if not str or str == "" then return nil end
@@ -187,9 +178,9 @@ end
 -- Icon construction
 --------------------------------------------------------------------------------
 
--- `v` UI units as whole physical pixels at the frame's scale: plain 1-unit insets land on
--- different sub-pixels at the top-left and the bottom-right when the UI scale is not 1,
--- which made two edges of an icon look thicker than the other two.
+-- v UI units as whole physical pixels at the frame's scale. Plain 1-unit insets land on different
+-- sub-pixels at opposite corners when the UI scale isn't 1, which made two edges of an icon look
+-- thicker.
 local function snap(frame, v)
     local PU = _G.PixelUtil
     if PU and PU.GetNearestPixelSize and frame and frame.GetEffectiveScale then
@@ -223,8 +214,8 @@ local function makeIcon(parent)
     if cd.SetSwipeColor then cd:SetSwipeColor(0, 0, 0, 0.6) end
     f.cd = cd
 
-    -- "Top to bottom" style: a dark mask that grows from the top edge downwards
-    -- while the aura runs out (a vertical StatusBar fed with the elapsed time).
+    -- "Top to bottom" style: a dark mask growing down from the top edge as the aura runs out (a
+    -- vertical StatusBar fed with elapsed time).
     local mask = CreateFrame("StatusBar", nil, f)
     mask:SetPoint("TOPLEFT", f, "TOPLEFT", snap(f, 1), snap(f, -1))
     mask:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", snap(f, -1), snap(f, 1))
@@ -251,8 +242,8 @@ end
 -- Data
 --------------------------------------------------------------------------------
 
--- True when the aura passes a Blizzard aura filter. The answer comes from the
--- game itself, so it works even when every aura field is secret.
+-- True if the aura passes a Blizzard aura filter. The answer comes from the game, so it works even
+-- when every aura field is secret.
 local function passesFilter(unit, d, filter)
     local fn = C_UnitAuras and C_UnitAuras.IsAuraFilteredOutByInstanceID
     if not (fn and d.auraInstanceID) then return false end
@@ -260,9 +251,8 @@ local function passesFilter(unit, d, filter)
     return ok and type(out) == "boolean" and out == false
 end
 
--- Debuff filters (after Cell's Highlight Debuffs / Ellesmere's Debuff Manager).
--- Each is a yes/no question about one aura; the ones Blizzard answers through
--- its filter tokens work even when every aura field is hidden.
+-- Debuff filters. Each is a yes/no question about one aura; the ones Blizzard answers through its
+-- filter tokens work even when every aura field is hidden.
 local function isTrue(v) return v ~= nil and not IsSecret(v) and v == true end
 local DISPEL_TYPED = { Magic = true, Curse = true, Disease = true, Poison = true, Bleed = true }
 local DEBUFF_FILTERS = {
@@ -286,6 +276,7 @@ local DEBUFF_FILTERS = {
 A.DEBUFF_FILTERS = DEBUFF_FILTERS
 
 local function debuffPasses(unit, d, cfg)
+    if cfg.onlyNonPlayer ~= false and not DEBUFF_FILTERS[1].test(unit, d) then return false end
     if cfg.showAll ~= false then return true end
     local f = cfg.filters
     if type(f) ~= "table" then return false end
@@ -311,7 +302,6 @@ local function accept(unit, d, row, cfg, excl)
     if row.dispellableOnly then
         local dn = d.dispelName
         local mineOnly = cfg.dispellableOnly ~= false
-        -- Hidden type: let the game say whether the player can dispel it.
         if dn == nil or IsSecret(dn) then
             return passesFilter(unit, d, mineOnly and "HARMFUL|RAID_PLAYER_DISPELLABLE" or "HARMFUL")
         end
@@ -326,12 +316,11 @@ local function accept(unit, d, row, cfg, excl)
     if row.cooldown then
         local id = d.spellId
         if id ~= nil and not IsSecret(id) then
-            -- Readable: the player's list decides.
             local set = parseList(cfg.list)
             return set ~= nil and set[id] == true
         end
         -- Hidden: Blizzard's own classification, if this row has one and it is on.
-        if row.blizz and cfg.useFilter ~= false then
+        if row.blizz and cfg.useFilter == true then
             return passesFilter(unit, d, row.blizz)
         end
         return false
@@ -342,8 +331,8 @@ local function accept(unit, d, row, cfg, excl)
             local set = parseList(cfg.list)
             return set ~= nil and set[id] == true
         end
-        -- Hidden ID: with "only my auras" the game already limited it to the
-        -- player's own buffs, so those are let through.
+        -- Hidden ID: with "only my auras" the game already limited the list to the player's buffs,
+        -- so let those through.
         return cfg.onlyMine == true
     end
     return true
@@ -381,15 +370,14 @@ end
 --------------------------------------------------------------------------------
 
 local GOLD  = { 1.00, 0.85, 0.00 }
-local MINE  = { 0.00, 0.80, 0.00 } -- cast by the player
+local MINE  = { 0.00, 0.80, 0.00 }
 local CROWD = { 0.90, 0.20, 0.20 }
 
--- Time text (Appearance > Time text): turns a warning colour once an aura has
--- less than N seconds left, and counts in tenths ("3.3") below M seconds - for
--- every aura icon that shows its time. Readable timing is compared as numbers.
--- Hidden timing cannot be compared, so step curves over the aura's duration
--- object decide colour and visibility, and the text itself is formatted from the
--- duration object's remaining time (a number the text API accepts while hidden).
+-- Time text (Appearance > Time text): turns a warning color when an aura has less than N seconds
+-- left and counts in tenths below M seconds, for every aura icon that shows time. Readable timing
+-- is compared as numbers. Hidden timing can't be compared, so step curves over the aura's duration
+-- object decide color and visibility, and the text is formatted from the duration object's
+-- remaining time (a number the text API accepts while hidden).
 local tracked = setmetatable({}, { __mode = "k" })
 local tcCurves = {}
 
@@ -488,7 +476,6 @@ tcDriver:SetScript("OnUpdate", function(_, dt)
         if icon:IsShown() then
             tickTime(icon)
         else
-            -- hidden: leave the text clean for whatever the icon shows next
             tracked[icon] = nil
             if icon._timeFS then icon._timeFS:SetTextColor(1, 1, 1, 1); icon._timeFS:SetAlpha(1) end
             if icon._decFS then icon._decFS:Hide() end
@@ -523,7 +510,6 @@ local function setupTimeColor(icon, d, cfg, unit)
     icon._tcColor = tc.color or { 1, 0.15, 0.15 }
     icon._tcExp, icon._tcDur, icon._tcCurve, icon._decOn, icon._decOff = nil, nil, nil, nil, nil
 
-    -- the tenths text sits where the time text sits
     if dec > 0 then
         if not icon._decFS then
             local host = CreateFrame("Frame", nil, icon)
@@ -556,8 +542,8 @@ local function setupTimeColor(icon, d, cfg, unit)
     tracked[icon] = true
     tickTime(icon)
 end
--- Font size / position of the stack count and of the countdown text (the
--- latter is the cooldown frame's own FontString, found among its regions).
+-- Font size/position of the stack count and the countdown text (the cooldown frame's own
+-- FontString, found among its regions).
 local function styleTexts(icon, cfg)
     icon.count:SetFont(M.font, cfg.stackSize or 10, "OUTLINE")
     icon.count:ClearAllPoints()
@@ -580,10 +566,9 @@ local function apply(icon, d, cfg, row, unit)
     styleTexts(icon, cfg)
     icon.tex:SetTexture(d.icon)
 
-    -- Cooldown display. Plain numbers when readable; the aura's duration object
-    -- (a native handle the cooldown frame / status bar accept) when the numbers
-    -- are hidden. Style "spiral" = swipe, "vertical" = mask growing top to
-    -- bottom; the countdown text is drawn by the cooldown frame in either style.
+    -- Cooldown display: plain numbers when readable, the aura's duration object (a native handle
+    -- the cooldown frame and status bar accept) when hidden. "spiral" is a swipe, "vertical" a
+    -- mask growing top to bottom; either way the cooldown frame draws the countdown text.
     local style = cfg.cdStyle or "spiral"
     local wantAnim, wantTime = cfg.showCooldown, cfg.showTime
     local active = false
@@ -644,9 +629,7 @@ local function apply(icon, d, cfg, row, unit)
         icon.count:SetText("")
     end
 
-    -- Border colour.
     if row.cooldown then
-        -- Green when the player cast it, gold otherwise.
         local mine
         local src = d.sourceUnit
         if src ~= nil and not IsSecret(src) then
@@ -680,7 +663,6 @@ local function apply(icon, d, cfg, row, unit)
         end
     end
 
-
     setupTimeColor(icon, d, cfg, unit)
 
     icon:Show()
@@ -692,13 +674,9 @@ local function edgeSign(point)
     return ax, ay
 end
 
---------------------------------------------------------------------------------
--- Dispellable-debuff effects (after Cell's Dispels indicator): a highlight on
--- the health bar, a coloured border around it, and small dispel-type icons.
--- All driven by the first dispellable debuff; the colour comes from the
--- aura's dispel type - or, when the type is hidden, from the game's own
--- dispel-type colour curve.
---------------------------------------------------------------------------------
+-- Dispellable-debuff effects: a highlight on the health bar, a colored border around it and small
+-- dispel-type icons. All driven by the first dispellable debuff. The color comes from the aura's
+-- dispel type, or from the game's dispel-type color curve when the type is hidden.
 
 local DISPEL_ATLAS = {
     Magic = "RaidFrame-Icon-DebuffMagic", Curse = "RaidFrame-Icon-DebuffCurse",
@@ -728,7 +706,7 @@ local function typeCurve()
     return colorCurve
 end
 
--- The colour of a dispel type: the player's own pick, else the game's / the fallback.
+-- Color of a dispel type: the player's pick, else the game's color / the fallback.
 local function typeColorOf(cfg, name)
     local own = cfg and type(cfg.typeColors) == "table" and cfg.typeColors[name]
     if type(own) == "table" and own[1] then return own end
@@ -792,7 +770,6 @@ local function updateFX(b, cfg, list, unit)
     local r, g, bl = typeRGB(unit, list[1], cfg)
     local health = b.health
 
-    -- Highlight
     local ht = cfg.highlightType or "edge-bottom"
     local op = (cfg.highlightOpacity or 50) / 100
     fx.hl:Hide()
@@ -828,7 +805,6 @@ local function updateFX(b, cfg, list, unit)
         fx.hl:Show()
     end
 
-    -- Border around the health bar
     local th = N.Snap(b, cfg.frameBorderThickness or 2)
     local top, bottom, left, right = fx.bord[1], fx.bord[2], fx.bord[3], fx.bord[4]
     if cfg.frameBorder then
@@ -853,8 +829,8 @@ local function updateFX(b, cfg, list, unit)
         for i = 1, 4 do fx.bord[i]:Hide() end
     end
 
-    -- Dispel-type icons: one per distinct readable type, or a single tinted
-    -- square when the type is hidden.
+    -- Dispel-type icons: one per distinct readable type, or a single tinted square when the type
+    -- is hidden.
     for _, t in ipairs(fx.icons) do t:Hide() end
     if cfg.typeIcons ~= false then
         local shown, seen = 0, {}
@@ -887,7 +863,8 @@ local function updateFX(b, cfg, list, unit)
                         t:SetAtlas(atlas)
                         t:SetVertexColor(1, 1, 1, 1)
                     elseif dn == "Bleed" then
-                        -- No Blizzard dispel-type symbol exists for bleeds: Rupture's icon.
+                        -- Blizzard has no dispel-type symbol for bleeds, so Rupture's icon stands
+                        -- in.
                         t:SetTexture(132302)
                         t:SetTexCoord(0.08, 0.92, 0.08, 0.92)
                         t:SetVertexColor(1, 1, 1, 1)
@@ -909,11 +886,9 @@ local function updateFX(b, cfg, list, unit)
     end
 end
 
---------------------------------------------------------------------------------
--- Engine rows (Retail 12.1+): the game's own aura containers draw the rows, so
--- they keep working in combat. Each row becomes one container (see
--- Frames/AuraEngine.lua); this part only says what each row should show.
---------------------------------------------------------------------------------
+-- Engine rows (Retail 12.1+): the game's own aura containers draw the rows, so they keep working
+-- in combat. Each row becomes one container (see AuraEngine.lua); this part only says what a row
+-- should show.
 
 local DEBUFF_CLASSES = {
     { key = "nonplayer",   cand = { isFromPlayerOrPlayerPet = false } },
@@ -933,12 +908,13 @@ local function copy(t)
     return o
 end
 
--- Debuff row groups. Everything: one group. With filters ticked: "any" = one
--- group per ticked filter (each skipping what an earlier one already shows),
--- "all" = a single group that has to satisfy every ticked filter.
+-- Debuff row groups. Everything: one group. With filters ticked: "any" = one group per ticked
+-- filter (each skipping what an earlier one already shows), "all" = one group that must satisfy
+-- every ticked filter.
 local function debuffGroups(cfg, exclude)
     local function cand(extra)
         local c = copy(extra)
+        if cfg.onlyNonPlayer ~= false then c.isFromPlayerOrPlayerPet = false end
         if exclude then c.excludeSpellIDs = exclude end
         return next(c) and c or nil
     end
@@ -1029,7 +1005,6 @@ local function rowSpec(b, row, cfg)
             spec.growth = cfg.typeIconGrowth or "LEFT"
         end
         spec.max = #DISPEL_ORDER
-        -- Only what the player can dispel (default), or every debuff that has a dispel type.
         local mineOnly = cfg.dispellableOnly ~= false
         local filter = mineOnly and "HARMFUL|RAID_PLAYER_DISPELLABLE" or "HARMFUL"
         for _, token in ipairs(DISPEL_ORDER) do
@@ -1043,7 +1018,7 @@ local function rowSpec(b, row, cfg)
             end
         end
         if #spec.groups == 0 then return nil end
-    else -- defensive / external / offensive
+    else
         local set = parseList(cfg.list)
         local hasList = set and next(set)
         -- Own casts first (green border), then everyone else's (gold).
@@ -1078,7 +1053,6 @@ local function syncEngine(b)
     b._engineLive = live and true or false
 end
 
--- Size + position every pooled icon for the current settings; then repaint.
 function A.Layout(b)
     if not b._nucAuras then return end
     if engineOn(b) then
@@ -1151,7 +1125,6 @@ function A.Update(b)
     end
 end
 
--- Shared with the custom indicators (Frames/CustomIndicators.lua).
 A.MakeIcon = makeIcon
 A.ApplyAura = apply
 A.EdgeSign = edgeSign
@@ -1192,15 +1165,12 @@ function A.Create(b)
     for _, row in ipairs(ROWS) do b._nucAuras[row.kind] = {} end
 end
 
---------------------------------------------------------------------------------
--- Private auras (Retail). Up to 5 slots in a row, each its own Blizzard anchor
--- (C_UnitAuras.AddPrivateAuraAnchor with auraIndex = slot). Blizzard draws the
--- icon, its countdown and its red border; we only provide the place. The game
--- drops the anchors when a frame is handed to a different unit - even when the
--- unit token stays the same - so they are re-created on every roster / zone
--- change as well as on unit and settings changes. Registration happens in a
--- timer (never inside the secure header's own update) and waits out combat.
---------------------------------------------------------------------------------
+-- Private auras: up to 5 slots in a row, each its own Blizzard anchor
+-- (C_UnitAuras.AddPrivateAuraAnchor with auraIndex = slot). Blizzard draws the icon, countdown and
+-- red border, we only provide the place. The game drops the anchors when a frame is handed to
+-- another unit, even if the unit token stays the same, so they are re-created on every roster/zone
+-- change as well as on unit and settings changes. Registration runs in a timer (never inside the
+-- secure header's update) and waits out combat.
 
 local addAnchor = C_UnitAuras and C_UnitAuras.AddPrivateAuraAnchor
 local removeAnchor = C_UnitAuras and C_UnitAuras.RemovePrivateAuraAnchor

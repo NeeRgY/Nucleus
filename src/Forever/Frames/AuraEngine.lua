@@ -2,33 +2,33 @@ local _, ns = ...
 local N = ns.N
 local M = N.Media
 
---------------------------------------------------------------------------------
--- Aura engine (Retail 12.1+).
+-- Aura engine (Retail 12.1+)
 --
--- Since 12.1 addon code can no longer read a unit's auras in combat (every field
--- is sealed). What it can still do is *display* them: the game's own
--- "AuraContainer" frame is told which auras to show - a filter string such as
--- "HELPFUL|PLAYER" plus an optional list of spell IDs - and it creates, fills and
--- drives the icon buttons itself. We only create the container, say how its
--- buttons look (initializeFrame), where it sits and which unit it watches.
+-- Since 12.1 addon code can't read a unit's auras in combat (every field is sealed), but it can
+-- still display them: the game's own AuraContainer frame is told which auras to show (a filter
+-- string like "HELPFUL|PLAYER" plus an optional list of spell IDs) and creates, fills and drives
+-- the icon buttons itself. We create the container, say how its buttons look (initializeFrame),
+-- where it sits and which unit it watches.
 --
---   E.Supported()                      -> bool (needs a non-combat first call)
---   E.Apply(button, id, spec)          -> build / retune one container; spec = nil removes it
+--   E.Supported()              -> bool (needs a non-combat first call)
+--   E.Apply(button, id, spec)  -> build / retune one container; spec = nil removes it
 --   E.Remove(button, id)
 --
 -- spec = {
---   groups   = { { key, filter, candidate = {...}, max, token (dispel type), border = {r,g,b} }, ... },
---   shape    = "icon" | "rect" | "bar" | "border" | "overlay" | "text" | "dispel",
+--   groups = { { key, filter, candidate = {...}, max, token (dispel type), border = {r,g,b} }, ...
+--     },
+--   shape  = "icon" | "rect" | "bar" | "border" | "overlay" | "text" | "dispel",
 --   size, spacing, point, x, y, growth, max,
---   cd = "spiral" | "vertical" | "none", stacks, time, timeSize, timeX, timeY, stackSize, stackX, stackY,
---   timeColor = { seconds, color }, color = {r,g,b}, width, height, thickness, opacity, around, text, fill,
+--   cd = "spiral" | "vertical" | "none", stacks, time, timeSize, timeX, timeY, stackSize, stackX,
+--     stackY,
+--   timeColor = { seconds, color }, color = {r,g,b}, width, height, thickness, opacity, around,
+--     text, fill,
 --   dispel = { ... }  (shape "dispel": highlight, border, type-icon settings)
 -- }
 --
--- Containers cannot be created in combat (the game errors out), so structural
--- changes wait for it to end. Everything numeric (size, spacing, position, font
--- sizes) is applied live to the buttons the container has handed out.
---------------------------------------------------------------------------------
+-- Containers can't be created in combat (the game errors), so structural changes wait for it to
+-- end. Numeric things (size, spacing, position, font sizes) are applied live to the buttons the
+-- container has handed out.
 
 local E = {}
 N.AuraEngine = E
@@ -38,9 +38,9 @@ local supported
 
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 
--- `v` UI units as whole physical pixels at the frame's scale: plain 1-unit insets land on
--- different sub-pixels at the top-left and the bottom-right when the UI scale is not 1,
--- which made two edges of an icon look thicker than the other two.
+-- v UI units as whole physical pixels at the frame's scale. Plain 1-unit insets land on different
+-- sub-pixels at opposite corners when the UI scale isn't 1, which made two edges of an icon look
+-- thicker.
 local function snap(frame, v)
     local PU = _G.PixelUtil
     if PU and PU.GetNearestPixelSize and frame and frame.GetEffectiveScale then
@@ -53,7 +53,6 @@ local function snap(frame, v)
     return v
 end
 
-
 local function loadModule()
     if C_AddOns and C_AddOns.LoadAddOn then pcall(C_AddOns.LoadAddOn, "Blizzard_AuraContainer") end
 end
@@ -61,8 +60,8 @@ end
 function E.Supported()
     if supported ~= nil then return supported end
     local toc = select(4, GetBuildInfo())
-    -- Forever (build 16001) has the AuraContainer API (Cell verified it in-game) but reports
-    -- a low build number, so the build gate does not apply there; the container probe below does.
+    -- Forever (build 16001) has the AuraContainer API but reports a low build number, so the build
+    -- gate doesn't apply there; the container probe below does.
     if not N.IS_FOREVER and (type(toc) ~= "number" or toc < 120100) then supported = false return false end
     if InCombatLockdown() then return false end -- creating a container in combat is a hard error
     loadModule()
@@ -76,19 +75,18 @@ end
 -- formatters
 --------------------------------------------------------------------------------
 
--- The countdown text is a formatter over the remaining seconds: bands switch the
--- number format (whole seconds, or tenths below `decimals` seconds) and the
--- colour (the "|c" escape, red below `seconds`). All of it is evaluated by the
--- game, so it works while the aura's timing is hidden.
+-- The countdown text is a formatter over the remaining seconds: bands switch the number format
+-- (whole seconds, or tenths below `decimals`) and the color (red below `seconds`). The game
+-- evaluates it, so it works while the aura's timing is hidden.
 local formatters = {}
 local function hex(c)
     return ("|cff%02x%02x%02x"):format(math.floor(c[1] * 255 + 0.5), math.floor(c[2] * 255 + 0.5), math.floor(c[3] * 255 + 0.5))
 end
 
--- A highlight that tints the health bar must sit BELOW the frame's texts and icons:
--- the aura buttons live in frames above them, so the tint gets a frame of its own, set
--- just above the health bar's absorb / heal overlays and below the indicator overlay.
--- (It is a child of the button, so it shows and hides with it.)
+-- A highlight tinting the health bar must sit BELOW the frame's texts and icons. The aura buttons
+-- live in frames above them, so the tint gets its own frame, just above the health bar's
+-- absorb/heal overlays and below the indicator overlay. It is a child of the button, so it shows
+-- and hides with it.
 local function lowLayer(button, owner)
     local host = owner.health or owner
     local f = CreateFrame("Frame", nil, button)
@@ -123,13 +121,11 @@ local function formatterFor(tc)
         points[#points + 1] = { threshold = s, format = f, step = dec and 0.1 or 1, rounding = dec and down or up }
     end
     local last = bounds[#bounds]
-    local rest = {
-        { threshold = 60,    format = "%dm", step = 1, rounding = down, components = { { div = 60 } } },
-        { threshold = 3600,  format = "%dh", step = 1, rounding = down, components = { { div = 3600 } } },
-        { threshold = 86400, format = "%dd", step = 1, rounding = down, components = { { div = 86400 } } },
-    }
-    for _, p in ipairs(rest) do
-        if p.threshold > last then points[#points + 1] = p end
+    for _, u in ipairs({ { 60, "m" }, { 3600, "h" }, { 86400, "d" } }) do
+        if u[1] > last then
+            points[#points + 1] = { threshold = u[1], format = "%d" .. u[2], step = 1, rounding = down,
+                components = { { div = u[1] } } }
+        end
     end
     local f = C_StringUtil.CreateNumericRuleFormatter()
     if pcall(f.SetBreakpoints, f, points) then formatters[key] = f end
@@ -151,13 +147,14 @@ local function pulseGroup(region, duration)
     return ag, a
 end
 
--- Frame-wide glows (custom indicator "Glow"; also the preview). Only what the
--- game animates by itself is used - no Lua per frame:
---   pulse    a ring (a mask hollows a white texture) fading in and out
---   halo     a soft glow fading in and out
---   pixel    dashes marching round the edge: tiled strips that a
---            translation animation slides by exactly one period, clipped to the edge
---   E.NewGlow(parentFrame, anchorFrame) -> g;  g:Show(style, r, g, b, offset, thickness, speed, length);  g:Hide()
+-- Frame-wide glows (custom indicator "Glow", also the preview). Only what the game animates by
+-- itself, no Lua per frame:
+--   pulse  a ring (a mask hollows a white texture) fading in and out
+--   halo   a soft glow fading in and out
+--   pixel dashes marching round the edge: tiled strips that a translation animation slides by
+--     exactly one period, clipped to the edge
+--   E.NewGlow(parentFrame, anchorFrame) -> g; g:Show(style, r, g, b, offset, thickness, speed,
+--     length); g:Hide()
 local PROC_ATLAS = "UI-HUD-ActionBar-Proc-Loop-Flipbook"
 
 local function loopingAlpha(region, duration)
@@ -174,7 +171,7 @@ function E.NewGlow(parent, anchor)
     local g = {}
     local wrap = CreateFrame("Frame", nil, parent)
     wrap:EnableMouse(false)
-    wrap:SetFrameLevel((anchor:GetFrameLevel() or 1) + 60) -- above everything of the unit frame
+    wrap:SetFrameLevel((anchor:GetFrameLevel() or 1) + 60)
     wrap:Hide()
     local ring, halo, strips
 
@@ -228,14 +225,14 @@ function E.NewGlow(parent, anchor)
             clip:SetPoint("TOPRIGHT", wrap, "TOPRIGHT", -inset, -inset - th)
             clip:SetPoint("BOTTOMRIGHT", wrap, "BOTTOMRIGHT", -inset, inset + th)
             clip:SetWidth(th)
-        else -- left
+        else
             clip:SetPoint("TOPLEFT", wrap, "TOPLEFT", inset, -inset - th)
             clip:SetPoint("BOTTOMLEFT", wrap, "BOTTOMLEFT", inset, inset + th)
             clip:SetWidth(th)
         end
-        -- Going round clockwise: the top moves right, the right side down, the
-        -- bottom left, the left side up. `reverse` goes the other way. The strip
-        -- is one period longer than the clip, on the side it slides in from.
+        -- Going round clockwise: top moves right, right side down, bottom left, left side up.
+        -- `reverse` goes the other way. The strip is one period longer than the clip, on the side
+        -- it slides in from.
         if horizontal then
             if (side == "top") ~= (reverse == true) then
                 tex:SetPoint("TOPLEFT", clip, "TOPLEFT", -period, 0)
@@ -295,7 +292,6 @@ function E.NewGlow(parent, anchor)
             halo.out:SetDuration(d); halo.back:SetDuration(d)
             halo.tex:Show(); halo.ag:Play()
         elseif style == "pixel" then
-            -- Dashes marching round the edge, just outside it.
             pin(off + th)
             strips = strips or {}
             for i = 1, 4 do strips[i] = strips[i] or makeStrip() end
@@ -304,7 +300,7 @@ function E.NewGlow(parent, anchor)
             local secs = math.max(0.05, period / (speed * 2 * (W + H)))
             for i, side in ipairs({ "top", "right", "bottom", "left" }) do
                 layoutStrip(strips[i], side, 0, th, period, secs, W, H, M.tex.glowDash, r, gr, b)
-            end        else -- "pulse": the ring, just outside the edge
+            end        else
             pin(off + th)
             if not ring then
                 local tex = wrap:CreateTexture(nil, "OVERLAY", nil, 7)
@@ -383,9 +379,9 @@ local function animation(button, kind)
     local cd = CreateFrame("Cooldown", nil, button, "CooldownFrameTemplate")
     cd:SetAllPoints(button)
     cd:EnableMouse(false)
-    cd:SetHideCountdownNumbers(true)
-    cd:SetDrawEdge(false)
     cd:SetDrawBling(false)
+    cd:SetDrawEdge(false)
+    cd:SetHideCountdownNumbers(true)
     if kind == "none" then
         cd:SetSwipeColor(0, 0, 0, 0)
     else
@@ -410,7 +406,7 @@ local function restyle(button, spec)
         else
             pcall(button.SetSize, button, 0.001, 0.001)
         end
-        if sz.typeTex then sz.typeTex:SetShown(d.typeIcons and not d.showIcons) end
+        if sz.typeTex then pcall(sz.typeTex.SetShown, sz.typeTex, d.typeIcons and not d.showIcons) end
         return
     end
     if spec.shape == "rect" or spec.shape == "bar" then
@@ -423,17 +419,21 @@ local function restyle(button, spec)
         pcall(button.SetSize, button, spec.size or 16, spec.size or 16)
     end
     if sz.count then
-        sz.count:SetFont(M.font, spec.stackSize or 10, "OUTLINE")
-        sz.count:ClearAllPoints()
-        sz.count:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", spec.stackX or 1, spec.stackY or -1)
+        pcall(function()
+            sz.count:SetFont(M.font, spec.stackSize or 10, "OUTLINE")
+            sz.count:ClearAllPoints()
+            sz.count:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", spec.stackX or 1, spec.stackY or -1)
+        end)
     end
     if sz.time then
-        sz.time:SetFont(M.font, spec.timeSize or 10, "OUTLINE")
-        sz.time:ClearAllPoints()
-        sz.time:SetPoint("CENTER", button, "CENTER", spec.timeX or 0, spec.timeY or 0)
+        pcall(function()
+            sz.time:SetFont(M.font, spec.timeSize or 10, "OUTLINE")
+            sz.time:ClearAllPoints()
+            sz.time:SetPoint("CENTER", button, "CENTER", spec.timeX or 0, spec.timeY or 0)
+        end)
     end
     if sz.label then
-        sz.label:SetFont(M.font, spec.fontSize or 12, "OUTLINE")
+        pcall(sz.label.SetFont, sz.label, M.font, spec.fontSize or 12, "OUTLINE")
     end
 end
 
@@ -532,13 +532,25 @@ local function initButton(h, group)
                 local c = spec.color or { 1, 1, 1 }
                 local t = lowLayer(button, b):CreateTexture(nil, "ARTWORK", nil, 4)
                 t:SetTexture(WHITE)
-                t:SetAllPoints(b.health or b)
-                t:SetVertexColor(c[1], c[2], c[3], spec.opacity or 0.35)
+                if spec.isColor then
+                    local c2 = spec.color2 or c
+                    local a, z = CreateColor(c[1], c[2], c[3], 1), CreateColor(c2[1], c2[2], c2[3], 1)
+                    if N.CustomIndicators and N.CustomIndicators.AnchorArea then
+                        N.CustomIndicators.AnchorArea(t, b, spec.colorArea)
+                    end
+                    if spec.colorMode == "gradient-v" then t:SetGradient("VERTICAL", z, a)
+                    elseif spec.colorMode == "gradient-h" then t:SetGradient("HORIZONTAL", a, z)
+                    else t:SetGradient("HORIZONTAL", a, a) end
+                    t:SetAlpha(spec.opacity or 1)
+                else
+                    t:SetAllPoints(b.health or b)
+                    t:SetVertexColor(c[1], c[2], c[3], spec.opacity or 0.35)
+                end
             elseif shape == "rect" or shape == "bar" then
                 local c = spec.color or { 1, 0.8, 0.2 }
                 local back = button:CreateTexture(nil, "BACKGROUND")
                 back:SetAllPoints(button)
-                back:SetColorTexture(0, 0, 0, 0.6)
+                back:SetColorTexture(0, 0, 0, spec.isColor and 0 or 0.6)
                 if shape == "bar" and type(button.SetDurationBar) == "function" then
                     local bar = CreateFrame("StatusBar", nil, button)
                     bar:SetPoint("TOPLEFT", snap(button, 1), snap(button, -1))
@@ -562,7 +574,19 @@ local function initButton(h, group)
                     local fillTex = button:CreateTexture(nil, "ARTWORK")
                     fillTex:SetPoint("TOPLEFT", snap(button, 1), snap(button, -1))
                     fillTex:SetPoint("BOTTOMRIGHT", snap(button, -1), snap(button, 1))
-                    fillTex:SetColorTexture(c[1], c[2], c[3], 1)
+                    if spec.isColor then
+                        local c2 = spec.color2 or c
+                        local a, z = CreateColor(c[1], c[2], c[3], 1), CreateColor(c2[1], c2[2], c2[3], 1)
+                        fillTex:SetTexture(WHITE)
+                        if spec.colorMode == "gradient-v" then fillTex:SetGradient("VERTICAL", z, a)
+                        elseif spec.colorMode == "gradient-h" then fillTex:SetGradient("HORIZONTAL", a, z)
+                        else fillTex:SetGradient("HORIZONTAL", a, a) end
+                        fillTex:SetAlpha(spec.opacity or 1)
+                        fillTex:ClearAllPoints()
+                        fillTex:SetAllPoints(button)
+                    else
+                        fillTex:SetColorTexture(c[1], c[2], c[3], 1)
+                    end
                 end
             elseif shape == "glow" then
                 local c = spec.color or { 1, 1, 1 }
@@ -576,6 +600,7 @@ local function initButton(h, group)
                 host:EnableMouse(false)
                 local fs = host:CreateFontString(nil, "OVERLAY")
                 fs:SetPoint("CENTER")
+                fs:SetFont(M.font, spec.fontSize or 12, "OUTLINE")
                 local c = spec.color or { 1, 1, 1 }
                 fs:SetTextColor(c[1], c[2], c[3], 1)
                 sz.label = fs
@@ -587,7 +612,7 @@ local function initButton(h, group)
                 else
                     fs:SetText((t:gsub("{%w+}", "")))
                 end
-            else -- "icon"
+            else
                 local back = button:CreateTexture(nil, "BACKGROUND")
                 back:SetAllPoints(button)
                 local fb = M.color.frameBg
@@ -610,11 +635,15 @@ local function initButton(h, group)
                 if spec.stacks then
                     local fs = host:CreateFontString(nil, "OVERLAY")
                     fs:SetJustifyH("RIGHT")
+                    fs:SetFont(M.font, spec.stackSize or 10, "OUTLINE")
+                    fs:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", spec.stackX or 1, spec.stackY or -1)
                     pcall(button.SetApplicationCount, button, fs, {})
                     sz.count = fs
                 end
                 if spec.time then
                     local fs = host:CreateFontString(nil, "OVERLAY")
+                    fs:SetFont(M.font, spec.timeSize or 10, "OUTLINE")
+                    fs:SetPoint("CENTER", button, "CENTER", spec.timeX or 0, spec.timeY or 0)
                     bindTime(button, fs, spec)
                     sz.time = fs
                 end
@@ -671,10 +700,9 @@ local function anchor(h)
     local point = spec.point or "CENTER"
     local ax, ay = 0, 0
     if spec.shape ~= "border" and spec.shape ~= "overlay" and spec.shape ~= "glow" then ax, ay = edgeSign(point) end
-    -- The game's flow starts the first button at the container's anchor with its
-    -- near edge, so on a point with no left / right part (top, centre, bottom) the
-    -- row begins half an icon to the right of the middle: pull it back so the
-    -- first icon sits in the middle.
+    -- The game's flow puts the first button's near edge at the container's anchor, so on a point
+    -- with no left/right part (top, center, bottom) the row would start half an icon right of the
+    -- middle. Pull it back so the first icon sits centered.
     local shape = spec.shape
     if (shape == "icon" or shape == "rect" or shape == "bar" or shape == "dispel")
         and not (point:find("LEFT") or point:find("RIGHT")) then
@@ -750,7 +778,6 @@ local function bindUnit(h)
     end
 end
 
--- Structural signature: everything that needs a new container when it changes.
 local function signature(spec)
     local parts = { spec.shape, spec.cd or "", tostring(spec.stacks), tostring(spec.time),
         tostring(spec.dispelBorder), spec.around or "", spec.text or "", spec.fill or "" }
@@ -766,6 +793,8 @@ local function signature(spec)
         local c = spec.color or {}
         parts[#parts + 1] = ("%s|%s|%s|%s|%s"):format(tostring(c[1]), tostring(c[2]), tostring(c[3]),
             tostring(spec.thickness), tostring(spec.opacity))
+        local c2 = spec.color2 or {}
+        parts[#parts + 1] = ("m%s|%s|%s|%s|%s"):format(tostring(spec.colorMode), tostring(spec.isColor) .. tostring(spec.colorArea), tostring(c2[1]), tostring(c2[2]), tostring(c2[3]))
     end
 
     if spec.shape == "glow" then
@@ -831,8 +860,8 @@ local function handleOf(button, id)
     return h
 end
 
--- Takes a row's container out of play and keeps it for reuse (containers can
--- never be destroyed). In combat it is only hidden.
+-- Takes a row's container out of play and keeps it for reuse (containers can't be destroyed). In
+-- combat it is only hidden.
 local function removeOne(button, id)
     local map = state[button]
     local h = map and map[id]
@@ -881,14 +910,12 @@ function E.RemoveAll(button)
     if not map then return end
     for id in pairs(map) do E.Remove(button, id) end
 end
--- A button got a different unit (roster change): follow it.
 function E.Rebind(button)
     local map = state[button]
     if not map then return end
     for _, h in pairs(map) do bindUnit(h) end
 end
 
--- Leaving combat: finish whatever was postponed.
 local cf = CreateFrame("Frame")
 cf:RegisterEvent("PLAYER_REGEN_ENABLED")
 cf:SetScript("OnEvent", function()

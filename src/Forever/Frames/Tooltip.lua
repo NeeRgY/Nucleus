@@ -1,8 +1,8 @@
 local _, ns = ...
 local N = ns.N
 
--- GameTooltip for unit frames on mouseover. UnitFrame calls Tooltip.Attach on
--- each button; this module owns the show/hide rules.
+-- GameTooltip on mouseover for unit frames. UnitFrame calls Tooltip.Attach per button, this module
+-- decides when to show or hide.
 
 local TT = {}
 N.Tooltip = TT
@@ -14,22 +14,22 @@ local function shouldShow()
 end
 
 function TT.Attach(button)
-    button:HookScript("OnEnter", function(self)
-        if not self.unit or not shouldShow() then return end
-        GameTooltip:SetOwner(self, "ANCHOR_TOPLEFT")
-        GameTooltip:SetUnit(self.unit)
+    local target = button._secure or button -- the secure button gets the mouse
+    target:HookScript("OnEnter", function()
+        if not button.unit or not shouldShow() then return end
+        GameTooltip:SetOwner(target, "ANCHOR_TOPLEFT")
+        GameTooltip:SetUnit(button.unit)
         GameTooltip:Show()
     end)
-    button:HookScript("OnLeave", function()
+    target:HookScript("OnLeave", function()
         GameTooltip:Hide()
     end)
 end
 
--- Drop a tooltip we own the moment combat starts if the setting says so.
 local f = CreateFrame("Frame")
 f:RegisterEvent("PLAYER_REGEN_DISABLED")
 f:SetScript("OnEvent", function()
     if not (N.db and N.db.tooltip.hideInCombat) then return end
     local owner = GameTooltip:GetOwner()
-    if owner and owner._nucVisual then GameTooltip:Hide() end
+    if owner and (owner._nucVisual or (N.UnitFrame and N.UnitFrame.VisualOf(owner))) then GameTooltip:Hide() end
 end)

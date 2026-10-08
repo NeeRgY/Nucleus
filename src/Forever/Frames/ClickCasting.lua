@@ -1,30 +1,22 @@
 local _, ns = ...
 local N = ns.N
 
--- Modifier+click -> spell/item/macro directly from a unit frame. Secure
--- attributes only, written out of combat via N.RunWhenSafe (same rule
--- HeaderGroup follows for every other attribute write): Nucleus never
--- touches these while InCombatLockdown() is true.
+-- Modifier+click -> spell/item/macro straight from a unit frame. Secure attributes only, written
+-- out of combat via N.RunWhenSafe.
 --
--- Namespacing note: the header's own initialConfigFunction sets *type1
--- ("target") and *type2 ("togglemenu") - the asterisk-prefixed wildcard
--- attributes SecureGroupHeaderTemplate falls back to. Click-casting instead
--- sets the plain, modifier-prefixed attributes (shift-type1, ctrl-type2, ...),
--- which sit in a separate namespace and only ever override a click for the
--- specific modifier+button combo that has a binding - every other click
--- keeps falling through to the header's *type1/*type2 default.
+-- The header's initialConfigFunction sets the wildcards *type1 ("target") and *type2
+-- ("togglemenu"). Click-casting sets the modifier-prefixed ones (shift-type1, ...), which only
+-- override the combos that have a binding; every other click keeps the default.
 
 local CC = {}
 N.ClickCasting = CC
 
 local BUTTON_INDEX = { LeftButton = 1, RightButton = 2, MiddleButton = 3, Button4 = 4, Button5 = 5 }
 
--- Modifier combos are stored/used in Blizzard's own attribute order - "alt-",
--- then "ctrl-", then "shift-" - because SecureButton_GetModifierPrefix builds
--- the prefix in exactly that order; a binding written "shift-ctrl-" would
--- never match a real Ctrl+Shift click. Older saves used other orders
--- ("shift-ctrl", "shift-alt", "ctrl-alt"), so everything goes through
--- NormalizeModifier first.
+-- Modifier combos are stored in Blizzard's attribute order, "alt-", then "ctrl-", then "shift-",
+-- because SecureButton_GetModifierPrefix builds the prefix in exactly that order; a binding
+-- written "shift-ctrl-" would never match. Older saves used other orders, so everything goes
+-- through NormalizeModifier first.
 local ALL_MODS = {
     "none", "alt", "ctrl", "shift", "alt-ctrl", "alt-shift", "ctrl-shift", "alt-ctrl-shift",
 }
@@ -45,7 +37,6 @@ local function modPrefix(mod)
     return mod == "none" and "" or (mod .. "-")
 end
 
--- The modifier combo held down right now, in canonical form.
 function CC.CurrentModifier()
     local out = {}
     if IsAltKeyDown() then out[#out + 1] = "alt" end
@@ -54,7 +45,6 @@ function CC.CurrentModifier()
     return #out > 0 and table.concat(out, "-") or "none"
 end
 
--- Human-readable "Shift + Left Click" for a binding.
 function CC.BindingText(binding)
     local L = N.L
     local mod = CC.NormalizeModifier(binding and binding.modifier)
@@ -73,11 +63,10 @@ function CC.BindingText(binding)
     return table.concat(parts, " + ")
 end
 
--- Returns the four attribute name/value pairs a binding needs, or nil for an
--- empty/invalid one. A macro value that starts with "/" or "#" is macro TEXT
--- (what older saves hold); anything else is the NAME of one of the player's
--- own macros, run through the secure "macro" attribute.
--- Kinds with no value: the secure action type alone is the whole binding.
+-- Returns the four attribute name/value pairs a binding needs, or nil for an empty/invalid one. A
+-- macro value starting with "/" or "#" is macro TEXT (older saves); anything else is the NAME of
+-- one of the player's macros, run through the secure "macro" attribute. Kinds without a value: the
+-- secure action type alone is the whole binding.
 local PLAIN_ACTIONS = { target = "target", focus = "focus", menu = "togglemenu", assist = "assist" }
 
 local function attrPairs(binding)
@@ -87,8 +76,8 @@ local function attrPairs(binding)
     local prefix = modPrefix(binding.modifier)
     local typeAttr = prefix .. "type" .. idx
 
-    -- "general" holds the action in value; the bare kinds are what an earlier
-    -- build of the options window saved.
+    -- "general" keeps the action in value; the bare kinds are what an earlier build of the options
+    -- window saved.
     local plain = (binding.kind == "general") and PLAIN_ACTIONS[binding.value]
         or PLAIN_ACTIONS[binding.kind]
     if plain then return typeAttr, plain end
@@ -107,20 +96,22 @@ local function attrPairs(binding)
     return nil
 end
 
--- Blizzard's click-binding gate: "target" with a modifier or on any button but the plain
--- left click, and "togglemenu" on every button, are only allowed through a secure
--- action button of its own. A frame whose attribute says type="click" forwards the click
--- to such a proxy (clickbutton attribute), which then runs the real action.
+-- Blizzard's click-binding gate: "target" with a modifier or on any button but plain left click,
+-- and "togglemenu" on every button, only work through a secure action button of their own. A frame
+-- with type="click" forwards the click to such a proxy (clickbutton attribute), which runs the
+-- real action.
+local proxyOf = setmetatable({}, { __mode = "k" }) -- kept off the secure frame
 local function clickProxy(button)
-    if button._nucProxy then return button._nucProxy end
-    if InCombatLockdown() then return nil end
-    local proxy = CreateFrame("Button", nil, button, "SecureActionButtonTemplate")
-    proxy:EnableMouse(false)
-    proxy:RegisterForClicks("AnyDown", "AnyUp")
-    proxy:SetAttribute("useparent-unit", true)
-    proxy:SetAttribute("useOnKeyDown", false)
-    button._nucProxy = proxy
-    return proxy
+    local have = proxyOf[button]
+    if have or InCombatLockdown() then return have end -- a secure frame cannot be made in combat
+    have = CreateFrame("Button", nil, button, "SecureActionButtonTemplate")
+    -- It takes the unit from the frame it hangs on and fires on release, never by mouse itself.
+    have:SetAttribute("useOnKeyDown", false)
+    have:SetAttribute("useparent-unit", true)
+    have:RegisterForClicks("AnyDown", "AnyUp")
+    have:EnableMouse(false)
+    proxyOf[button] = have
+    return have
 end
 
 local function isGated(typeAttr, action)
@@ -145,14 +136,14 @@ local function setPlainAction(button, typeAttr, action)
     button:SetAttribute(typeAttr, action)
 end
 
--- Clear every click-cast attribute slot before reapplying, so a removed or
--- retyped binding actually stops firing instead of sticking to the button.
+-- Clears every click-cast attribute slot before reapplying, so a removed or retyped binding stops
+-- firing.
 function CC.ClearAll(button)
     for _, mod in ipairs(ALL_MODS) do
         local prefix = modPrefix(mod)
         for _, idx in pairs(BUTTON_INDEX) do
             button:SetAttribute(prefix .. "clickbutton" .. idx, nil)
-            if button._nucProxy then button._nucProxy:SetAttribute(prefix .. "type" .. idx, nil) end
+            if proxyOf[button] then proxyOf[button]:SetAttribute(prefix .. "type" .. idx, nil) end
             button:SetAttribute(prefix .. "type" .. idx, nil)
             button:SetAttribute(prefix .. "spell" .. idx, nil)
             button:SetAttribute(prefix .. "item" .. idx, nil)
@@ -176,14 +167,14 @@ function CC.Apply(button, bindings)
             if ta == "type2" then menuOnRight = true end
         end
     end
-    -- Plain right click without a binding falls back to the header's built-in menu
-    -- wildcard, which the gate blocks the same way: send it through the proxy too.
+    -- A plain right click without a binding falls back to the header's togglemenu wildcard, which
+    -- the gate blocks the same way, so route it through the proxy too.
     if not menuOnRight then setPlainAction(button, "type2", "togglemenu") end
 end
 
--- Click-casting bindings are per class. `clickCasting.bindings` always points
--- at the list of the class being played (so the rest of the code and the
--- options page just work on it); the others live in clickCasting.byClass.
+-- Bindings are per class. clickCasting.bindings always points at the list of the class being
+-- played (so the rest of the code and the options page work on it); the others live in
+-- clickCasting.byClass.
 local function knownSpell(value)
     if value == nil or value == "" then return false end
     -- Forever: "Name(Rank N)" - look the spell up by its name.
@@ -197,8 +188,8 @@ function CC.SelectClass()
     local _, class = UnitClass("player")
     if not (cc and cc.byClass and class and cc.byClass[class]) then return end
     if not cc.migrated then
-        -- Older saves had one shared list: every class starts from it, and the
-        -- class being played now drops the spells it does not know.
+        -- Older saves had one shared list: every class starts from it, and the current class drops
+        -- the spells it doesn't know.
         for c in pairs(cc.byClass) do cc.byClass[c] = N.DeepCopy(cc.bindings) end
         local mine = cc.byClass[class]
         for i = #mine, 1, -1 do
@@ -206,7 +197,6 @@ function CC.SelectClass()
         end
         cc.migrated = true
     end
-    -- A specialization with bindings of its own uses those, otherwise the class's list.
     local specID = N.Profiles and N.Profiles.GetSpec and N.Profiles.GetSpec()
     local own = specID and type(cc.bySpec) == "table" and cc.bySpec[specID]
     cc.bindings = (type(own) == "table" and own) or cc.byClass[class]
@@ -215,9 +205,9 @@ end
 function CC.ApplyToAll()
     if not N.db or not N.UnitFrame then return end
     N.RunWhenSafe(function()
-        N.UnitFrame.ForEachButton(function(child)
+        N.UnitFrame.ForEachButton(function(b)
+            local child = b._secure or b -- bindings live on the secure button
             CC.ClearAll(child)
-            -- Unbound clicks still do the usual: left targets, right opens the menu.
             child:SetAttribute("*type1", "target")
             child:SetAttribute("*type2", "togglemenu")
             CC.Apply(child, N.db.clickCasting and N.db.clickCasting.bindings)
@@ -232,7 +222,6 @@ N:On("NUCLEUS_SETTING_CHANGED", function(_, section)
     end
 end)
 
--- A different specialization: its bindings (or the class's) are the ones in use.
 local specWatcher = CreateFrame("Frame")
 specWatcher:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
 specWatcher:SetScript("OnEvent", function(_, _, unit)
@@ -243,17 +232,16 @@ specWatcher:SetScript("OnEvent", function(_, _, unit)
     end)
 end)
 
--- Re-apply whenever the header may have (re)built children - mirrors
--- HeaderGroup's own re-style cadence so a freshly created child during combat
--- picks up bindings as soon as combat ends, same as everything else does.
+-- Re-apply whenever the header may have (re)built children, same cadence as HeaderGroup's
+-- re-style, so a child created in combat gets its bindings once combat ends.
 local watcher = CreateFrame("Frame")
 watcher:RegisterEvent("GROUP_ROSTER_UPDATE")
 watcher:RegisterEvent("PLAYER_ENTERING_WORLD")
 watcher:RegisterEvent("PLAYER_REGEN_ENABLED")
 watcher:SetScript("OnEvent", CC.ApplyToAll)
 
--- Pick the class's list once the spellbook is readable (a hidden spellbook would
--- make every spell look unknown), then again on a profile switch.
+-- Pick the class's list once the spellbook is readable (a hidden spellbook would make every spell
+-- look unknown), then again on a profile switch.
 local selectTries = 0
 local function trySelect()
     if IsPlayerSpell and IsPlayerSpell(6603) or selectTries >= 6 then -- 6603: Auto Attack
@@ -286,7 +274,7 @@ function CC.DebugDump()
     if not cc then return end
     N:Print("click-cast: bindings =", #cc.bindings)
     local btn
-    N.UnitFrame.ForEachButton(function(child) btn = btn or child end)
+    N.UnitFrame.ForEachButton(function(child) btn = btn or child._secure or child end)
     for i, b in ipairs(cc.bindings) do
         local ta, tv, va, vv = attrPairs(b)
         local live = ta and btn and btn:GetAttribute(ta) or nil

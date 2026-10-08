@@ -3,25 +3,21 @@ local N = ns.N
 
 -- Profiles
 --
--- A profile is a complete set of frame settings: party and raid frames
--- (layout, appearance, indicators, auras), tooltip, ping, click-casting and
--- the targeted spell bars. Everything else (language, options-window scale and
--- highlight colour, minimap button, lock state, ...) is account-wide and
--- shared by all profiles.
+-- A profile is a full set of frame settings: party and raid frames (layout, appearance,
+-- indicators, auras), tooltip, ping, click-casting and targeted spell bars. Everything else
+-- (language, window scale, highlight color, minimap button, lock state, ...) is account-wide.
 --
--- N.db is a thin proxy: reading or writing a profile key (N.db.party,
--- N.db.clickCasting, ...) goes to the ACTIVE profile's table, anything else to
--- the SavedVariables root. Every module keeps using N.db.<key> unchanged; a
--- profile switch only swaps which table the proxy points at, then replays a
--- few settings events so each module re-applies itself.
+-- N.db is a thin proxy: reading or writing a profile key (N.db.party, N.db.clickCasting, ...) goes
+-- to the ACTIVE profile's table, anything else to the SavedVariables root. A profile switch only
+-- swaps the table the proxy points at and replays a few settings events so each module re-applies
+-- itself.
 --
 -- SavedVariables layout (NucleusDB_Mainline):
---   <global keys>            language, uiScale, accentColor, minimap, ...
---   currentProfile           name of the active profile
---   profiles[name]           { party=, raid=, tooltip=, core=, ping=,
---                              clickCasting=, targetedSpellBars= }
---   autoSwitch               { enabled, role[ROLE][situation], spec[specID][situation] }
---   backups[i]               { time, name, data } newest first, capped
+--   <global keys>   language, uiScale, accentColor, minimap, ...
+--   currentProfile  name of the active profile
+--   profiles[name]  { party=, raid=, tooltip=, core=, ping=, clickCasting=, targetedSpellBars= }
+--   autoSwitch      { enabled, role[ROLE][situation], spec[specID][situation] }
+--   backups[i]      { time, name, data } newest first, capped
 
 local P = {}
 N.Profiles = P
@@ -40,7 +36,7 @@ P.HIDE = HIDE
 local MAX_BACKUPS = 5
 local PREFIX = "!NUC:"
 
--- Situations the auto-switch can tell apart, in display order.
+-- Situations the auto-switch tells apart, in display order.
 P.SITUATIONS = {
     { key = "solo",           label = "Solo" },
     { key = "party",          label = "Party" },
@@ -75,8 +71,7 @@ function P.Setup(saved)
     raw = saved
     buildDefaults()
 
-    -- Older saves kept the profile keys flat at the root: fold them into the
-    -- first profile.
+    -- Older saves kept the profile keys flat at the root: fold them into the first profile.
     if type(raw.profiles) ~= "table" then
         local first = {}
         for _, k in ipairs(P.KEYS) do
@@ -87,8 +82,7 @@ function P.Setup(saved)
         raw.currentProfile = DEFAULT_NAME
     end
 
-    -- Account-wide keys: prune/merge against the defaults, leaving the profile
-    -- machinery alone.
+    -- Account-wide keys: pruned/merged against the defaults, the profile machinery is left alone.
     local globalDef = {}
     for k, v in pairs(N.Defaults) do
         if not KEYSET[k] then globalDef[k] = v end
@@ -163,7 +157,7 @@ local function cleanName(name)
 end
 P.CleanName = cleanName
 
--- A name that does not clash with an existing profile ("Raid", "Raid (2)", ...).
+-- A name that doesn't clash with an existing profile ("Raid", "Raid (2)", ...).
 function P.UniqueName(name)
     name = cleanName(name) or "Profile"
     if not raw.profiles[name] then return name end
@@ -176,9 +170,8 @@ end
 -- switching
 --------------------------------------------------------------------------------
 
--- Replay settings events so every module re-reads the (new) active profile.
--- Each module already reacts to these for normal option changes; a profile
--- switch is just "everything changed at once".
+-- Replays settings events so every module re-reads the active profile. Modules already react to
+-- these for normal option changes; a switch is just everything changing at once.
 local function reapply()
     for _, sec in ipairs({ "party", "raid", "ownPet", "groupPets", "npc", "spotlight" }) do
         N:Fire("NUCLEUS_SETTING_CHANGED", sec, sec .. ".enabled", N.db[sec].enabled)
@@ -196,9 +189,8 @@ local function reapply()
     N:Fire("NUCLEUS_SETTING_CHANGED", "tooltip", "tooltip.enabled")
 end
 
--- Make `name` the active profile. Frame work is queued by the modules
--- themselves, so this is safe to call in combat; the auto-switch below
--- additionally waits for combat to end so a layout never changes mid-fight.
+-- Makes name the active profile. Frame work is queued by the modules, so this is safe in combat;
+-- the auto-switch below also waits for combat to end so a layout never changes mid-fight.
 function P.Switch(name)
     if not raw.profiles[name] or name == activeName then return false end
     active = raw.profiles[name]
@@ -242,12 +234,12 @@ end
 function P.Delete(name)
     if not raw.profiles[name] then return false end
     local list = P.List()
-    if #list <= 1 then return false end -- always keep one
+    if #list <= 1 then return false end
     local fallback
     for _, n in ipairs(list) do if n ~= name then fallback = n; break end end
     if activeName == name then P.Switch(fallback) end
     raw.profiles[name] = nil
-    -- Anything pointing at the deleted profile no longer switches.
+    -- Nothing may point at the deleted profile any more.
     local function clear(t)
         for sit, target in pairs(t) do
             if target == name then t[sit] = nil end
@@ -274,8 +266,8 @@ function P.Backup(name, reason)
     N:Fire("NUCLEUS_PROFILES_CHANGED")
 end
 
--- Writes a profile's data over `name` (creating it if needed) and, if it is the
--- active one, re-applies it.
+-- Writes a profile's data over name (creating it if needed) and re-applies it if it is the active
+-- one.
 local function replaceProfile(name, data)
     raw.profiles[name] = normalizeProfile(N.DeepCopy(data))
     if name == activeName then
@@ -379,8 +371,8 @@ function P.GetSpec()
     return specID, role, specName
 end
 
--- Which table the settings UI / switcher reads: the per-spec one if the player
--- opted in for this spec, otherwise the per-role one. Returns table, "spec"|"role".
+-- The table the settings UI and switcher read: the per-spec one if the player opted in for this
+-- spec, otherwise the per-role one. Returns table, "spec"|"role".
 function P.GetAssignmentTable()
     local specID, role = P.GetSpec()
     local a = raw.autoSwitch
@@ -421,7 +413,6 @@ local function applyHidden(hidden)
     end
 end
 
--- Decide the profile for the current spec + situation and switch to it.
 function P.Evaluate()
     if not raw then return end
     if InCombatLockdown() then

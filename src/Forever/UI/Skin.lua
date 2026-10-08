@@ -2,17 +2,16 @@ local _, ns = ...
 local N = ns.N
 local M = N.Media
 
--- Flat-skin primitives shared by frames and the options window. Deliberately
--- no rounded corners, no gradients, no drop shadows: a 1px hard border, a
--- matte fill, and a faint inner top highlight for edge definition.
+-- Flat-skin primitives shared by frames and the options window: a 1px hard border, a matte fill
+-- and a faint inner top highlight. No rounded corners, gradients or drop shadows.
 
 local function unpackColor(c)
     return c[1], c[2], c[3], c[4] or 1
 end
 
--- Pixel-snapped anchoring so every 1px line rasterizes to exactly one physical
--- pixel regardless of UI scale. Without this, identical SetHeight(1) textures
--- land on different sub-pixel offsets and read as different thicknesses.
+-- Pixel-snapped anchoring so every 1px line rasterizes to exactly one physical pixel at any UI
+-- scale. Without it, identical SetHeight(1) textures land on different sub-pixel offsets and read
+-- as different thicknesses.
 local PU = PixelUtil or PixelUtil_Mixin
 local function px_point(region, ...)
     if PU and PU.SetPoint then PU.SetPoint(region, ...) else region:SetPoint(...) end
@@ -36,7 +35,7 @@ function N.Hairline(parent, dir, off, color, a, b)
         px_point(t, "TOPLEFT", parent, "TOPLEFT", off, -a)
         px_point(t, "BOTTOMLEFT", parent, "BOTTOMLEFT", off, b)
         px_width(t, 1)
-    elseif dir == "hb" then -- horizontal, `off` measured up from the bottom
+    elseif dir == "hb" then
         px_point(t, "BOTTOMLEFT", parent, "BOTTOMLEFT", a, off)
         px_point(t, "BOTTOMRIGHT", parent, "BOTTOMRIGHT", -b, off)
         px_height(t, 1)
@@ -92,11 +91,10 @@ function N.SkinPanel(frame, fillColor, borderColor, noHighlight)
     frame._nucFill:SetColorTexture(unpackColor(fillColor or M.color.frameBg))
 end
 
--- Rounded skin for the options UI. Same contract as SkinPanel (frame._nucFill,
--- frame._nucBorder, N.SetPanelBorder all keep working) but the fill and the 1px
--- rim are 9-sliced rounded-rect textures. SetVertexColor tints them, so each
--- texture gets a SetColorTexture shim that routes to it - every existing
--- "fill:SetColorTexture(r,g,b,a)" call site stays untouched.
+-- Rounded skin for the options UI. Same contract as SkinPanel (frame._nucFill, frame._nucBorder,
+-- N.SetPanelBorder keep working), but fill and 1px rim are 9-sliced rounded-rect textures.
+-- SetVertexColor tints them, so each texture gets a SetColorTexture shim that routes to it and
+-- every existing fill:SetColorTexture(r,g,b,a) call stays untouched.
 local function tintable(tex)
     tex.SetColorTexture = function(self, r, g, b, a) self:SetVertexColor(r, g, b, a or 1) end
     return tex
@@ -109,7 +107,6 @@ local function sliced(tex, path, margin)
     end
 end
 
--- small = true -> 4px corners (inputs, buttons, tracks); default 8px (panels).
 function N.SkinRound(frame, fillColor, borderColor, small)
     if not frame._nucFill then
         local path, margin = M.tex.round, 9
@@ -184,7 +181,6 @@ function N.SkinButton(btn, opts)
     N.OnRecolor(paint)
 end
 
--- Recolor an existing SkinPanel border (e.g. focus / open states).
 function N.SetPanelBorder(frame, color)
     if not frame._nucBorder then return end
     for _, t in ipairs(frame._nucBorder) do
@@ -192,10 +188,8 @@ function N.SetPanelBorder(frame, color)
     end
 end
 
--- Turn a StatusBar into a flat bar with a dark loss region behind it and a
--- 1px top highlight across the full width (a restrained "glass edge" - still
--- flat, not a gradient fill) so the bar reads as one polished surface instead
--- of a flat rectangle regardless of its current value.
+-- Turns a StatusBar into a flat bar with a dark loss region behind it and a 1px top highlight
+-- across the full width, so the bar reads as one surface regardless of its value.
 function N.SkinBar(bar)
     bar:SetStatusBarTexture(M.flat)
     if not bar._nucLoss then
@@ -225,34 +219,44 @@ function N.SetBarTexture(bar, key)
     if tex then tex:SetDrawLayer("ARTWORK") end
 end
 
--- Recolor a skinned bar's "missing" background (Appearance > Color > Health
--- loss color).
 function N.SetBarLossColor(bar, color)
     if bar._nucLoss then bar._nucLoss:SetColorTexture(unpackColor(color or M.color.healthLoss)) end
 end
 
--- Font scale (General > Interface): every text made here is remembered with its
--- base size. Those that sit inside an options window (a root frame flagged
--- _nucUI) are re-sized by N.ApplyFontScale; in-game frames are left alone.
+-- Fonts (General > Interface / Fonts): every text made here is remembered with its base size.
+-- Texts inside the options window (a root frame flagged _nucUI) use the window font and the
+-- font scale; texts under a root flagged _nucFace use the window font without scaling (dialogs).
+-- Everything else is frame text: it only follows the frame font and keeps its own size.
 local fontRegistry = setmetatable({}, { __mode = "k" })
 local fontPending
 
-local function inOptionsUI(obj)
+local function uiKind(obj)
+    if obj._nucForceUI then return "ui" end
     local p = obj:GetParent()
     while p do
-        if p._nucUI then return true end
+        if p._nucFrameText then return nil end
+        if p._nucUI then return "ui" end
+        if p._nucFace then return "face" end
         p = p:GetParent()
     end
-    return false
+    return nil
 end
 
 function N.ApplyFontScale()
     local s = (N.db and N.db.fontScale) or 1
     for obj in pairs(fontRegistry) do
-        local want = inOptionsUI(obj) and s or nil
-        if want and obj._nucScale ~= want then
-            obj:SetFont(M.font, obj._nucBase * want, obj._nucFlags)
-            obj._nucScale = want
+        local kind = uiKind(obj)
+        local font = kind and M.fontUI or M.font
+        local scale = (kind == "ui") and s or 1
+        if obj._nucFont ~= font or (kind == "ui" and obj._nucScale ~= scale) then
+            if kind then
+                obj:SetFont(font, obj._nucBase * scale, obj._nucFlags)
+            else
+                -- frame text: keep the size the layout code gave it, only swap the face
+                local _, size, flags = obj:GetFont()
+                obj:SetFont(font, (size and size > 0) and size or obj._nucBase, flags or obj._nucFlags)
+            end
+            obj._nucFont, obj._nucScale = font, scale
         end
     end
 end
@@ -266,7 +270,6 @@ local function scheduleFontScale()
     end)
 end
 
--- Remember a font object (text or edit box) for the font scale.
 function N.RegisterFont(obj, size, flags)
     obj._nucBase = size
     obj._nucFlags = flags or ""
@@ -276,8 +279,9 @@ end
 
 function N.FontString(parent, size, layer)
     local fs = parent:CreateFontString(nil, layer or "OVERLAY")
-    fs:SetFont(M.font, size or 12, "OUTLINE")
+    fs:SetFont(uiKind(fs) and M.fontUI or M.font, size or 12, "OUTLINE")
     fs:SetTextColor(unpackColor(M.color.text))
     N.RegisterFont(fs, size or 12, "OUTLINE")
     return fs
 end
+

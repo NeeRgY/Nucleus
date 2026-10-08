@@ -1,16 +1,13 @@
 local _, ns = ...
 local N = ns.N
 
---------------------------------------------------------------------------------
--- Import from Cell: reads the table of a Cell "Profile" export and builds a
--- Nucleus profile from it. Only the values of the player's own export are read
--- (sizes, colours, spell IDs, switches); nothing here is Cell code. Whatever has
--- no Nucleus counterpart is skipped and listed in the report.
+-- Cell profile import: reads the table of a Cell "Profile" export and builds a Nucleus profile
+-- from it. Only values from the user's own export are read (sizes, colors, spell IDs, switches).
+-- Whatever has no Nucleus counterpart is skipped and listed in the report.
 --
---   CI.Decode(text)                     -> ok, data | errorKey
---   CI.Layouts(data)                    -> sorted list of layout names
+--   CI.Decode(text)   -> ok, data | errorKey
+--   CI.Layouts(data)  -> sorted list of layout names
 --   CI.Convert(data, partyLayout, raidLayout) -> profile table, report { done, skipped }
---------------------------------------------------------------------------------
 
 local CI = {}
 N.CellImport = CI
@@ -57,7 +54,7 @@ end
 local function num(v) return type(v) == "number" and v or nil end
 local function bool(v) if type(v) == "boolean" then return v end return nil end
 
--- Colour in any of Cell's shapes: {r,g,b[,a]} or { "custom_color", {r,g,b[,a]} }.
+-- Color in either shape: {r,g,b[,a]} or { "custom_color", {r,g,b[,a]} }.
 local function rgb(c)
     if type(c) ~= "table" then return nil end
     if type(c[1]) == "string" then c = c[2] end
@@ -78,9 +75,8 @@ local function put(t, k, v)
     if v ~= nil then t[k] = v end
 end
 
--- Cell scales its whole frame set by appearance.scale (1.2 and the like); the
--- same factor is applied to every size, spacing and offset so the frames come
--- out as big as they looked in Cell.
+-- The source frames are scaled by appearance.scale; the same factor is applied to every size,
+-- spacing and offset so the frames come out as big as before.
 local SCALE = 1
 local function sc(v)
     if v == nil then return nil end
@@ -186,18 +182,18 @@ end
 -- indicators
 --------------------------------------------------------------------------------
 
--- Plain icon indicators: Cell name -> Nucleus key.
+-- Plain icon indicators: source name -> Nucleus key.
 local ICONS = {
     statusIcon = "statusIcon", roleIcon = "role", leaderIcon = "leader",
     combatIcon = "combatIcon", readyCheckIcon = "readyCheck", playerRaidIcon = "raidMarker",
 }
 local TEXTS = { nameText = "name", healthText = "healthText", levelText = "levelText" }
--- Rows of icons: Cell name -> Nucleus auras row.
+-- Rows of icons: source name -> Nucleus auras row.
 local ROWS = {
     externalCooldowns = "externals", defensiveCooldowns = "defensives",
     offensiveCooldowns = "offensives", debuffs = "debuffs", crowdControls = "crowdControls",
 }
--- Cell names that have no counterpart.
+-- Names with no counterpart.
 local NO_MATCH = {
     aggroBlink = true, aggroBar = true, aoeHealing = true,
     allCooldowns = true, tankActiveMitigation = true, raidDebuffs = true,
@@ -347,7 +343,7 @@ local function convertIndicators(list, out, report, styleDefault)
             elseif name == "dispels" then
                 local o = ensure(auras, "dispels")
                 put(o, "enabled", bool(e.enabled))
-                -- Cell's Dispels indicator is the row of dispel-type icons.
+                -- The dispel-type icon row.
                 o.typeIcons = true
                 put(o, "typeIconSize", (firstSize(e.size)))
                 local point, x, y = place(e.position)
@@ -382,7 +378,7 @@ local function convertCustom(list, report)
                     if type(v) == "number" then ids[#ids + 1] = v end
                 end
                 if type(e.auras) == "table" and #ids == 0 then
-                    -- Cell also allows { spell, ... } pairs; keep numeric keys.
+                    -- { spell, ... } pairs are possible too; keep numeric keys.
                     for k, v in pairs(e.auras) do
                         if type(k) == "number" and type(v) == "number" then ids[#ids + 1] = v end
                     end
@@ -431,8 +427,8 @@ local function convertGroup(layout, out, report, isRaid)
             if main.combineGroups == true then out.groupBy = "NONE"
             elseif main.combineGroups == false then out.groupBy = "GROUP" end
         end
-        -- Cell sorts by role inside its groups; the custom order here replaces the
-        -- group split, so it is only switched on when the groups are combined.
+        -- Role sorting inside groups is replaced by the custom order here, so it is only switched
+        -- on when the groups are combined.
         local ord = ensure(out, "ordering")
         if type(main.roleOrder) == "table" then
             ord.first, ord.second, ord.third = main.roleOrder[1], main.roleOrder[2], main.roleOrder[3]
@@ -455,7 +451,7 @@ local function convertGroup(layout, out, report, isRaid)
         out.groupFilter = t
     end
 
-    -- Power bar per class and role (Cell: class = true for every role, or a role table).
+    -- Power bar per class and role (class = true for every role, or a role table).
     local pf = layout.powerFilters
     if type(pf) == "table" then
         local filter = {}
@@ -563,15 +559,15 @@ local function convertClickCasting(cc, profile, report)
                 if type(k) == "number" and type(v) == "table" then ids[#ids + 1] = k end
             end
             table.sort(ids)
-            -- The class's list: "common" when Cell uses one list for every specialization,
-            -- otherwise the first specialization's.
+            -- The class's list: "common" when one list serves every specialization, otherwise the
+            -- first specialization's.
             local list = spec.useCommon and spec.common
             if type(list) ~= "table" then list = ids[1] and spec[ids[1]] or spec.common end
             if type(list) == "table" then
                 local out = convertBindingList(list, dropped)
                 if #out > 0 then byClass[class] = out; count = count + #out end
             end
-            -- Cell keeps a list per specialization unless "common" is on: so do we.
+            -- A list per specialization unless "common" is on, same here.
             if not spec.useCommon then
                 for _, id in ipairs(ids) do
                     local out = convertBindingList(spec[id], dropped)

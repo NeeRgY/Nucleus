@@ -2,11 +2,10 @@ local _, ns = ...
 local N = ns.N
 local IsSecret = N.IsSecret
 
--- Specializations of the group's members, for the Class / Spec Icon indicator.
--- Your own comes from the talent API; everyone else's is read with the game's
--- inspect call, one member at a time (it is throttled by the server), out of
--- combat, and only while an indicator wants it. The result is kept by GUID and
--- read again after a few minutes, since players can change specialization.
+-- Specializations of group members, for the Class / Spec icon. Your own comes from the talent API.
+-- Others are read with the inspect call, one at a time (the server throttles it), out of combat
+-- and only while an indicator needs it. Results are cached by GUID and re-read after a few
+-- minutes.
 
 local GS = {}
 N.GroupSpec = GS
@@ -19,7 +18,6 @@ local STALE = 300    -- seconds until a known specialization is read again
 local RETRY = 12     -- seconds between attempts on the same player
 local TIMEOUT = 4    -- seconds to wait for the server's answer
 
--- Does any group profile show the specialization at all?
 local function wanted()
     if not N.db then return false end
     for _, key in ipairs({ "party", "raid" }) do
@@ -34,7 +32,6 @@ local function playerSpec()
     return N.Profiles and N.Profiles.GetSpec and N.Profiles.GetSpec() or nil
 end
 
--- The specialization ID of `unit`, or nil when not (yet) known.
 function GS.Get(unit)
     if not unit then return nil end
     local guid = UnitGUID(unit)
@@ -44,8 +41,7 @@ function GS.Get(unit)
     return e and e.spec or nil
 end
 
--- A plausible specialization for sample frames (test mode, preview): the first one
--- of the class that fits the role.
+-- A plausible spec for sample frames: the first one of the class that fits the role.
 local mockMemo = {}
 function GS.MockSpec(class, role)
     local key = tostring(class) .. "/" .. tostring(role)
@@ -74,7 +70,7 @@ local function refreshAll()
     N.UnitFrame.ForEachButton(function(b) N.Indicators.UpdateOne(b, "classSpec") end)
 end
 
--- The next group member worth inspecting: never read ones first, then the stale.
+-- Next member worth inspecting: never-read first, then stale ones.
 local function nextTarget()
     local raid = IsInRaid()
     local count = GetNumGroupMembers()
@@ -104,7 +100,6 @@ local function tick()
         if now - pending.at < TIMEOUT then return end
         pending = nil
     end
-    -- Leave the game's own inspect window alone.
     if _G.InspectFrame and _G.InspectFrame:IsShown() then return end
     local unit, guid = nextTarget()
     if not unit then return end

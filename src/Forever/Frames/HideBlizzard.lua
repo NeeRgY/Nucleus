@@ -1,10 +1,10 @@
 local _, ns = ...
 local N = ns.N
 
--- Suppress Blizzard's party / raid frames. More thorough than a plain :Hide():
---   * alpha 0 + mouse off on the containers (no taint, survives Blizzard re-show)
---   * secure post-hooks that re-apply whenever Blizzard shows them again
---   * event stripping on the hidden CompactUnitFrames so they stop costing CPU
+-- Hides Blizzard's party / raid frames, more thoroughly than :Hide():
+--  * alpha 0 and mouse off on the containers (no taint, survives Blizzard showing them again)
+--  * secure post-hooks that re-apply when Blizzard shows them
+--  * events stripped from the hidden CompactUnitFrames so they cost no CPU
 -- Party and raid are independent (db.party.hideBlizzard / db.raid.hideBlizzard).
 
 local HB = {}
@@ -16,10 +16,23 @@ local function try(fn) pcall(fn) end
 
 local function conceal(frame, hide)
     if not frame then return end
-    try(function()
-        frame:SetAlpha(hide and 0 or 1)
-        if frame.EnableMouse then frame:EnableMouse(not hide) end
-    end)
+    try(function() frame:SetAlpha(hide and 0 or 1) end)
+    if not frame.EnableMouse then return end
+    -- EnableMouse on a protected frame (the raid container) is blocked in combat: wait.
+    if InCombatLockdown() and frame:IsProtected() then
+        N.RunWhenSafe(function() try(function() frame:EnableMouse(not hide) end) end, "hb-mouse-" .. tostring(frame))
+    else
+        try(function() frame:EnableMouse(not hide) end)
+    end
+end
+
+-- Blizzard's compact frames draw a yellow selection / threat outline on the target. Hidden frames
+-- must not show it, so it is kept at alpha 0 (a pcall: those regions belong to protected frames).
+local function muteHighlights(frame)
+    if not frame then return end
+    for _, r in ipairs({ frame.selectionHighlight, frame.aggroHighlight }) do
+        if r and r.SetAlpha then try(function() r:SetAlpha(0) end) end
+    end
 end
 
 local function stripEvents(frame)
@@ -31,18 +44,16 @@ end
 local function wantRaid() return N.db and N.db.raid.hideBlizzard end
 local function wantParty() return N.db and N.db.party.hideBlizzard end
 
--- Ping display (Integrations/Ping.lua) hooks the ping icon Blizzard already
--- builds into its own (hidden) compact frames, which only keeps working while
--- those frames keep receiving events. Stripping events is a CPU optimization,
--- not a correctness requirement, so it's the one that gives way. Toggling
--- Ping back on after events were already stripped needs a /reload - there is
--- no clean way to restore only the events Blizzard originally registered.
+-- The ping display hooks the ping icon Blizzard builds into its hidden compact frames, which only
+-- works while they still get events. Stripping events is just a CPU saving, so it gives way.
+-- Turning ping on after events were stripped needs a /reload, there is no clean way to restore
+-- only the original events.
 local function pingWantsEvents() return N.db and N.db.ping and N.db.ping.enabled end
 
 local function apply()
     local hr, hp = wantRaid(), wantParty()
 
-    conceal(_G.CompactRaidFrameManager, hr or hp) -- the left-edge toggle tab
+    conceal(_G.CompactRaidFrameManager, hr or hp)
     conceal(_G.CompactRaidFrameContainer, hr)
     conceal(_G.CompactPartyFrame, hp)
     conceal(_G.PartyFrame, hp)
@@ -55,9 +66,11 @@ local function apply()
     end
     for i = 1, 5 do
         if hp and not keepEvents then stripEvents(_G["CompactPartyFrameMember" .. i]) end
+        if hp then muteHighlights(_G["CompactPartyFrameMember" .. i]) end
     end
     for i = 1, 40 do
         if hr and not keepEvents then stripEvents(_G["CompactRaidFrame" .. i]) end
+        if hr then muteHighlights(_G["CompactRaidFrame" .. i]) end
     end
     for g = 1, 8 do
         for m = 1, 5 do
@@ -82,7 +95,18 @@ local function installHooks()
     if _G.CompactRaidFrameManager_UpdateShown then
         hooksecurefunc("CompactRaidFrameManager_UpdateShown", deferApply)
     end
-    -- New CompactUnitFrames register their events here; strip them on creation.
+    for _, fn in ipairs({ "CompactUnitFrame_UpdateSelectionHighlight", "CompactUnitFrame_UpdateAggroHighlight" }) do
+        if _G[fn] then
+            hooksecurefunc(fn, function(frame)
+                local unit = frame and frame.unit
+                if type(unit) ~= "string" then return end
+                local isRaid = unit:find("^raid") ~= nil
+                local isParty = (unit:find("^party") ~= nil) or unit == "player"
+                if (isRaid and wantRaid()) or (isParty and wantParty()) then muteHighlights(frame) end
+            end)
+        end
+    end
+    -- New CompactUnitFrames register their events here, strip them on creation.
     if _G.CompactUnitFrame_UpdateUnitEvents then
         hooksecurefunc("CompactUnitFrame_UpdateUnitEvents", function(frame)
             try(function()

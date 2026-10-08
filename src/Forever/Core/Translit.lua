@@ -1,10 +1,8 @@
 local _, ns = ...
 local N = ns.N
 
--- Optional Cyrillic -> Latin transliteration for player names (General >
--- Interface > "Transliterate Cyrillic names"), same idea as Cell's own
--- toggle, but our own simple lookup table - a standard letter-for-letter
--- romanization scheme, not anyone else's code or data file.
+-- Optional Cyrillic -> Latin transliteration for player names (General > Interface). Plain
+-- letter-for-letter romanization.
 
 local MAP = {
     ["А"] = "A", ["а"] = "a", ["Б"] = "B", ["б"] = "b", ["В"] = "V", ["в"] = "v",
@@ -18,13 +16,12 @@ local MAP = {
     ["Ч"] = "Ch", ["ч"] = "ch", ["Ш"] = "Sh", ["ш"] = "sh", ["Щ"] = "Shch", ["щ"] = "shch",
     ["Ъ"] = "", ["ъ"] = "", ["Ы"] = "Y", ["ы"] = "y", ["Ь"] = "", ["ь"] = "",
     ["Э"] = "E", ["э"] = "e", ["Ю"] = "Yu", ["ю"] = "yu", ["Я"] = "Ya", ["я"] = "ya",
-    -- Ukrainian/Belarusian letters realm names sometimes carry too.
+    -- Ukrainian/Belarusian letters that show up in realm names.
     ["Ґ"] = "G", ["ґ"] = "g", ["Є"] = "Ye", ["є"] = "ye", ["І"] = "I", ["і"] = "i",
     ["Ї"] = "Yi", ["ї"] = "yi", ["Ў"] = "U", ["ў"] = "u",
 }
 
--- Cheap pre-check so names with no Cyrillic at all (the common case) skip the
--- character-by-character rebuild entirely.
+-- Quick pre-check so names without Cyrillic skip the rebuild.
 local function hasCyrillic(s)
     return s:find("[\208-\211]") ~= nil
 end

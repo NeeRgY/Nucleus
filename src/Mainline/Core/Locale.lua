@@ -1,13 +1,11 @@
 local _, ns = ...
 local N = ns.N
 
--- Locale store. enUS.lua provides the base; translation files add overrides.
--- All locale tables are kept so the active language can be switched at runtime
--- (db.locale); missing keys fall back to the key string.
+-- enUS is the base, other files add overrides. Missing keys fall back to the key itself.
 
-local base = {}          -- enUS
-local overrides = {}     -- locale -> { key = value }
-local strings = base     -- currently resolved table (metatable target)
+local base = {}
+local overrides = {}
+local strings = base
 
 N.L = setmetatable({}, {
     __index = function(_, key)
@@ -15,7 +13,6 @@ N.L = setmetatable({}, {
     end,
 })
 
--- Called by locale files. isBase=true marks the authoritative enUS pass.
 function N.RegisterLocale(locale, tbl, isBase)
     if isBase then
         for k, v in pairs(tbl) do base[k] = base[k] or v end
@@ -35,7 +32,6 @@ function N.ApplyLocale(locale)
     end
 end
 
--- Resolve once the saved language preference is known.
 N:On("NUCLEUS_DB_READY", function()
     N.ApplyLocale(N.db.locale)
 end)

@@ -3,13 +3,13 @@ local N = ns.N
 local M = N.Media
 local L = N.L
 
--- Options > Profile: manage profiles, auto-switch rules, export / import and
--- backups. One panel (cards stacked), rebuilt in place whenever the profile
--- list, the active profile or the current situation changes.
+-- Options > Profile: manage profiles, auto-switch rules, export/import and backups. One panel
+-- (cards stacked), rebuilt in place when the profile list, the active profile or the situation
+-- changes.
 
 local function uc(c) return c[1], c[2], c[3], c[4] or 1 end
 
-local panel -- the profile tab's panel, once built
+local panel
 
 --------------------------------------------------------------------------------
 -- small helpers
@@ -28,7 +28,6 @@ local function Hint(card, text, color)
     return fs
 end
 
--- A row of equally wide buttons: specs = { { label, onClick }, ... }
 local function ButtonRow(card, specs)
     local row = CreateFrame("Frame", nil, card)
     row._rowHeight = 26
@@ -53,7 +52,6 @@ local function ButtonRow(card, specs)
     return row
 end
 
--- Multi-line text box in a rounded frame with its own scroll bar.
 local function MakeTextArea(parent, height)
     local box = CreateFrame("Frame", nil, parent)
     box._rowHeight = height
@@ -70,7 +68,7 @@ local function MakeTextArea(parent, height)
     edit:SetMultiLine(true)
     edit:SetAutoFocus(false)
     edit:SetMaxLetters(0)
-    edit:SetFont(M.font, 11, "")
+    edit:SetFont(M.fontUI, 11, "")
     N.RegisterFont(edit, 11, "")
     edit:SetTextColor(uc(M.color.text))
     edit:SetPoint("TOPLEFT")
@@ -161,6 +159,16 @@ local function ShowImport()
         win.status = status
         card._y = card._y - 22
 
+        local warn = N.FontString(card, 11)
+        warn:SetPoint("TOPLEFT", card, "TOPLEFT", N.CARD_PAD, card._y)
+        warn:SetWidth(card:GetWidth() - 2 * N.CARD_PAD)
+        warn:SetJustifyH("LEFT")
+        warn:SetJustifyV("TOP")
+        warn:SetHeight(48)
+        warn:SetTextColor(0.90, 0.70, 0.30)
+        warn:SetText(L["CELL_WARN"])
+        card._y = card._y - 56
+
         local nameInput = N.MakeTextInput(card, L["Profile name"],
             function() return win.nameValue or "" end,
             function(v) win.nameValue = v; win.autoName = false end)
@@ -227,14 +235,11 @@ local function ShowImport()
     importPopup.area.edit:SetFocus()
 end
 
---------------------------------------------------------------------------------
--- Import from Cell: a Cell "Profile" export string becomes a new Nucleus profile
--- (the mapping lives in Core/CellImport.lua).
---------------------------------------------------------------------------------
+-- Cell profile import: a Cell "Profile" export string becomes a new Nucleus profile (the mapping
+-- lives in Core/CellImport.lua).
 
 local cellPopup
 
--- A button that steps through `names` on click: "label: value".
 local function CycleRow(card, label, onChange)
     local b = CreateFrame("Button", nil, card)
     b._rowHeight = 26
@@ -264,7 +269,7 @@ local function ShowCellImport()
     local P, CI = N.Profiles, N.CellImport
     if not CI then N:Print("Cell import: new file not loaded yet - restart the game once."); return end
     if not cellPopup then
-        local win, child = N.BuildPopupShell("NucleusCellImport", L["Import from Cell"], 440, 560)
+        local win, child = N.BuildPopupShell("NucleusCellImport", L["Import from Cell"], 440, 610)
         local card = N.MakeCard(child, L["Import from Cell"])
         local area = MakeTextArea(card, 120)
         card:AddRow(area)
@@ -466,7 +471,6 @@ local function BuildAutoSwitch(p)
         function() return a.enabled end,
         function(v) a.enabled = v and true or false; P.Evaluate(); N:Fire("NUCLEUS_PROFILES_CHANGED") end))
 
-    -- Role / Spec: which table the rules below edit.
     local _, by, specID, role = P.GetAssignmentTable()
     local _, _, specName = P.GetSpec()
     local sw = CreateFrame("Frame", nil, c)
@@ -507,7 +511,6 @@ local function BuildAutoSwitch(p)
     end
     c:AddRow(sw)
 
-    -- Rules: one row per situation.
     local tbl = P.GetAssignmentTable()
     local options = ProfileOptions(true)
     for _, s in ipairs(P.SITUATIONS) do

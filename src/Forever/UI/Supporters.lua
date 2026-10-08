@@ -19,7 +19,6 @@ local anim = { t = SLIDE_TIME + 1, dir = 0 } -- dir: 1 opening, -1 closing
 
 local function windowFrame() return _G.NucleusOptionsFrame end
 
--- A tier: a coloured heading and the names under it.
 local function addTier(child, y, tier)
     local c = tier.color or M.color.accent
     local head = N.FontString(child, 12)
@@ -71,7 +70,6 @@ local function fill()
 end
 
 local function place(progress)
-    -- Eases out: quick at the start, soft at the end.
     local e = 1 - (1 - progress) * (1 - progress)
     pane:SetAlpha(e)
     pane:ClearAllPoints()
@@ -116,7 +114,6 @@ local function build()
     child:SetWidth(PANEL_W - 2 * PAD - 6)
     pane.child = child
 
-    -- Support link at the foot of the pane.
     local url = N.About and N.About.supportUrl
     if url then
         local btn = CreateFrame("Button", nil, pane)

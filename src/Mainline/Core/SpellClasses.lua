@@ -1,8 +1,7 @@
 local _, ns = ...
 local N = ns.N
 
--- Class of each default spell (from the curated spell data); spells without an
--- entry are shown under General in the spell-list pickers.
+-- Class of each default spell. Spells without an entry show under General in the pickers.
 N.SpellClass = {
     [17] = "PRIEST",
     [139] = "PRIEST",
@@ -216,7 +215,36 @@ N.SpellClass = {
     [1309794] = "PALADIN",
 }
 
--- Spells offered by the Buffs picker (healing buffs of every class).
+-- Spells the Buffs picker offers (healing buffs of all classes).
 N.SpellPool = {
     buffs = {1278914,33763,419207,1227806,8936,419287,774,419204,155777,439530,474754,474750,48438,419344,409678,355941,355936,382614,376788,363502,364343,445740,373267,366155,367364,373862,1291636,409895,450769,450521,450711,450526,450531,1292922,124682,467281,427296,388513,450805,119611,115175,1260617,198533,156910,53563,200025,1244893,431381,156322,461432,432502,469703,194384,77489,17,1246768,1254306,1300008,41635,139,453846,453850,1253593,1300009,207400,383648,974,444490,61295,360827,395152,395296,410263,410089,413984,369459,406732,361021,361022},
 }
+
+-- More buffs for custom indicators that are not heals (shields, raid and utility buffs), tagged by
+-- class.
+do
+    local extra = {
+        { 192106, "SHAMAN" },  -- Lightning Shield
+        { 52127, "SHAMAN" },   -- Water Shield
+        { 462854, "SHAMAN" },  -- Skyfury
+        { 53390, "SHAMAN" },   -- Tidal Waves
+        { 79206, "SHAMAN" },   -- Spiritwalker's Grace
+        { 1126, "DRUID" },     -- Mark of the Wild
+        { 102351, "DRUID" },   -- Cenarion Ward
+        { 305497, "DRUID" },   -- Thorns
+        { 21562, "PRIEST" },   -- Power Word: Fortitude
+        { 1459, "MAGE" },      -- Arcane Intellect
+        { 6673, "WARRIOR" },   -- Battle Shout
+        { 381748, "EVOKER" },  -- Blessing of the Bronze
+        { 1044, "PALADIN" },   -- Blessing of Freedom
+        { 57934, "ROGUE" },    -- Tricks of the Trade
+        { 35079, "HUNTER" },   -- Misdirection
+        { 20707, "WARLOCK" },  -- Soulstone
+    }
+    local have = {}
+    for _, id in ipairs(N.SpellPool.buffs) do have[id] = true end
+    for _, e in ipairs(extra) do
+        N.SpellClass[e[1]] = e[2]
+        if not have[e[1]] then N.SpellPool.buffs[#N.SpellPool.buffs + 1] = e[1] end
+    end
+end

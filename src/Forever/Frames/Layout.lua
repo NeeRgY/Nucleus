@@ -3,14 +3,12 @@ local N = ns.N
 local M = N.Media
 local L = N.L
 
--- Drag overlays for repositioning the headers. Header positioning itself lives
--- in HeaderGroup.configure; this only moves the anchor point and persists it.
--- Blizzard-frame suppression lives in HideBlizzard.lua.
+-- Drag overlays for moving the headers. Header positioning itself is in HeaderGroup; this only
+-- moves the anchor and saves it.
 
 N.anchors = {}
 
--- A handle bar above each header. Parented to the header so it inherits the
--- header's visibility (a hidden group has no floating handle).
+-- Handle bar above each header, parented to it so a hidden group has no floating handle.
 local ANCHOR_TITLES = {
     party = "Party Frames", raid = "Raid Frames",
     ownPet = "Own Pet Frame", groupPets = "Group Pet Frames", npc = "NPC Companion Frames",
@@ -61,13 +59,11 @@ local function makeAnchor(key)
 end
 N.Layout_MakeAnchor = makeAnchor
 
--- Anchors are shown while the frames are unlocked.
 function N.RefreshLock()
     local unlocked = not N.db.locked
     for _, a in pairs(N.anchors) do a:SetShown(unlocked) end
 end
 
--- Kept for the /nucanchor slash: flips the stored lock.
 function N.ToggleAnchors()
     N.db.locked = not N.db.locked
     N.RefreshLock()

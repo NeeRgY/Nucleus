@@ -3,15 +3,10 @@ local N = ns.N
 local M = N.Media
 local L = N.L
 
--- Unit frame visual layer. Split in three so the same look drives both the
--- secure header children (real units) and the test-mode preview (mock data):
---
+-- Unit frame visual layer, shared by the group frames (real units) and test mode (mock data):
 --   UF.CreateVisual(b, key)  builds every texture on the button
---   readUnit(b) / mock       fill b.* data fields from the game or a mock table
---   render(b)                 paints the textures from b.*
---
--- The secure header owns creation/sizing/unit assignment; CreateVisual is
--- reached from its initialConfigFunction via CallMethod (no taint).
+--   readUnit(b) / mock       fill b.* data from the game or a mock table
+--   render(b)                paints the textures from b.*
 
 local UF = {}
 N.UnitFrame = UF
@@ -22,21 +17,15 @@ local Abbrev = N.Abbreviate or _G.AbbreviateNumbers or function(v)
     return tostring(v)
 end
 
--- Custom Health Text / Power Text templates: {p}=percent, {v}=value,
--- {m}=max, {d}=deficit (max-value). The template is plain (typed) text, so
--- string.gsub on it is fine; the only secret-touching step is the single
--- fs:SetFormattedText(spec, ...) call at the end, which - like every other
--- SetFormattedText in this file - tolerates secret arguments. Building
--- spec/args token-by-token in ONE left-to-right gsub pass keeps their order
--- in sync (processing token types separately would desync them: the Nth arg
--- must line up with the Nth %d in spec, not with the Nth occurrence of its
--- own token type).
+-- Custom Health Text / Power Text templates: {p}=percent, {v}=value, {m}=max, {d}=deficit. Only
+-- the final SetFormattedText touches secret values. spec and args are built in one left-to-right
+-- gsub pass so the Nth argument always matches the Nth %d.
 local function applyCustomFormat(fs, tmpl, val, valMax, pct)
     local args = {}
     local spec = (tmpl or ""):gsub("%%", "%%%%")
     spec = spec:gsub("{(%a)}", function(tok)
-        -- A token whose value is unknown (nil) is dropped, not formatted: a
-        -- "%d" with no matching argument would make SetFormattedText throw.
+        -- A token with an unknown (nil) value is dropped: a "%d" without a matching argument would
+        -- make SetFormattedText throw.
         if tok == "p" then
             if pct == nil then return "" end
             args[#args + 1] = pct
@@ -72,9 +61,6 @@ local UNIT_EVENTS = {
 -- Visual construction
 --------------------------------------------------------------------------------
 
--- `v` UI units as a whole number of physical pixels at the frame's scale. Plain 1-unit
--- offsets land on different sub-pixels at the top-left and the bottom-right when the
--- UI scale is not 1, which made the frame's left and top edges look thicker.
 local function snap(frame, v)
     local PU = _G.PixelUtil
     if PU and PU.GetNearestPixelSize and frame and frame.GetEffectiveScale then
@@ -99,14 +85,9 @@ function UF.CreateVisual(b, key)
     N.SkinBar(health)
     b.health = health
 
-    -- Incoming-heal / absorb / heal-absorb: real StatusBars sharing health's
-    -- own [0, hpMax] scale, each anchored to health's RENDERED FILL TEXTURE
-    -- (a region, not a computed offset) with a plain, non-secret pixel width
-    -- (frame dimensions are never secret). Because the anchor and the scale
-    -- both match health's, StatusBar:SetValue(amount) alone works out the
-    -- correct on-screen fraction through the engine's own fill math - the
-    -- addon never adds or divides a possibly-secret number. See
-    -- Core/Secret.lua for the wider ruleset this follows.
+    -- Incoming heal / absorb / heal-absorb are StatusBars on health's scale, anchored to health's
+    -- fill texture with a plain pixel width. SetValue(amount) alone then gives the right fraction,
+    -- so no arithmetic on secret numbers is needed (see Core/Secret.lua).
     local overlayClip = CreateFrame("Frame", nil, b)
     overlayClip:SetAllPoints(health)
     overlayClip:SetClipsChildren(true)
@@ -115,9 +96,8 @@ function UF.CreateVisual(b, key)
 
     local fillTex = health:GetStatusBarTexture()
 
-    -- Texture/tiling/color are applied per Appearance > Shield settings in
-    -- LayoutBars, not here - only the anchor geometry (which is what makes
-    -- this secret-safe) is fixed at creation.
+    -- Texture, tiling and color come from Appearance > Shield in LayoutBars. Only the anchor
+    -- geometry (which is what makes this secret-safe) is fixed at creation.
     local function overlayBar()
         local bar = CreateFrame("StatusBar", nil, overlayClip)
         bar:SetStatusBarTexture(M.flat)
@@ -128,31 +108,12 @@ function UF.CreateVisual(b, key)
 
     b.healPredict = overlayBar()
 
-    -- Shield: anchored to the fill edge like healPredict, so it's bound to
-    -- current health and grows into the missing-health room. Using the RAW
-    -- absorb amount (not a computed "clamped" one) is fine here because
-    -- overlayClip clips children to the health frame - if the amount would
-    -- render past the bar's right edge, the engine just clips it there, with
-    -- no addon arithmetic needed to find that limit.
-    --
-    -- There's deliberately no second "overflow" bar spilling onto the already
-    -- -filled health once the shield is bigger than the missing-health room
-    -- (what Ellesmere/Blizzard's own native compact frames show) - that needs
-    -- knowing exact current health vs. max health, which Midnight keeps
-    -- secret from addons. Ellesmere gets it for free because it reskins
-    -- Blizzard's own CompactPartyFrameMember/CompactRaidFrame frames instead
-    -- of drawing its own (see Integrations/Ping.lua, which hooks the same
-    -- frames) - Blizzard's own code isn't addon-restricted. Cell draws its
-    -- own frames like we do and has the identical limitation. overAbsorb
-    -- below is the addon-safe substitute: a spark at the edge, not a
-    -- precisely-sized overlap.
+    -- Shield: anchored to the fill edge like healPredict. The raw absorb amount is fine, because
+    -- overlayClip cuts off whatever passes the bar's right edge.
     b.absorb = overlayBar()
 
-    -- The part of the shield that does not fit into the missing health (the whole
-    -- shield at full health): a second bar growing from the bar's right edge towards
-    -- the left, clipped to the filled part of the health. Where it reaches into the
-    -- fill, the first bar's shield is already off the edge - so the two never overlap
-    -- and nothing needs to be calculated from the (secret) health values.
+    -- The part of the shield that doesn't fit into the missing health: a second bar growing from
+    -- the right edge towards the left, clipped to the filled part. It never overlaps the first.
     local fillClip = CreateFrame("Frame", nil, b)
     fillClip:SetPoint("TOPLEFT", health, "TOPLEFT")
     fillClip:SetPoint("BOTTOMRIGHT", fillTex, "BOTTOMRIGHT")
@@ -187,19 +148,15 @@ function UF.CreateVisual(b, key)
     overAbsorb:Hide()
     b.overAbsorb = overAbsorb
 
-    -- Blizzard's addon-safe calculator: gives an absorb amount already
-    -- clamped to missing health, plus a non-secret "did it overflow" flag,
-    -- so the overshield spark works without the addon ever computing
-    -- current-health-plus-absorb itself. The clamp mode is re-applied on
-    -- every render() call, right before each GetDetailedHealPrediction -
-    -- Cell's own Midnight shield code does the same, and it doesn't reliably
-    -- stick across calls if only set once here at creation.
+    -- Blizzard's calculator gives the absorb clamped to missing health plus a non-secret overflow
+    -- flag for the overshield spark. The clamp mode is re-applied before every call in render(),
+    -- it doesn't reliably stick if set once.
     if _G.CreateUnitHealPredictionCalculator then
         b.healCalc = CreateUnitHealPredictionCalculator()
     end
 
-    -- Anchored for real in LayoutBars, which applies its configured X/Y offset;
-    -- this is just a placeholder so the frame has a sane look before that runs.
+    -- Anchored for real in LayoutBars (with the configured X/Y offset); this is a placeholder so
+    -- the frame looks sane before that runs.
     local power = CreateFrame("StatusBar", nil, b)
     power:SetPoint("BOTTOMLEFT", 1, 1)
     power:SetPoint("BOTTOMRIGHT", -1, 1)
@@ -207,26 +164,21 @@ function UF.CreateVisual(b, key)
     N.SkinBar(power)
     b.power = power
 
-    -- Everything that must sit above the bars (text, edges, indicator icons)
-    -- lives on this overlay frame - a child of the button drawn above the
-    -- StatusBar child frames.
+    -- Everything that must sit above the bars (text, edges, indicator icons) lives on this overlay
+    -- frame, a child of the button drawn above the StatusBar child frames.
     local overlay = CreateFrame("Frame", nil, b)
     overlay:SetAllPoints(b)
     overlay:SetFrameLevel(math.max(health:GetFrameLevel(), power:GetFrameLevel()) + 4)
     b.overlay = overlay
 
-    -- Status and Ready Check always sit above every other indicator.
     local top = CreateFrame("Frame", nil, b)
     top:SetAllPoints(b)
     top:SetFrameLevel(overlay:GetFrameLevel() + 50)
     b.topOverlay = top
 
-    -- Target outline and mouseover outline, one draw-layer above the Aggro
-    -- Border indicator (Indicators.lua) -
-    -- separate texture sets so each can have its own color/thickness
-    -- (Appearance > Border). Full geometry (points/size, not just color) is
-    -- set in applyOutlineStyle/LayoutBars, since thickness lives there too -
-    -- these are just the bare textures.
+    -- Target and mouseover outline, one draw layer above the Aggro Border indicator. Separate
+    -- texture sets so each can have its own color and thickness (Appearance > Border). Points and
+    -- size are set in applyOutlineStyle/LayoutBars, these are just the bare textures.
     local function makeOutline()
         local edges = {}
         for _ = 1, 4 do
@@ -239,8 +191,6 @@ function UF.CreateVisual(b, key)
     end
     b.targetEdges = makeOutline()
     b.hoverEdges = makeOutline()
-    -- General frame border (Appearance > Border): sits inside the frame edge,
-    -- below the target / mouseover outlines.
     b.frameEdges = {}
     for i = 1, 4 do
         local t = overlay:CreateTexture(nil, "OVERLAY", nil, 0)
@@ -274,12 +224,10 @@ end
 -- Preview mask: a preview button carries button._previewOnly = <element name>;
 -- everything whose name doesn't match is hidden so only that indicator shows.
 local function pShow(b, name)
-    -- The Actions preview shows a plain frame: just the name besides the mask.
     return (not b._previewOnly) or b._previewOnly == name
         or (b._previewOnly == "actions" and name == "name")
 end
 
--- An element counts as on when enabled, or when it is the one the preview is editing.
 local function pOn(b, name, enabled)
     return enabled or b._previewOnly == name or (b._previewOnly == "actions" and name == "name")
 end
@@ -316,12 +264,12 @@ local function placeText(fs, host, o, dy)
     fs:SetJustifyV(a[3])
 end
 
-UF.PlaceText = placeText -- shared with the icon-less text indicators in Indicators.lua
+UF.PlaceText = placeText
 
--- Shield/heal-absorb/heal-prediction overlay: texture + tiling (a real
--- pattern instead of a stretched smear) and its tint, from Appearance >
--- Shield. Color/opacity live here (not render()) since they're settings, not
--- per-update data - render() only ever touches SetValue on these bars.
+-- Shield/heal-absorb/heal-prediction overlay: texture and tiling (a real pattern instead of a
+-- stretched smear) and tint, from Appearance > Shield. Color and opacity live here, not in
+-- render(), since they're settings and not per-update data; render() only touches SetValue on
+-- these bars.
 local function applyShieldStyle(bar, cfg)
     local tex = M.shieldTextures[cfg.style] or M.flat
     bar:SetStatusBarTexture(tex)
@@ -334,14 +282,9 @@ local function applyShieldStyle(bar, cfg)
     bar:SetStatusBarColor(c[1], c[2], c[3], cfg.opacity or 1)
 end
 
--- Target/mouseover outline: color + thickness from Appearance > Border.
--- edges is the 4-texture set from CreateVisual's makeOutline(), in
--- TOP/BOTTOM/LEFT/RIGHT order. The border sits flush against the frame edge
--- and grows outward from there as it thickens (never eating into the bars).
--- TOP/BOTTOM span the FULL outer width, corners included; LEFT/RIGHT are
--- inset to fit exactly in the gap between them - so thickening the border
--- can't leave the small overlapping "nub" at each corner that came from
--- every side overhanging the corner by a fixed 1px regardless of thickness.
+-- Target/mouseover outline: color and thickness from Appearance > Border. edges is the 4-texture
+-- set from makeOutline() in TOP/BOTTOM/LEFT/RIGHT order. It grows outward, never into the bars;
+-- TOP/BOTTOM take the corners, LEFT/RIGHT fit between them.
 local MARGIN = 0
 local function applyOutlineStyle(edges, cfg)
     local c = cfg.color or { 1, 1, 1 }
@@ -372,7 +315,6 @@ local function applyOutlineStyle(edges, cfg)
     right:SetWidth(th)
 end
 
--- General frame border: four edges drawn inside the frame, on top of the bars.
 local function applyFrameBorder(b, cfg)
     cfg = cfg or { enabled = true, thickness = 1, color = { 0, 0, 0 } }
     local on = cfg.enabled ~= false
@@ -423,8 +365,6 @@ function N.PowerInset(b)
     return (o.height or 4) + (o.y or 0)
 end
 
--- Position + size the bars and name/health/status/power text for the current
--- indicator settings. Cheap; call whenever settings or frame size change.
 function UF.LayoutBars(b)
     local ind = N.db[b.groupKey].indicators
     local appearance = N.db[b.groupKey].appearance
@@ -456,9 +396,9 @@ function UF.LayoutBars(b)
     b.health:SetPoint("TOPLEFT", b, "TOPLEFT", snap(b, 1), snap(b, -1))
     b.health:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", snap(b, -1), snap(b, 1 + (ph > 0 and ph + 1 or 0)))
 
-    -- Text width from the configured frame width (health width resolves late),
-    -- so long names truncate instead of overflowing. A single anchor point +
-    -- explicit width lets the X/Y offsets actually move the text.
+    -- Text width comes from the configured frame width (health width resolves late), so long names
+    -- truncate instead of overflowing. One anchor point plus an explicit width lets the X/Y
+    -- offsets actually move the text.
     local textW = N.db[b.groupKey].width - 6
     local name, hp = ind.name, ind.healthText
     styleText(b.nameText, name)
@@ -472,8 +412,8 @@ function UF.LayoutBars(b)
     placeText(b.nameText, b.health, name, stacked and 6 or 0)
     placeText(b.hpText, b.health, hp, stacked and -6 or 0)
 
-    -- Power text sits on the health bar like the other texts (a 4px-tall power
-    -- bar is no place for a line of text), at one of the nine positions.
+    -- Power text sits on the health bar like the other texts (a 4px power bar is no place for
+    -- text), at one of the nine positions.
     b.powerText:SetFont(M.font, pb.textSize or 9, "OUTLINE")
     -- No fixed width: the anchor alone decides where a short text sits, so left /
     -- right positions can never depend on justification inside a wide box.
@@ -568,8 +508,6 @@ local function healthColor(b, appearance)
     return N.ClassRGB(b.class)
 end
 
--- Text colour for the name / health text: the unit's class colour or the
--- configured custom colour.
 local function textRGB(b, o, fallback)
     if o.colorMode == "class" then return N.ClassRGB(b.class) end
     local c = o.color or fallback
@@ -585,7 +523,6 @@ local function shortNum(v)
     return nil
 end
 
--- Health as 0..100 (possibly secret), or nil when it can't be known.
 local function hpPercent(b)
     local pct
     if b.unit then pct = N.HealthPercent(b.unit) end
@@ -643,13 +580,12 @@ local function setHealthText(b, fs, o)
     elseif mode == "percentNoSign" and pct ~= nil then
         fs:SetFormattedText("%d", pct)
     elseif pct ~= nil then
-        fs:SetFormattedText("%d%%", pct) -- "percent", and the fallback for the rest
+        fs:SetFormattedText("%d%%", pct)
     else
         fs:SetText("")
     end
 end
 
--- Power as 0..100 (possibly secret): UnitPowerPercent is the secret-safe route.
 local function powerPercent(b)
     if b.unit and b.ppEnum and _G.UnitPowerPercent then
         local scale = _G.CurveConstants and CurveConstants.ScaleTo100
@@ -679,7 +615,6 @@ local function powerRGB(b)
     -- (never the yellow of Energy). Pets keep their own type.
     local t = b.ppType
     if type(t) == "string" and not N.IsSecret(t) then
-        -- Our table first: Focus (hunter) must be its orange, never an energy yellow.
         local fb = POWER_FALLBACK[t]
         if fb then return fb[1], fb[2], fb[3] end
         local pc = PowerBarColor[t]
@@ -695,7 +630,6 @@ local function powerRGB(b)
     return 0, 0, 1
 end
 
--- Power text colour: the power type's own colour, the class colour, or custom.
 local function powerTextRGB(b, o)
     local mode = o.textColorMode or "power"
     if mode == "class" then return N.ClassRGB(b.class) end
@@ -734,7 +668,6 @@ end
 local function render(b)
     local appearance = N.db[b.groupKey].appearance
 
-    -- Health bar: StatusBar:SetMinMaxValues / SetValue tolerate secret numbers.
     b.hpMax = b.hpMax or 1; b.hp = b.hp or 0
     b.health:SetMinMaxValues(0, b.hpMax)
     if b.connected then b.health:SetValue(b.hp) else b.health:SetValue(0) end
@@ -742,17 +675,16 @@ local function render(b)
 
     local ind = N.db[b.groupKey].indicators
 
-    -- The power bar's visibility is re-checked on every paint (as Cell and Ellesmere do):
-    -- a bar that is shown although it is switched off, or hidden although it is on, is
-    -- put right here instead of waiting for the next layout pass.
+    -- The power bar's visibility is re-checked on every paint: a bar shown although it's switched
+    -- off, or hidden although it's on, is put right here instead of waiting for the next layout
+    -- pass.
     local wantPower = pOn(b, "powerBar", ind.powerBar.enabled) and b._powerShown and pShow(b, "powerBar")
     if (wantPower and true or false) ~= (b.power:IsShown() and true or false) then UF.LayoutBars(b) end
 
-    -- Offline / Dead / ... is the Status indicator's own bar (Indicators.lua); it
-    -- no longer takes over the name and health text.
+    -- Offline / Dead / ... is the Status indicator's own bar (Indicators.lua), it no longer takes
+    -- over the name and health text.
     local statusMsg = nil
 
-    -- name
     b.nameText:SetShown(pOn(b, "name", ind.name.enabled) and not statusMsg and pShow(b, "name"))
     if pOn(b, "name", ind.name.enabled) and not statusMsg then
         b.nameText:SetText(N.Translit(N.ShortName(b.pName, ind.name.nameFormat)) or "")
@@ -763,21 +695,18 @@ local function render(b)
         end
     end
 
-    -- health text (formats and secret handling: setHealthText above)
     b.hpText:SetShown(pOn(b, "healthText", ind.healthText.enabled) and not statusMsg and pShow(b, "healthText"))
     if pOn(b, "healthText", ind.healthText.enabled) and not statusMsg then
         setHealthText(b, b.hpText, ind.healthText)
         b.hpText:SetTextColor(textRGB(b, ind.healthText, { 0.85, 0.85, 0.87 }))
     end
 
-    -- power
     if b.power:IsShown() then
         b.power:SetMinMaxValues(0, b.ppMax)
         if b.connected then b.power:SetValue(b.pp) else b.power:SetValue(0) end
         b.power:SetStatusBarColor(powerRGB(b))
     end
 
-    -- power text (formats and secret handling: setPowerText above)
     if b.powerText:IsShown() then
         setPowerText(b, b.powerText, ind.powerBar)
     end
@@ -797,14 +726,8 @@ local function render(b)
         b.absorbOver:SetMinMaxValues(0, b.hpMax)
         b.healAbsorb:SetMinMaxValues(0, b.hpMax)
 
-        -- b.absorb uses the RAW total absorb amount (b.absorbAmt, straight
-        -- from UnitGetTotalAbsorbs) - never anything we subtract or clamp
-        -- ourselves. It's anchored to the fill edge, so overlayClip alone
-        -- keeps it from ever rendering past the bar's right edge - no
-        -- arithmetic needed to find that limit. The calculator below is only
-        -- for the overshield spark's "did it overflow" flag (see
-        -- CreateVisual for why there's no second bar spilling onto the
-        -- already-filled health for the overflow itself).
+        -- b.absorb takes the raw absorb amount, overlayClip keeps it inside the bar. The calculator
+        -- below only supplies the overflow flag for the overshield spark.
         local absorbAmt, overshield = b.absorbAmt, false
         if b.healCalc and b.unit and _G.UnitGetDetailedHealPrediction then
             local ok, _, over = pcall(function()
@@ -816,7 +739,6 @@ local function render(b)
             end)
             if ok then overshield = over end
         elseif b._mock then
-            -- Mock data is always plain numbers, so a real comparison is fine here.
             local missing = (b.hpMax or 0) - (b.hp or 0)
             overshield = (absorbAmt or 0) > missing and missing >= 0
         end
@@ -838,7 +760,6 @@ local function render(b)
             and not IsSecret(overshield) and overshield == true)
     end
 
-    -- target
     for i = 1, #b.targetEdges do b.targetEdges[i]:SetShown(b.isTarget and not b._previewOnly) end
 
     if N.Indicators then N.Indicators.UpdateAll(b) end
@@ -856,7 +777,6 @@ local function fullUpdate(b)
 end
 UF.FullUpdate = fullUpdate
 
--- Test mode feeds b.* from a mock table, then paints.
 function UF.ApplyMock(b, m)
     b._mock = m
     b.unit = nil
@@ -883,7 +803,7 @@ end
 --------------------------------------------------------------------------------
 
 local function bindUnit(b)
-    local unit = b:GetAttribute("unit")
+    local unit = (b._secure or b):GetAttribute("unit")
     if unit == b.unit then return end
     b.unit = unit
     b:UnregisterAllEvents()
@@ -892,11 +812,8 @@ local function bindUnit(b)
             b:RegisterUnitEvent(ev, unit)
         end
         fullUpdate(b)
-        -- Bar widths resolve a frame after anchoring; LayoutBars is what sets
-        -- the overlay bars' pixel width, so it (not just render) has to run
-        -- again once that's settled, or absorb/heal-predict stay pinned at
-        -- their initial (zero) width until some later settings change happens
-        -- to call LayoutBars for an unrelated reason.
+        -- Bar widths resolve a frame after anchoring: run LayoutBars again once they have, or
+        -- absorb/heal-predict stay at zero width.
         C_Timer.After(0, function()
             if b.unit == unit then
                 UF.LayoutBars(b)
@@ -919,13 +836,10 @@ local function onUpdate(b, elapsed)
 
     local appearance = N.db[b.groupKey].appearance
 
-    -- UnitInRange can return secret booleans under Midnight. A secret one cannot be
-    -- tested, but the frame can take it straight into SetAlphaFromBoolean (in range:
-    -- fully visible, out of range: the configured alpha).
+    -- UnitInRange can return a secret boolean; SetAlphaFromBoolean takes it directly.
     local alpha = 1
-    -- Only the first return is used (as Ellesmere does): the second one ("was the
-    -- range checked") can be missing, which would keep every frame at full alpha.
-    -- You are never out of range of yourself (UnitInRange does not say so for "player").
+    -- Only the first return is used, the second ("was the range checked") can be missing and
+    -- would keep every frame at full alpha. You are never out of range of yourself.
     local inRange
     local me = UnitIsUnit(b.unit, "player")
     if me ~= nil and not N.IsSecret(me) and not me then me = UnitIsUnit(b.unit, "pet") end
@@ -946,71 +860,124 @@ local function onUpdate(b, elapsed)
     if inRange == false then
         alpha = appearance.outOfRangeAlpha
     elseif appearance.healthFade.enabled then
-        -- HealthFraction is nil whenever the true value isn't safely known
-        -- (secret and no plain fallback) - fading just doesn't kick in then,
-        -- same "degrade to no effect" rule as the health-gradient color mode.
+        -- HealthFraction is nil when the value isn't safely known: the fade then just stays off.
         local frac = N.HealthFraction(b.unit)
         if frac and frac >= (appearance.healthFade.threshold or 1) then
             alpha = appearance.outOfRangeAlpha
         end
     end
-    -- Set every pass (cheap): other code may have set the alpha in between.
     b.curAlpha = alpha
     b:SetAlpha(alpha)
 end
 
+-- The header runs these two handlers inside its own (secure) update. Our reaction is queued and
+-- done a moment later, so none of our code runs inside that update.
+local pendingBind, bindScheduled = {}, false
+local function flushBinds()
+    bindScheduled = false
+    for b, w in pairs(pendingBind) do
+        pendingBind[b] = nil
+        if w.bind then bindUnit(b) end
+        if w.full and b:IsShown() then fullUpdate(b) end
+    end
+end
+local function queueBind(b, what)
+    local w = pendingBind[b]
+    if not w then w = {}; pendingBind[b] = w end
+    w[what] = true
+    if not bindScheduled then
+        bindScheduled = true
+        C_Timer.After(0, flushBinds)
+    end
+end
+
+-- SecureGroupHeader children are Blizzard's frames. Nothing of ours is written into their Lua
+-- tables: everything Nucleus draws and tracks lives on a plain frame (the "visual") that sits
+-- inside the secure button and follows it. The secure button only keeps clicks, attributes and
+-- hooks. Our own pet/companion buttons are not header children and carry the visual directly.
+local visualOf = setmetatable({}, { __mode = "k" })
+local plainStyled = setmetatable({}, { __mode = "k" })
+
+function UF.VisualOf(child) return visualOf[child] end
+-- The Nucleus button (visual) behind a secure button, nil if it is not styled yet.
+function UF.ButtonOf(child) return visualOf[child] or (plainStyled[child] and child) or nil end
+function UF.BindChild(child)
+    local v = UF.ButtonOf(child)
+    if v then bindUnit(v) end
+end
+
+local function isHeaderChild(child)
+    local p = child:GetParent()
+    return p ~= nil and N.headers ~= nil
+        and (p == N.headers.party or p == N.headers.raid or p == N.headers.groupPets)
+end
+
 function N.StyleUnitButton(name)
-    local b = _G[name]
-    if not b or b._nucStyled then return end
-    b._nucStyled = true
+    local child = _G[name]
+    if not child or visualOf[child] or plainStyled[child] then return end
 
-    local parent = b:GetParent()
-    UF.CreateVisual(b, (parent and parent.groupKey) or "party")
+    local parent = child:GetParent()
+    local key = (parent and N.HeaderKey(parent)) or "party"
+    local b = child
+    if isHeaderChild(child) then
+        b = CreateFrame("Frame", nil, child)
+        b:SetAllPoints(child)
+        b:EnableMouse(false)
+        b._secure = child
+        visualOf[child] = b
+        b:SetShown(child:IsShown())
+    else
+        plainStyled[child] = true
+    end
+    UF.CreateVisual(b, key)
 
-    -- A button only reacts to the mouse buttons it is registered for, and a
-    -- plain Button knows the left one alone: without this, right / middle /
-    -- extra-button click-casting (and the right-click menu) never fires.
-    b:RegisterForClicks("AnyUp")
+    -- A button only reacts to the mouse buttons it is registered for, and a plain Button knows
+    -- only the left one. Without this, right/middle/extra-button click-casting and the right-click
+    -- menu never fire.
+    child:RegisterForClicks("AnyUp")
 
     -- Ping system: with this, the ping key pings the unit this frame shows
     -- instead of the ground behind it.
     if _G.PingableType_UnitFrameMixin then
-        Mixin(b, _G.PingableType_UnitFrameMixin)
-        function b:GetTargetPingGUID()
-            local u = self.unit
+        Mixin(child, _G.PingableType_UnitFrameMixin)
+        function child:GetTargetPingGUID()
+            local u = b.unit
             if not u then return nil end
             local guid = UnitGUID(u)
             if N.IsSecret(guid) then return nil end
             return guid
         end
-        N.RunWhenSafe(function() b:SetAttribute("ping-receiver", true) end)
+        N.RunWhenSafe(function() child:SetAttribute("ping-receiver", true) end)
     end
 
-    b:HookScript("OnAttributeChanged", function(self, attr)
-        if attr == "unit" then bindUnit(self) end
+    child:HookScript("OnAttributeChanged", function(_, attr)
+        if attr == "unit" then queueBind(b, "bind") end
+    end)
+    child:HookScript("OnShow", function()
+        if b ~= child then b:Show() end
+        queueBind(b, "full")
+    end)
+    if b ~= child then child:HookScript("OnHide", function() b:Hide() end) end
+    child:HookScript("OnEnter", function()
+        if not b.isTarget then
+            for i = 1, #b.hoverEdges do b.hoverEdges[i]:Show() end
+        end
+    end)
+    child:HookScript("OnLeave", function()
+        for i = 1, #b.hoverEdges do b.hoverEdges[i]:Hide() end
     end)
     b:SetScript("OnEvent", onEvent)
     b:SetScript("OnUpdate", onUpdate)
-    b:SetScript("OnShow", function(self) fullUpdate(self) end)
-    b.NucleusBind = function(self) bindUnit(self or b) end
-    b:SetScript("OnEnter", function(self)
-        if not self.isTarget then
-            for i = 1, #self.hoverEdges do self.hoverEdges[i]:Show() end
-        end
-    end)
-    b:SetScript("OnLeave", function(self)
-        for i = 1, #self.hoverEdges do self.hoverEdges[i]:Hide() end
-    end)
 
     bindUnit(b)
 end
 
--- Iterate every live header child.
 local function forEachButton(fn)
     for _, header in pairs(N.headers or {}) do
         local i, child = 1, _G[header:GetName() .. "UnitButton1"]
         while child do
-            if child._nucVisual then fn(child, header) end
+            local b = UF.ButtonOf(child)
+            if b and b._nucVisual then fn(b, header) end
             i = i + 1
             child = _G[header:GetName() .. "UnitButton" .. i]
         end
@@ -1025,8 +992,6 @@ function N.RefreshAllButtons()
     end)
 end
 
--- Bar texture / color-mode / loss-color changes: same refresh as an
--- indicator or aura setting, just keyed off .appearance. instead.
 N:On("NUCLEUS_SETTING_CHANGED", function(_, section, path)
     if N.GROUP_KEYS[section] and path and path:find("%.appearance%.") then
         N.RefreshAllButtons()
@@ -1040,7 +1005,6 @@ watcher:RegisterEvent("PLAYER_TARGET_CHANGED")
 watcher:RegisterEvent("PLAYER_FOCUS_CHANGED")
 watcher:RegisterEvent("UNIT_TARGET")
 watcher:SetScript("OnEvent", function(_, event, unit)
-    -- Spotlight slots that show your target / focus / target's target follow it.
     if event ~= "UNIT_TARGET" or unit == "target" or unit == "player" then
         forEachButton(function(child)
             local u = child.unit

@@ -3,32 +3,23 @@ local N = ns.N
 
 -- Pulses a Nucleus frame when a groupmate pings that unit.
 --
--- MIRROR, NOT LISTENER. The events driving Blizzard's own ping icon
--- (UNIT_PING_PIN_ADDED / UNIT_PING_PIN_REMOVED) are protected - an addon
--- calling RegisterEvent on them is ADDON_ACTION_FORBIDDEN, and the icon's own
--- template/mixin live in a forbidden scope, so Nucleus cannot listen for the
--- ping directly or build one of Blizzard's icons itself (this is the wall the
--- earlier EventRegistry attempt, and then the C_Ping research, both ran into).
+-- MIRROR, NOT LISTENER. The events behind Blizzard's own ping icon (UNIT_PING_PIN_ADDED /
+-- UNIT_PING_PIN_REMOVED) are protected: RegisterEvent on them from an addon is
+-- ADDON_ACTION_FORBIDDEN, and the icon's template/mixin live in a forbidden scope, so we can
+-- neither listen for the ping nor build Blizzard's icon ourselves.
 --
--- What IS reachable: Blizzard already builds a ping-icon child frame
--- (`.pingIconFrame`) into every one of its own compact unit frames, and that
--- object's ShowPing/ClearPing methods are ordinary (non-forbidden) functions -
--- hooksecurefunc on them fires with the ping's texture kit. Blizzard resolves
--- the protected event to a unit for us internally; we just read the icon's
--- owner frame's `.unit` (a plain field, not a secure attribute) and mirror
--- onto whichever Nucleus button shows that unit. Confirmed working this way
--- in another from-scratch raid-frame addon's source (DandersFrames,
--- Features/PingMirror.lua) - Cell has no equivalent, it never hooks these.
+-- What is reachable: Blizzard builds a ping-icon child frame (`.pingIconFrame`) into every compact
+-- unit frame, and its ShowPing/ClearPing methods are ordinary functions: hooksecurefunc on them
+-- fires with the ping's texture kit. Blizzard resolves the protected event to a unit internally;
+-- we read the icon owner's `.unit` (a plain field) and mirror onto whichever Nucleus button shows
+-- that unit.
 --
--- Two things this depends on:
---   * Blizzard's own hidden compact frames must keep receiving events, so
---     HideBlizzard.lua skips its event-stripping step while Ping is enabled
---     (concealment via alpha/mouse still applies - only the CPU-saving event
---     strip backs off). Turning Ping on after events were already stripped
---     needs a /reload; there is no clean way to restore just the events
---     Blizzard originally registered.
---   * The "showPingsOnRaidFrames" CVar must be on - Blizzard's own handler
---     returns before ShowPing runs otherwise. EnsurePingCVar turns it on.
+-- Depends on two things:
+--   * Blizzard's hidden compact frames must keep receiving events, so HideBlizzard.lua skips its
+--     event stripping while Ping is on (hiding via alpha/mouse still applies). Turning Ping on
+--     after events were stripped needs a /reload.
+--   * The "showPingsOnRaidFrames" CVar must be on, otherwise Blizzard's handler returns before
+--     ShowPing runs. EnsurePingCVar turns it on.
 
 local Ping = {}
 N.Ping = Ping
@@ -42,14 +33,13 @@ local expireTokens = {}  -- guid -> generation, to invalidate a stale safety tim
 -- The real Blizzard ping icon on a Nucleus button
 --------------------------------------------------------------------------------
 
--- Blizzard's own ping art, referenced by atlas name (built into the client,
--- the same way an indicator borrows Interface\... paths - nothing copied).
--- "kit" is the ping type Blizzard hands back: Attack, Warning, OnMyWay, ...
+-- Blizzard's own ping art, referenced by atlas name (built into the client). "kit" is the ping
+-- type Blizzard hands back: Attack, Warning, OnMyWay, ...
 local iconPool = {}
 
--- Forever does not ship Blizzard's "Ping_Frame_*" atlases, so the ping icons are our own
--- (Media/Ping/*.tga, complete standalone icons - the same set Cell Forever uses). A kit the
--- client does have as an atlas still uses that atlas.
+-- Forever doesn't ship Blizzard's "Ping_Frame_*" atlases, so the ping icons are our own
+-- (Media/Ping/*.tga, complete standalone icons). A kit the client does have as an atlas still uses
+-- that atlas.
 local GetAtlasInfo = C_Texture and C_Texture.GetAtlasInfo
 local PING_ICON_FOLDER = "Interface\\AddOns\\Nucleus\\Media\\Ping\\"
 local KIT_IMAGE = {
@@ -131,12 +121,10 @@ local function findButtonForUnit(unit)
     return match
 end
 
---------------------------------------------------------------------------------
--- Live preview for the Ping Settings popup: a persistent icon on the player's
--- own frame so size/position can be tuned without actually pinging anyone.
---------------------------------------------------------------------------------
+-- Live preview for the Ping Settings popup: a persistent icon on the player's own frame so
+-- size/position can be tuned without pinging anyone.
 
-local PREVIEW_KIT = "NonThreat" -- confirmed to exist and render (a real self-ping used it)
+local PREVIEW_KIT = "NonThreat"
 local previewActive = false
 
 function Ping.PreviewOn()
@@ -173,7 +161,7 @@ end
 -- Hooking Blizzard's own (hidden) ping icons
 --------------------------------------------------------------------------------
 
-local DEBUG = false -- flip true to trace a ping mirror attempt in chat
+local DEBUG = false
 
 local function onBlizzardShowPing(icon, kit)
     if DEBUG then N:Print("|cff61aef7[ping]|r ShowPing fired, kit=" .. tostring(kit)) end
@@ -233,10 +221,9 @@ local function sweepBlizzardFrames()
     for g = 1, 8 do
         for m = 1, 5 do hookOwner(_G["CompactRaidGroup" .. g .. "Member" .. m]) end
     end
-    -- Self/target/focus pings don't go through the compact-frame system at
-    -- all (a solo player has no CompactPartyFrameMember with a unit assigned
-    -- to it in the first place) - they land on Blizzard's classic PlayerFrame
-    -- / TargetFrame / FocusFrame, which carry their own .pingIconFrame.
+    -- Self/target/focus pings don't go through the compact-frame system (a solo player has no
+    -- CompactPartyFrameMember with a unit); they land on Blizzard's classic PlayerFrame /
+    -- TargetFrame / FocusFrame, which carry their own .pingIconFrame.
     hookOwner(_G.PlayerFrame)
     hookOwner(_G.TargetFrame)
     hookOwner(_G.FocusFrame)
@@ -263,10 +250,8 @@ local function ensurePingCVar()
     end
 end
 
--- The hooks themselves are cheap and harmless to keep installed regardless of
--- the toggle (onBlizzardShowPing checks N.db.ping.enabled before doing
--- anything visible) - that way flipping the setting on later, after login,
--- doesn't need its own lazy-init path.
+-- The hooks are cheap and harmless to leave installed regardless of the toggle (onBlizzardShowPing
+-- checks N.db.ping.enabled first), so enabling the setting later needs no lazy init.
 function Ping.Init()
     installSetupHooks()
     sweepBlizzardFrames()

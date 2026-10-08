@@ -1,8 +1,7 @@
 local _, ns = ...
 local N = ns.N
 
--- Loads last. Brings the modules up in dependency order once SavedVariables
--- and the world are both ready.
+-- Loads last. Brings the modules up once SavedVariables and the world are ready.
 
 local started = false
 
@@ -26,7 +25,7 @@ local function start()
     step("Ping.Init", N.Ping.Init)
     step("TargetedSpellBars.Init", N.TargetedSpellBars.Init)
 
-    -- Roster-wide refresh: header handles unit assignment, we just repaint.
+    -- The header assigns units, we only repaint.
     N:On("GROUP_ROSTER_UPDATE", function()
         N.UnitFrame.ForEachButton(function(child)
             if child:IsShown() then N.UnitFrame.FullUpdate(child) end
@@ -50,11 +49,12 @@ local function start()
                     h:GetWidth() or 0, h:GetHeight() or 0,
                     tostring(h:GetAttribute("showSolo")), tostring(h:GetAttribute("showPlayer"))))
             local c = _G[h:GetName() .. "UnitButton1"]
+            c = c and (N.UnitFrame.ButtonOf(c) or c)
             if c then
                 N:Print(("  child1: shown=%s unit=%s bound=%s size=%dx%d styled=%s")
                     :format(tostring(c:IsShown()), tostring(c:GetAttribute("unit")),
                         tostring(c.unit), c:GetWidth() or 0, c:GetHeight() or 0,
-                        tostring(c._nucStyled)))
+                        tostring(c._nucVisual)))
                 if c.unit and UnitExists(c.unit) then
                     local _, classToken = UnitClass(c.unit)
                     local r, g, b = N.ClassRGB(classToken)
@@ -71,10 +71,29 @@ local function start()
     if N.db.welcomeMessage ~= false then
         N:Print(N.L["WELCOME_MSG"]:format(ns.VERSION or "?"))
     end
+
+    -- One-time welcome window on the very first start.
+    local function showFirstRun()
+        N.Dialog.Show({
+            title = N.L["FIRST_RUN_TITLE"],
+            text = N.L["FIRST_RUN_TEXT"],
+            buttons = {
+                { text = "GitHub", onClick = function() N.Dialog.Link("GitHub", "https://github.com/NeeRgY/Nucleus") end },
+                { text = "Discord", onClick = function() N.Dialog.Link("Discord", "https://discord.gg/YjfyDKckCS") end },
+                { text = N.L["Got it"], primary = true },
+            },
+        })
+    end
+    if not N.db.firstRunShown then
+        N.db.firstRunShown = true
+        C_Timer.After(3, showFirstRun)
+    end
+    SLASH_NUCLEUSWELCOME1 = "/nucwelcome"
+    SlashCmdList.NUCLEUSWELCOME = showFirstRun
 end
 
--- NUCLEUS_DB_READY fires from ADDON_LOADED; PLAYER_LOGIN guarantees the UI and
--- group APIs are available. Whichever is second wins.
+-- NUCLEUS_DB_READY comes from ADDON_LOADED, PLAYER_LOGIN means the UI is up. Start on whichever
+-- comes second.
 local dbReady = false
 N:On("NUCLEUS_DB_READY", function()
     dbReady = true

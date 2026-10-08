@@ -4,18 +4,15 @@ local M = N.Media
 local L = N.L
 local UF = N.UnitFrame
 
--- Inline per-indicator preview: a small mock unit frame sits right above each
--- indicator's own settings card (BuildIndicator/BuildAuras in OptionsFrame.lua
--- call N.Preview.Create and add it as the first card). Renders through the
--- EXACT visual layer the real frames use (UF.CreateVisual / UF.LayoutBars /
--- UF.ApplyMock), so it's pixel-identical - just masked down to the one
--- indicator being edited (button._previewOnly, honoured by UnitFrame.render /
--- Indicators / Auras) unless General > Preview Settings > "Show all enabled
--- indicators" turns that mask off.
+-- Inline per-indicator preview: a small mock unit frame right above each indicator's settings card
+-- (BuildIndicator/BuildAuras in OptionsFrame.lua call N.Preview.Create and add it as the first
+-- card). It renders through the same visual layer as the real frames (UF.CreateVisual /
+-- UF.LayoutBars / UF.ApplyMock), masked down to the indicator being edited (button._previewOnly,
+-- honored by UnitFrame.render / Indicators / Auras) unless General > Preview Settings > "Show all
+-- enabled indicators" is on.
 --
--- The mock frame is a FIXED size, not the real configured party/raid frame
--- size - every indicator's preview lines up the same regardless of what width
--- and height the player has actually set.
+-- The mock frame has a FIXED size, not the configured frame size, so every indicator's preview
+-- lines up the same.
 
 local P = {}
 N.Preview = P
@@ -26,8 +23,8 @@ local TITLE_H = 20
 
 local instances = {}
 
--- Previews that step through several states so one frame demonstrates them
--- all (the same trick as Status Text below): the mock fields for each step.
+-- Previews that step through several states so one frame shows them all: the mock fields for each
+-- step.
 local ROTATING = {
     status = {
         { connected = false },
@@ -50,7 +47,6 @@ local ROTATING = {
         { readyCheck = "waiting" },
         { readyCheck = "notready" },
     },
-    -- One dispel type per step (so every icon and colour shows), then all four.
     dispels = (function()
         local function aura(icon, kind, dur)
             return { icon = icon, dispelName = kind, applications = 3, duration = dur, expirationTime = GetTime() + dur * 0.6 }
@@ -83,8 +79,8 @@ local ROTATING = {
     },
 }
 
--- Preview Settings > "cycle health": dead, then 25/50/75/100%, repeating.
--- Shared across every preview instance - one ticker drives them all.
+-- Preview Settings > "cycle health": dead, then 25/50/75/100%, repeating. One ticker drives every
+-- preview instance.
 local HEALTH_CYCLE = { 0, 25, 50, 75, 100 }
 local healthCycleIdx = 1
 local healthTicker
@@ -130,9 +126,8 @@ local function freshMock(filter, stateKey)
         },
     }
     local ps = N.db and N.db.previewSettings
-    -- Static health % (default 100) whenever the cycle isn't running - applied
-    -- before the demo overrides below, so e.g. Status's "show Dead" example
-    -- still works at whatever % is configured.
+    -- Static health % (default 100) while the cycle isn't running. Applied before the demo
+    -- overrides below, so e.g. Status's "show Dead" example still works at whatever % is set.
     if ps and not ps.cycleHealth then m.hp = ps.healthPercent or 100 end
 
     local rot = ROTATING[filter]
@@ -148,8 +143,8 @@ local function freshMock(filter, stateKey)
         m.dispels = fresh
     end
 
-    -- Cycle Health overrides everything above - it's meant to sweep every
-    -- indicator through the same health changes at once.
+    -- Cycle Health overrides everything above, so every indicator sweeps through the same health
+    -- changes at once.
     if ps and ps.cycleHealth then
         local hp = HEALTH_CYCLE[healthCycleIdx] or 100
         m.hp = hp
@@ -158,21 +153,20 @@ local function freshMock(filter, stateKey)
     return m
 end
 
--- Builds a small fixed-size preview card, masked to `subId` (unless "show all
--- enabled" is on), and returns the host frame (already sized) so the caller
--- can just p:AddCard(host) it above the settings for that indicator.
+-- Builds a small fixed-size preview card masked to `subId` (unless "show all enabled" is on) and
+-- returns the sized host frame, ready for p:AddCard(host) above that indicator's settings.
 function P.Create(parent, subId, customId)
     local host = CreateFrame("Frame", nil, parent)
     host:SetSize(FIXED_W + PAD * 4, TITLE_H + FIXED_H + PAD * 2)
     N.SkinPanel(host, M.color.frameBg)
+    host._nucFrameText = true -- the mock frames inside show the frame font, not the window font
 
     local titleFS = N.FontString(host, 12)
     titleFS:SetPoint("TOPLEFT", 8, -6)
+    titleFS._nucForceUI = true
     titleFS:SetText(L["Preview"])
     titleFS:SetTextColor(M.color.textDim[1], M.color.textDim[2], M.color.textDim[3])
 
-    -- Settings button: a rounded button with our own cog icon, matching the
-    -- options window. The cog is dim until hovered.
     local gear = CreateFrame("Button", nil, host)
     gear:SetSize(24, 24)
     gear:SetPoint("TOPRIGHT", -6, -4)
@@ -195,9 +189,8 @@ function P.Create(parent, subId, customId)
     button:SetPoint("TOP", 0, -(TITLE_H + PAD / 2))
     UF.CreateVisual(button, N:Mode())
 
-    -- Private auras are drawn by Blizzard (not in a mock), so the preview shows
-    -- placeholder slots laid out exactly as the real ones, each with the red
-    -- border Blizzard draws around them.
+    -- Private auras are drawn by Blizzard (not in a mock), so the preview shows placeholder slots
+    -- laid out like the real ones, each with the red border Blizzard draws.
     local privSlots = {}
     for s = 1, 5 do
         local f = CreateFrame("Frame", nil, button.overlay)
@@ -233,7 +226,7 @@ function P.Create(parent, subId, customId)
 
         local pa = N.db[key].indicators.privateAura
         local showPriv = (subId == "privateAura" or ps.showAllEnabled) and (pa.enabled or subId == "privateAura")
-        local num = 1 -- the preview shows a single sample slot
+        local num = 1
         local size = pa.size or 18
         local point = (pa.position or "top"):upper()
         local ax = point:find("LEFT") and 1 or point:find("RIGHT") and -1 or 0
@@ -250,7 +243,6 @@ function P.Create(parent, subId, customId)
                 f:SetSize(size, size)
                 f:ClearAllPoints()
                 f:SetPoint(point, button, point, ax + dx + (pa.x or 0), ay + dy + (pa.y or 0))
-                -- the red border, sized like Blizzard's (scales with the icon)
                 local bw = math.max(1, math.floor(size / 16 * (pa.borderScale or 1) + 0.5))
                 local e = f.edges
                 e[1]:ClearAllPoints(); e[1]:SetPoint("TOPLEFT"); e[1]:SetPoint("TOPRIGHT"); e[1]:SetHeight(bw)
@@ -267,8 +259,8 @@ function P.Create(parent, subId, customId)
     host:SetScript("OnShow", inst.refresh)
     inst.refresh()
 
-    -- Cycle through every possible Status Text state so the one preview
-    -- frame demonstrates all of them over time, not just the first.
+    -- Cycle through every possible Status state so the one preview frame shows all of them over
+    -- time.
     if ROTATING[subId] then
         local ticker
         host:SetScript("OnShow", function()
@@ -289,7 +281,6 @@ function P.Create(parent, subId, customId)
     return host
 end
 
--- The Actions preview frames that are on screen (for the Test button).
 function P.EachActionsPreview(fn)
     for _, inst in ipairs(instances) do
         if inst.subId == "actions" and inst.host:IsVisible() then fn(inst.button) end
@@ -301,8 +292,8 @@ local function refreshAll()
 end
 P.RefreshAll = refreshAll
 
--- One shared ticker for the health-cycle setting, started/stopped as it's
--- toggled - drives every open preview instance at once via refreshAll.
+-- One shared ticker for the health cycle, started/stopped as it's toggled; drives every open
+-- preview through refreshAll.
 local function syncHealthTicker()
     local want = N.db and N.db.previewSettings and N.db.previewSettings.cycleHealth
     if want and not healthTicker then

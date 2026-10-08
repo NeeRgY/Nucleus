@@ -4,9 +4,9 @@ local M = N.Media
 local L = N.L
 local IsSecret = N.IsSecret
 
--- Raid group names ("Group 1", ...): a small text on the first frame of each raid
--- group, when the raid is grouped by raid group. Raid only (N.db.raid.groupNames).
--- The label belongs to the frame's own overlay, so it moves, hides and fades with it.
+-- Raid group names ("Group 1", ...): small text on the first frame of each raid group when the
+-- raid is grouped by group. Raid only (db.raid.groupNames). The label lives in the frame's
+-- overlay, so it moves, hides and fades with it.
 
 local GL = {}
 N.GroupLabels = GL
@@ -39,8 +39,8 @@ local function style(fs, b, o, group)
     fs:Show()
 end
 
--- entries: { { button = b, group = n | nil }, ... } in frame order; the first frame
--- of each group gets the label, every other one loses it.
+-- entries: { { button = b, group = n | nil }, ... } in frame order. The first frame of each group
+-- gets the label, the rest lose it.
 local function apply(entries)
     local o = settings()
     local on = o and o.enabled and N.db.raid.groupBy == "GROUP"
@@ -56,7 +56,6 @@ local function apply(entries)
     end
 end
 
--- The real raid frames.
 function GL.Update()
     local header = N.headers and N.headers.raid
     if not header then return end
@@ -70,14 +69,13 @@ function GL.Update()
             local g = select(3, GetRaidRosterInfo(idx))
             if g ~= nil and not IsSecret(g) then group = g end
         end
-        entries[#entries + 1] = { button = child, group = group }
+        entries[#entries + 1] = { button = N.UnitFrame.ButtonOf(child) or child, group = group }
         i = i + 1
         child = _G[header:GetName() .. "UnitButton" .. i]
     end
     apply(entries)
 end
 
--- The sample frames of test mode (a raid group fills one column).
 function GL.UpdateMock(pool, n)
     local perCol = N.db.raid.unitsPerColumn or 5
     local entries = {}

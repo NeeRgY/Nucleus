@@ -4,16 +4,13 @@ local M = N.Media
 local Indicators = N.Indicators
 local IsSecret = N.IsSecret
 
--- Missing Buffs: an icon on a unit's frame for every raid buff it lacks.
--- Standalone - it reads the unit's auras itself and does not depend on any
--- buff-tracker panel. A buff is only expected when somebody in the group can
--- actually provide it (the provider class is present), and only the buffs
--- switched on in the settings are checked.
+-- Missing Buffs: an icon on a unit's frame for every raid buff it lacks. Standalone, reads the
+-- unit's auras itself. A buff only counts as expected when someone in the group can provide it,
+-- and only buffs enabled in the settings are checked.
 --
--- Midnight: spell IDs on other units can be hidden. If any aura on the unit
--- has a hidden ID the answer is "unknown" and nothing is shown for that unit
--- (better silent than a false "missing"). The aura scan runs in a timer, never
--- inside the secure header's update, and the result is cached on the button.
+-- Midnight can hide spell IDs on other units. If any aura on the unit has a hidden ID the answer
+-- is unknown and nothing is shown (better silent than a false "missing"). The scan runs in a
+-- timer, never inside the secure header's update, and the result is cached on the button.
 
 local BUFFS = {
     { key = "fortitude", label = "Power Word: Fortitude", class = "PRIEST",  ids = { 21562 } },
@@ -34,7 +31,6 @@ end
 
 local MAX_ICONS = #BUFFS
 
--- Which classes are in the group right now (cached for a second).
 local classCache, classStamp
 local function groupClasses()
     local now = GetTime()
@@ -66,7 +62,6 @@ local function buffTexture(buff)
     return t or 134400
 end
 
--- Works out which enabled buffs unit `u` is missing; nil when unknown.
 local function scan(u, o)
     local present, unknown = {}, false
     if not (N.AuraCache and N.AuraCache.Each) then return nil end
@@ -86,7 +81,7 @@ local function scan(u, o)
             missing[#missing + 1] = buff.key
         end
     end
-    -- Anything missing is only trustworthy when every aura was readable.
+    -- Only trust "missing" when every aura was readable.
     if unknown and #missing > 0 then return nil end
     return missing
 end
@@ -142,7 +137,6 @@ Indicators.Register("missingBuffs", {
         local o = N.db[b.groupKey].indicators.missingBuffs
         local keys
         if b._mock then
-            -- Preview / test mode: show every enabled buff as missing.
             keys = {}
             for _, buff in ipairs(BUFFS) do
                 if o.buffs and o.buffs[buff.key] ~= false then keys[#keys + 1] = buff.key end

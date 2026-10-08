@@ -3,13 +3,11 @@ local N = ns.N
 local M = N.Media
 local L = N.L
 
--- Copy settings between the Party and the Raid half of the active profile.
--- A popup lets the user pick the direction and exactly which parts to copy;
--- everything not ticked stays as it is.
+-- Copies settings between the Party and Raid half of the active profile. A popup picks the
+-- direction and exactly which parts to copy; anything not ticked stays as it is.
 
 local function uc(c) return c[1], c[2], c[3], c[4] or 1 end
 
--- Plain keys of a group that belong together.
 local GROUP_KEYS = {
     size     = { "width", "height", "spacing", "columnSpacing" },
     layout   = { "orientation", "reverse", "groupBy", "sortMethod", "unitsPerColumn", "maxColumns",
@@ -82,7 +80,6 @@ local function doCopy()
         if state.sel["aura:" .. row.id] then copyKey(dst.auras, row.id, src.auras) end
     end
 
-    -- Tell the frames to re-read the target half (same set a profile switch uses).
     N:Fire("NUCLEUS_SETTING_CHANGED", to, to .. ".enabled", dst.enabled)
     N:Fire("NUCLEUS_SETTING_CHANGED", to, to .. ".width", dst.width)
     N:Fire("NUCLEUS_SETTING_CHANGED", to, to .. ".indicators.name.enabled")
@@ -111,7 +108,7 @@ local function build()
     local ddFrom, ddTo
     ddFrom = N.MakeDropdown(dir, L["Copy from"], opts, function() return state.from end, function(v)
         state.from = v
-        if state.to == v then -- source and target must differ
+        if state.to == v then
             state.to = (v == "party") and "raid" or "party"
             if ddTo then ddTo.Refresh() end
         end
@@ -166,7 +163,6 @@ end
 
 function N.ShowCopyPopup()
     if not popup then popup = build() end
-    -- Default direction: from the group being edited to the "other" one.
     local mode = N:Mode()
     state.from = mode
     state.to = (mode == "party") and "raid" or (mode == "raid") and "party" or "party"
