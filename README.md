@@ -56,7 +56,6 @@ https://github.com/NeeRgY/Cell
 - Profile export and import as text, backups, and an importer for Cell profiles
 - Targeted spell bars, actions (potion and Healthstone animations), ready and pull timer, battle resurrection tracker, marker bar
 - Ping mirror on your frames
-- English and German
 
 ## Supported clients
 
