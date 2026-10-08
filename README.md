@@ -16,7 +16,7 @@
 
 [![Discord](https://img.shields.io/discord/1538823169446645762?style=for-the-badge&label=Discord&color=5865F2)](https://discord.gg/YjfyDKckCS)
 
-For help, feel free to join the Discord server. I'm usually very active there.
+For help, feel free to join the Discord server.
 
 ---
 
