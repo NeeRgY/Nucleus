@@ -14,7 +14,7 @@
 
 **Donations and tips support the development and maintenance of Nucleus.**
 
-[![Discord](https://img.shields.io/discord/1538823169446645762?style=for-the-badge&label=Discord&color=5865F2)](https://discord.gg/YjfyDKckCS)
+[![Discord](https://img.shields.io/discord/1558448385084891220?style=for-the-badge&label=Discord&color=5865F2)](https://discord.gg/HTgSf7Bjy8)
 
 For help, feel free to join the Discord server.
 
