@@ -447,7 +447,7 @@ N.RegisterLocale("enUS", {
     ["Groups per row"] = "Groups per row",
     ["Row spacing"] = "Row spacing",
     ["Group flow"] = "Group flow",
-    ["GROUPROW_TIP"] = "0 keeps the raid groups in one run. From 1 on, every raid group gets its own fixed place on a grid with this many groups per row. Needs Group by = Group and no pinned names. Column spacing is the gap between the groups of a row, Row spacing the gap between the rows.",
+    ["GROUPROW_TIP"] = "0 keeps the raid groups in one run. From 1 on, every raid group gets its own fixed place on a grid with this many groups per row. Needs Group by = Group. Column spacing is the gap between the groups of a row, Row spacing the gap between the rows.",
     ["GROUPFLOW_TIP"] = "The way the groups fill the grid: first along a row, then on to the next row.",
     ["Max characters (0 = no limit)"] = "Max characters (0 = no limit)",
     ["Column spacing"] = "Column spacing",

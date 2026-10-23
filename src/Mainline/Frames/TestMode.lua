@@ -294,14 +294,18 @@ local function testOrder(key, n)
     end
     local groupBy = isRaid and cfg.groupBy or nil
     local byName = isRaid and cfg.sortMethod == "NAME" and #pins == 0
+    -- Custom sorting with Group by = Group orders inside each raid group (5 mock players per group).
+    local inGroups = custom and groupBy == "GROUP"
+    local function groupOf(i) return math.floor((i - 1) / 5) end
     local function primary(i)
         if custom then return rank[roleOf(i, key)] or 4 end
-        if groupBy == "GROUP" then return math.floor((i - 1) / 5) end
+        if groupBy == "GROUP" then return groupOf(i) end
         if groupBy == "CLASS" then return classOf(i) end
         if groupBy == "ROLE" then return ROLE_RANK[roleOf(i, key)] or 4 end
         return 0
     end
     table.sort(order, function(a, b)
+        if inGroups and groupOf(a) ~= groupOf(b) then return groupOf(a) < groupOf(b) end
         if #pins > 0 then
             local pa, pb = pinIndex(a), pinIndex(b)
             if pa ~= pb then return pa < pb end

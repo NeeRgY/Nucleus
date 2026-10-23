@@ -443,7 +443,7 @@ N.RegisterLocale("ptBR", {
     ["Groups per row"] = "Grupos por linha",
     ["Row spacing"] = "Espaçamento entre linhas",
     ["Group flow"] = "Fluxo dos grupos",
-    ["GROUPROW_TIP"] = "0 mantém os grupos do raide em uma única sequência. A partir de 1, cada grupo do raide ganha um lugar fixo em uma grade com essa quantidade de grupos por linha. Exige agrupar por grupo e nenhum nome fixado. O espaçamento entre colunas é o espaço entre os grupos de uma linha, o espaçamento entre linhas o espaço entre as linhas.",
+    ["GROUPROW_TIP"] = "0 mantém os grupos do raide em uma única sequência. A partir de 1, cada grupo do raide ganha um lugar fixo em uma grade com essa quantidade de grupos por linha. Exige agrupar por grupo. O espaçamento entre colunas é o espaço entre os grupos de uma linha, o espaçamento entre linhas o espaço entre as linhas.",
     ["GROUPFLOW_TIP"] = "Como os grupos preenchem a grade: primeiro ao longo de uma linha, depois na linha seguinte.",
     ["Max characters (0 = no limit)"] = "Máximo de caracteres (0 = sem limite)",
     ["Column spacing"] = "Espaçamento entre colunas",

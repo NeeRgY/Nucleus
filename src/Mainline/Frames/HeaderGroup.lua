@@ -123,17 +123,25 @@ local CLASS_ORDER = "DEATHKNIGHT,DEMONHUNTER,DRUID,EVOKER,HUNTER,MAGE,MONK,PALAD
 -- Translates the orientation / reverse settings into the header's anchor attributes (vertical: groups form
 -- columns to the right; horizontal: groups stack downward).
 local function applyFlow(header, cfg)
-    if cfg.orientation == "horizontal" then
-        header:SetAttribute("point", cfg.reverse and "RIGHT" or "LEFT")
+    local horizontal = cfg.orientation == "horizontal"
+    local point = horizontal and (cfg.reverse and "RIGHT" or "LEFT") or (cfg.reverse and "BOTTOM" or "TOP")
+    local colAnchor = horizontal and "TOP" or "LEFT"
+    -- The header re-anchors its children with SetPoint only and never clears the old points: after a switch
+    -- between vertical / horizontal (or reverse growth) a child keeps its old TOP / BOTTOM anchor next to the new
+    -- LEFT / RIGHT one and the frames run diagonally until a /reload. Clear them before the new flow goes in.
+    if (header:GetAttribute("point") ~= point or header:GetAttribute("columnAnchorPoint") ~= colAnchor)
+        and not InCombatLockdown() then
+        forChildren(header, function(child) child:ClearAllPoints() end)
+    end
+    header:SetAttribute("point", point)
+    if horizontal then
         header:SetAttribute("xOffset", cfg.reverse and -cfg.spacing or cfg.spacing)
         header:SetAttribute("yOffset", 0)
-        header:SetAttribute("columnAnchorPoint", "TOP")
     else
-        header:SetAttribute("point", cfg.reverse and "BOTTOM" or "TOP")
         header:SetAttribute("xOffset", 0)
         header:SetAttribute("yOffset", cfg.reverse and cfg.spacing or -cfg.spacing)
-        header:SetAttribute("columnAnchorPoint", "LEFT")
     end
+    header:SetAttribute("columnAnchorPoint", colAnchor)
     header:SetAttribute("columnSpacing", cfg.columnSpacing or cfg.spacing)
 end
 
@@ -263,13 +271,26 @@ local FLOWS = {
 }
 RG.FLOW_ORDER = { "RIGHT_DOWN", "LEFT_DOWN", "RIGHT_UP", "LEFT_UP", "DOWN_RIGHT", "DOWN_LEFT", "UP_RIGHT", "UP_LEFT" }
 
--- Only with Group by = Group and without pinned names (those need one name list over every group).
+-- Custom sorting with Group by = Group sorts inside each raid group. One header can't do that (its role order
+-- runs over the whole raid), so it also needs one header per group.
+local function sortsInGroups(cfg)
+    return cfg.groupBy == "GROUP" and sortConfig("raid") ~= nil
+end
+
+-- Groups per row and flow of the grid. At "Groups per row" 0 (only reached through custom sorting) it is laid out
+-- like the single header: vertical puts the groups side by side, horizontal below each other.
+local function gridShape(cfg)
+    local per = math.floor(tonumber(cfg.groupsPerRow) or 0)
+    if per >= 1 then return math.min(8, per), FLOWS[cfg.groupFlow] or FLOWS.RIGHT_DOWN end
+    return 8, (cfg.orientation == "horizontal") and FLOWS.DOWN_RIGHT or FLOWS.RIGHT_DOWN
+end
+
+-- Only with Group by = Group: with "Groups per row" from 1 on, or with custom sorting.
 function RG.Active()
     local cfg = N.db and N.db.raid
     if not cfg or cfg.groupBy ~= "GROUP" then return false end
-    if (tonumber(cfg.groupsPerRow) or 0) < 1 then return false end
-    local rank, pins = sortConfig("raid")
-    return not (rank and #pins > 0)
+    if sortsInGroups(cfg) then return true end
+    return (tonumber(cfg.groupsPerRow) or 0) >= 1
 end
 
 -- { list = allowed groups, index = group -> slot, slots[k] = { x, y } (top left, downwards is negative), w, h of
@@ -285,8 +306,7 @@ function RG.Layout()
         end
     end
     local n = #list
-    local per = math.min(8, math.max(1, math.floor(tonumber(cfg.groupsPerRow) or 1)))
-    local flow = FLOWS[cfg.groupFlow] or FLOWS.RIGHT_DOWN
+    local per, flow = gridShape(cfg)
     local px, py, sx, sy = flow[1], flow[2], flow[3], flow[4]
     local unitsAcross = cfg.orientation == "horizontal"
     local gw = unitsAcross and (5 * w + 4 * sp) or w
@@ -343,14 +363,16 @@ function RG.Anchor(group)
 end
 
 -- Role order without pins needs no name list: the header sorts by assigned role. Returns the grouping order or nil.
-local function nativeRoleOrder(key)
+-- evenWithPins: the role order as a fallback while the pinned names can't be listed yet.
+local function nativeRoleOrder(key, evenWithPins)
     local rank, pins = sortConfig(key)
-    if not rank or #pins > 0 then return nil end
+    if not rank or (#pins > 0 and not evenWithPins) then return nil end
     local o = N.db[key].ordering
     return ("%s,%s,%s,NONE"):format(o.first or "TANK", o.second or "HEALER", o.third or "DAMAGER")
 end
 
-local function customNameList(key)
+-- onlyGroup (raid): just the members of that raid group, for the header of that group.
+local function customNameList(key, onlyGroup)
     local rank, pins = sortConfig(key)
     if not rank or #pins == 0 then return nil end
 
@@ -371,7 +393,8 @@ local function customNameList(key)
     local inRaid = key == "raid" and IsInRaid()
     for i, u in ipairs(units) do
         local group = inRaid and select(3, GetRaidRosterInfo(i)) or nil
-        if UnitExists(u) and not (npcOut and isNpcUnit(u)) and (not group or raidGroupAllowed(group)) then
+        local inGroup = not onlyGroup or (group or 1) == onlyGroup
+        if inGroup and UnitExists(u) and not (npcOut and isNpcUnit(u)) and (not group or raidGroupAllowed(group)) then
             local full = GetUnitName(u, true)
             -- A name the client doesn't know yet would order wrongly: keep the native order until
             -- UNIT_NAME_UPDATE.
@@ -720,13 +743,24 @@ local function configure(header)
             header:SetAttribute("sortMethod", cfg.sortMethod)
             local g = group or 1
             header:SetAttribute("groupFilter", raidGroupAllowed(g) and tostring(g) or "0")
-            local roleOrder = nativeRoleOrder("raid")
+            -- Custom sorting happens inside this group: by role natively, with pinned names through a name list
+            -- of just this group's members.
+            local roleOrder = nativeRoleOrder("raid", true)
             if roleOrder then
                 header:SetAttribute("groupingOrder", roleOrder)
                 header:SetAttribute("groupBy", "ASSIGNEDROLE")
             else
                 header:SetAttribute("groupBy", nil)
                 header:SetAttribute("groupingOrder", nil)
+            end
+            local names = raidGroupAllowed(g) and customNameList("raid", g)
+            if names then
+                header:SetAttribute("groupBy", nil)
+                header:SetAttribute("groupingOrder", nil)
+                header:SetAttribute("sortMethod", "NAMELIST")
+                header:SetAttribute("nameList", names)
+                -- Only the name list decides who is shown (as on the party header); it holds just this group.
+                header:SetAttribute("groupFilter", nil)
             end
         elseif group then
             header:SetAttribute("showRaid", false)
@@ -951,11 +985,20 @@ function HG.Init()
     rosterFrame:RegisterEvent("UNIT_NAME_UPDATE")
     rosterFrame:RegisterEvent("PLAYER_ROLES_ASSIGNED")
     local lastOrder = {}
+    -- On the grid every group header has its own name list: a player moving to another group changes them too.
+    local function orderSignature(key)
+        if key == "raid" and RG.Active() then
+            local parts = {}
+            for g = 1, 8 do parts[g] = tostring(customNameList("raid", g)) end
+            return table.concat(parts, "|")
+        end
+        return tostring(customNameList(key))
+    end
     rosterFrame:HookScript("OnEvent", function()
         for _, key in ipairs({ "party", "raid" }) do
             local header = N.headers[key]
             if header then
-                local sig = tostring(customNameList(key))
+                local sig = orderSignature(key)
                 if sig ~= lastOrder[key] then
                     lastOrder[key] = sig
                     N.RunWhenSafe(function() configure(header) end, "order-" .. key)

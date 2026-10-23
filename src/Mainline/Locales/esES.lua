@@ -443,7 +443,7 @@ N.RegisterLocale("esES", {
     ["Groups per row"] = "Grupos por fila",
     ["Row spacing"] = "Espaciado entre filas",
     ["Group flow"] = "Flujo de grupos",
-    ["GROUPROW_TIP"] = "0 deja los grupos de banda en una sola tira. Desde 1, cada grupo de banda tiene su propio sitio fijo en una cuadrícula con esa cantidad de grupos por fila. Requiere agrupar por grupo y no tener nombres fijados. El espaciado entre columnas es el hueco entre los grupos de una fila, el espaciado entre filas el hueco entre las filas.",
+    ["GROUPROW_TIP"] = "0 deja los grupos de banda en una sola tira. Desde 1, cada grupo de banda tiene su propio sitio fijo en una cuadrícula con esa cantidad de grupos por fila. Requiere agrupar por grupo. El espaciado entre columnas es el hueco entre los grupos de una fila, el espaciado entre filas el hueco entre las filas.",
     ["GROUPFLOW_TIP"] = "Cómo llenan los grupos la cuadrícula: primero a lo largo de una fila y luego en la siguiente.",
     ["Max characters (0 = no limit)"] = "Máximo de caracteres (0 = sin límite)",
     ["Column spacing"] = "Espaciado entre columnas",
