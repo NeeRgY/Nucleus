@@ -443,7 +443,7 @@ N.RegisterLocale("itIT", {
     ["Groups per row"] = "Gruppi per riga",
     ["Row spacing"] = "Spaziatura righe",
     ["Group flow"] = "Flusso dei gruppi",
-    ["GROUPROW_TIP"] = "0 mantiene i gruppi dell'incursione in un'unica fila. Da 1 in poi ogni gruppo ha il suo posto fisso in una griglia con questo numero di gruppi per riga. Richiede il raggruppamento per gruppo e nessun nome fissato. La spaziatura colonne è lo spazio tra i gruppi di una riga, la spaziatura righe quello tra le righe.",
+    ["GROUPROW_TIP"] = "0 mantiene i gruppi dell'incursione in un'unica fila. Da 1 in poi ogni gruppo ha il suo posto fisso in una griglia con questo numero di gruppi per riga. Richiede il raggruppamento per gruppo. La spaziatura colonne è lo spazio tra i gruppi di una riga, la spaziatura righe quello tra le righe.",
     ["GROUPFLOW_TIP"] = "Come i gruppi riempiono la griglia: prima lungo una riga, poi nella riga successiva.",
     ["Max characters (0 = no limit)"] = "Caratteri massimi (0 = nessun limite)",
     ["Column spacing"] = "Spaziatura colonne",

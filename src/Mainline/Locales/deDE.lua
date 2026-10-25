@@ -447,7 +447,7 @@ N.RegisterLocale("deDE", {
     ["Groups per row"] = "Gruppen pro Zeile",
     ["Row spacing"] = "Zeilenabstand",
     ["Group flow"] = "Gruppenfluss",
-    ["GROUPROW_TIP"] = "0 lässt die Raid-Gruppen in einer Reihe. Ab 1 bekommt jede Raid-Gruppe einen festen Platz in einem Raster mit so vielen Gruppen pro Zeile. Benötigt die Gruppierung nach Gruppe und keine angehefteten Namen. Der Spaltenabstand ist der Abstand zwischen den Gruppen einer Zeile, der Zeilenabstand der Abstand zwischen den Zeilen.",
+    ["GROUPROW_TIP"] = "0 lässt die Raid-Gruppen in einer Reihe. Ab 1 bekommt jede Raid-Gruppe einen festen Platz in einem Raster mit so vielen Gruppen pro Zeile. Benötigt die Gruppierung nach Gruppe. Der Spaltenabstand ist der Abstand zwischen den Gruppen einer Zeile, der Zeilenabstand der Abstand zwischen den Zeilen.",
     ["GROUPFLOW_TIP"] = "So füllen die Gruppen das Raster: erst entlang einer Zeile, dann weiter in die nächste Zeile.",
     ["Max characters (0 = no limit)"] = "Maximale Zeichen (0 = unbegrenzt)",
     ["Column spacing"] = "Spaltenabstand",
