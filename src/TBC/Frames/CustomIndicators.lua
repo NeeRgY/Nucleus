@@ -5,8 +5,6 @@ local A = N.Auras
 local Indicators = N.Indicators
 local IsSecret = N.IsSecret
 
--- Custom indicators: each entry watches spell IDs on every unit frame and shows while one is present
--- (N.db[group].customIndicators).
 
 local CI = {}
 N.CustomIndicators = CI
@@ -44,8 +42,6 @@ function CI.NewEntry(kind, name)
     return e
 end
 
--- Suggestions for the options: healing buffs plus the defensive, external and offensive cooldown lists, all
--- classes.
 function CI.Suggestions(aura)
     local out = {}
     if aura == "debuff" then
@@ -85,8 +81,7 @@ local function parseList(str)
 end
 
 
--- Spells that custom indicators with "remove from Buffs" claim for themselves:
--- the Buffs row skips them. Returns a set, or nil when there are none.
+-- Spells claimed by indicators with "remove from Buffs": the Buffs row skips them. Set or nil.
 function CI.BuffExclusions(groupKey)
     local list = N.db[groupKey] and N.db[groupKey].customIndicators
     if not list then return nil end
@@ -240,8 +235,7 @@ builders.text = function(b)
             end
             w.cd:Show()
         else
-            -- Own text with placeholders: {stacks} stack count, {time} remaining
-            -- time, {name} spell name (older "stacks" entries are the text "{stacks}").
+            -- Text placeholders: {stacks}, {time}, {name} (older "stacks" entries are the text "{stacks}").
             w.cd:Hide()
             w.tpl = (e.textKind == "stacks") and "{stacks}" or (e.text or "")
             w.aura = d
@@ -262,8 +256,6 @@ builders.text = function(b)
     return w
 end
 
--- A block behaves like a spell icon, just filled with a color instead of the spell picture:
--- cooldown animation, remaining time and stacks all work.
 builders.rect = function(b)
     local w = {}
     function w.show(e, auras)
@@ -280,8 +272,6 @@ builders.rect = function(b)
     return w
 end
 
--- A colored area: one color, the unit's class color, or a gradient of two.
--- Returns mode ("solid" | "gradient-v" | "gradient-h"), first color, second color.
 function CI.ResolveColor(e, unit, classToken)
     local mode = e.colorMode or "solid"
     local c1 = e.color or { 1, 1, 1 }
@@ -300,8 +290,6 @@ function CI.ResolveColor(e, unit, classToken)
     return mode, c1, c2
 end
 
--- Fits a texture to an area of the frame: the whole frame, the health bar, its filled part
--- (current health) or its empty part (missing health).
 function CI.AnchorArea(tex, b, area)
     tex:ClearAllPoints()
     local hb = b.health
@@ -375,8 +363,7 @@ builders.bar = function(b)
         w.frame:SetSize(e.width or 40, e.height or 5)
         anchorOf(b, e, w.frame)
         w.bar:SetStatusBarColor(rgb(e))
-        -- The bar shrinks towards its fixed edge: "left" = the free end runs from
-        -- right to left, "right" = left to right, "down" = top to bottom, "up" = bottom to top.
+        -- The bar shrinks toward its fixed edge: "left" right to left, "right" left to right, "down" / "up" likewise.
         local f = e.fill or "left"
         w.bar:SetOrientation((f == "down" or f == "up") and "VERTICAL" or "HORIZONTAL")
         w.bar:SetReverseFill(f == "right" or f == "up")
@@ -426,12 +413,9 @@ builders.overlay = function(b)
     return w
 end
 
--- Glow around the whole frame from plain textures and animations: pixel (running lines), halo (pulsing glow),
--- pulse (pulsing border).
 local PROC_ATLAS = "UI-HUD-ActionBar-Proc-Loop-Flipbook"
 
--- Position s (0..1, clockwise from the top-left corner) on a w x h rectangle:
--- returns x, y (from the top-left, downwards) and which edge it is on.
+-- Position s (0..1, clockwise from top-left) on a w x h rectangle: x, y and the edge.
 local function perimeter(width, height, s)
     local d = s * 2 * (width + height)
     if d < width then return d, 0, 1 end

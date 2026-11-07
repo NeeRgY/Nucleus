@@ -1,8 +1,7 @@
 local _, ns = ...
 local N = ns.N
 
--- A default table counts as a list (kept whole, not merged key by key) if it has entries or is
--- flagged _list = true.
+-- A default table is a list (kept whole) if it has entries or _list = true.
 local function isArray(t) return type(t) == "table" and (t[1] ~= nil or t._list == true) end
 
 function N.DeepCopy(v)
@@ -12,8 +11,7 @@ function N.DeepCopy(v)
     return out
 end
 
--- Merges defaults into a saved table without overwriting keys; lists count as one value (a missing list is
--- seeded, removed entries are never re-added).
+-- Merges defaults into a saved table without overwriting; lists count as one value.
 function N.MergeDefaults(target, defaults)
     if type(target) ~= "table" then target = {} end
     for k, v in pairs(defaults) do
@@ -40,7 +38,7 @@ function N.PruneStale(tbl, defaults)
     end
 end
 
--- Runs list[i] through step(item) within a time budget per frame; what is left continues on the next frame.
+-- Runs step(item) over the list with a per-frame time budget; the rest continues next frame.
 function N.RunSliced(list, step, budgetMs)
     local i, n = 1, #list
     local function pass()
@@ -57,8 +55,7 @@ function N.RunSliced(list, step, budgetMs)
     pass()
 end
 
--- Queue for work that is not allowed in combat (layout, secure attributes). Runs after PLAYER_REGEN_ENABLED,
--- in order, a few milliseconds per frame.
+-- Work not allowed in combat (layout, secure attributes) runs after PLAYER_REGEN_ENABLED.
 local queue = {}
 local flushing = false
 local queueFrame = CreateFrame("Frame")
@@ -105,7 +102,7 @@ function N.RunWhenSafe(fn, key)
     if not InCombatLockdown() and not flushing then flush() end
 end
 
--- Own combat flag from PLAYER_REGEN_DISABLED/ENABLED; InCombatLockdown() lags behind the event on the way in.
+-- Own combat flag: InCombatLockdown() lags behind the event when entering combat.
 local playerInCombat = false
 local combatFlag = CreateFrame("Frame")
 combatFlag:RegisterEvent("PLAYER_REGEN_DISABLED")
@@ -121,7 +118,6 @@ end)
 
 function N.InCombat() return playerInCombat end
 
--- Cooldown animation style of an aura row or custom indicator: the global Appearance setting wins when it is on.
 function N.CooldownStyle(groupKey, own)
     local g = groupKey and N.db[groupKey]
     local a = g and g.appearance

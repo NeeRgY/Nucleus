@@ -2,8 +2,7 @@ local _, ns = ...
 local N = ns.N
 local M = N.Media
 
--- On-frame aura rows (buffs, debuffs, dispels, defensives, externals, offensives, crowd controls, private
--- auras). Hidden fields: cooldowns run from the duration object, spell IDs are checked with IsSecret.
+-- Hidden fields: cooldowns run from the duration object, spell IDs are checked with IsSecret.
 
 local A = {}
 N.Auras = A
@@ -30,8 +29,7 @@ local ROWS = {
 }
 A.ROWS = ROWS
 
--- Aura cache: in combat a live scan is refused but lookups by instance ID work, so auras are cached from a scan
--- plus the UNIT_AURA payload.
+-- In combat a live scan is refused but lookups by instance ID work: cache from scan + UNIT_AURA.
 
 local AC = {}
 N.AuraCache = AC
@@ -110,8 +108,7 @@ acFrame:SetScript("OnEvent", function(_, event, unit)
     notify(unit)
 end)
 
--- UNIT_AURA per unit with a frame; units without one (nameplates, targets, bosses) never reach this code. The cache
--- of a unit that loses its frame is dropped, since it would miss changes from then on.
+-- Per unit with a frame; the cache of a unit that loses its frame is dropped.
 local auraFrames = {}
 local function auraWatch(unit)
     local f = auraFrames[unit]
@@ -221,8 +218,7 @@ local function makeIcon(parent)
 end
 
 
--- True if the aura passes one of the filters the rows ask for. The client has no classification
--- filters; what it does answer (cast by me, dispellable by my class) is decided here.
+-- No classification filters on this client: "cast by me" and "dispellable by my class" are decided here.
 local function passesFilter(_, d, filter)
     if filter:find("RAID_PLAYER_DISPELLABLE", 1, true) then
         return d.dispelName ~= nil and dispelTypes()[d.dispelName] == true
@@ -246,6 +242,14 @@ local DEBUFF_FILTERS = {
 }
 A.DEBUFF_FILTERS = DEBUFF_FILTERS
 
+-- Hidden on Debuffs rows: rested bonus, and Bloodlust exhaustion unless showSated.
+local HIDDEN_ALWAYS = { [1229451] = true }
+local HIDDEN_DEBUFFS = {
+    [57723] = true, [57724] = true, [80354] = true, [95809] = true,
+    [160455] = true, [264689] = true, [390435] = true, [1229451] = true,
+}
+local function hiddenFor(cfg) return cfg.showSated and HIDDEN_ALWAYS or HIDDEN_DEBUFFS end
+
 -- Who may have cast a debuff on the Debuffs row: "all", "npc", "me" or "others".
 local function debuffCastBy(cfg)
     if cfg.castBy then return cfg.castBy end
@@ -254,6 +258,8 @@ end
 A.DebuffCastBy = debuffCastBy
 
 local function debuffPasses(unit, d, cfg)
+    local sid = d.spellId
+    if sid ~= nil and not IsSecret(sid) and hiddenFor(cfg)[sid] then return false end
     local by = debuffCastBy(cfg)
     if by == "npc" then
         if not DEBUFF_FILTERS[1].test(unit, d) then return false end
@@ -322,8 +328,7 @@ local function accept(unit, d, row, cfg, excl)
             local set = parseList(cfg.list)
             return set ~= nil and (set[id] or set[d.name]) == true
         end
-        -- Hidden ID: with "only my auras" the game already limited the list to the player's buffs,
-        -- so let those through.
+        -- Hidden ID with "only my auras": the game already limited the list to the player's buffs.
         return cfg.onlyMine == true
     end
     return true
@@ -366,8 +371,7 @@ local GOLD  = { 1.00, 0.85, 0.00 }
 local MINE  = { 0.00, 0.80, 0.00 }
 local CROWD = { 0.90, 0.20, 0.20 }
 
--- Time text: warning color below N seconds, tenths below M; hidden timing uses step curves over the duration
--- object.
+-- Time text: warning color below N seconds, tenths below M; hidden timing uses step curves.
 local TEXT_WHITE = { 1, 1, 1 }
 local function placeText(fs, icon, point, x, y)
     fs:ClearAllPoints()
@@ -549,7 +553,7 @@ local function setupTimeColor(icon, d, cfg, unit)
     tracked[icon] = true
     tickTime(icon)
 end
--- Stack count and countdown font size / position (the cooldown frame's FontString is found among its regions).
+-- Font size / position of stacks and countdown (the cooldown's FontString is found among its regions).
 local function styleTexts(icon, cfg)
     icon.count:SetFont(M.font, cfg.stackSize or 10, "OUTLINE")
     placeText(icon.count, icon, cfg.stackPoint or "BOTTOMRIGHT", cfg.stackX or 1, cfg.stackY or -1)
@@ -570,11 +574,42 @@ local function styleTexts(icon, cfg)
     end
 end
 
+-- Tooltip on hover. The aura id encodes the scan position: helpful i, harmful 1000 + i.
+local function setAuraTip(icon, unit, d)
+    local tt = N.db.tooltip
+    local id = d.auraInstanceID
+    local on = (tt and tt.auras and unit and id and icon.SetPropagateMouseClicks) and true or false
+    icon._tipUnit = on and unit or nil
+    if id then
+        icon._tipFilter = (id >= 1000) and "HARMFUL" or "HELPFUL"
+        icon._tipIndex = id % 1000
+    end
+    if not icon._tipHooked then
+        icon._tipHooked = true
+        icon:SetScript("OnEnter", function(self)
+            if not self._tipUnit then return end
+            if N.db.tooltip.hideInCombat and InCombatLockdown() then return end
+            GameTooltip:SetOwner(self, (N.db.tooltip.anchor == "cursor") and "ANCHOR_CURSOR" or "ANCHOR_BOTTOMLEFT")
+            GameTooltip:SetUnitAura(self._tipUnit, self._tipIndex, self._tipFilter)
+            GameTooltip:Show()
+        end)
+        icon:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        pcall(icon.SetPropagateMouseClicks, icon, true)
+        pcall(icon.SetPropagateMouseMotion, icon, true)
+    end
+    icon:EnableMouse(on)
+end
+
+N:On("NUCLEUS_SETTING_CHANGED", function(_, section)
+    if section == "tooltip" and N.RefreshAllButtons then N.RunWhenSafe(N.RefreshAllButtons, "auratips") end
+end)
+
 local function apply(icon, d, cfg, row, unit)
+    setAuraTip(icon, unit, d)
     styleTexts(icon, cfg)
     icon.tex:SetTexture(d.icon)
 
-    -- Cooldown: plain numbers when readable, the duration object when hidden; the cooldown frame draws the text.
+    -- Cooldown: numbers when readable, the duration object when hidden.
     local style = N.CooldownStyle(icon._gk, cfg.cdStyle)
     local wantAnim, wantTime = cfg.showCooldown, cfg.showTime
     local active = false
@@ -680,7 +715,6 @@ local function edgeSign(point)
     return ax, ay
 end
 
--- Dispellable-debuff effects (health bar highlight, border, type icons) follow the first dispellable debuff.
 
 local DISPEL_ATLAS = {
     Magic = "RaidFrame-Icon-DebuffMagic", Curse = "RaidFrame-Icon-DebuffCurse",
@@ -832,8 +866,7 @@ local function updateFX(b, cfg, list, unit)
         for i = 1, 4 do fx.bord[i]:Hide() end
     end
 
-    -- Dispel-type icons: one per distinct readable type, or a single tinted square when the type
-    -- is hidden.
+    -- One dispel icon per readable type, or one tinted square when the type is hidden.
     for _, t in ipairs(fx.icons) do t:Hide() end
     if cfg.typeIcons ~= false then
         local shown, seen = 0, {}
@@ -961,7 +994,6 @@ end
 
 A.MakeIcon = makeIcon
 A.ApplyAura = apply
--- Offset of the i-th icon of a row: horizontal rows wrap after perRow icons, vertical rows are one column.
 function A.SlotOffset(i, size, spacing, lineSpacing, perRow, growth, point, count)
     local idx = i - 1
     if growth == "CENTER" then

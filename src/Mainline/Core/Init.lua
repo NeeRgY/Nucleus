@@ -1,11 +1,9 @@
--- Retail entry point. Sets up the namespace and a small event dispatcher, no external libraries
--- needed.
 
 local addonName, ns = ...
 
 ns.CLIENT = "Mainline"
 ns.ADDON = addonName
-ns.VERSION = C_AddOns and C_AddOns.GetAddOnMetadata(addonName, "Version") or "1.0.7"
+ns.VERSION = C_AddOns and C_AddOns.GetAddOnMetadata(addonName, "Version") or "1.0.8"
 
 local N = {}
 ns.N = N

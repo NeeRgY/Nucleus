@@ -27,8 +27,7 @@ local function canControl()
     return UnitIsGroupLeader("player") or (IsInRaid() and UnitIsGroupAssistant("player")) or false
 end
 
--- Show only on mouseover: the tool fades out and back in; a child frame drives the fade so the host keeps its
--- own OnUpdate.
+-- Show only on mouseover: a child frame drives the fade so the host keeps its own OnUpdate.
 local FADE_TIME = 0.25
 local function fadeStep(driver, elapsed)
     local host = driver:GetParent()

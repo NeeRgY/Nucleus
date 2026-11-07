@@ -5,8 +5,7 @@ local L = N.L
 
 local function uc(c) return c[1], c[2], c[3], c[4] or 1 end
 
--- Nucleus' own message dialog in the options window's look, replacing StaticPopup; one at a time, the next
--- waits in a queue. N.Dialog.Show / Confirm / Prompt / Reload.
+-- Own dialog replacing StaticPopup; one at a time, the rest queue.
 
 local D = {}
 N.Dialog = D
@@ -136,8 +135,7 @@ local function open(spec)
     end
     for i = #list + 1, #f.buttons do f.buttons[i]:Hide() end
 
-    -- A secureMacro button is covered by a transparent secure button running the macro (addon code may not call
-    -- ReloadUI, a macro may /reload); the overlays sit on their own holder so they go away with the dialog.
+    -- A secureMacro button gets a transparent secure button on top (addons can't call ReloadUI, a macro can /reload).
     local holder = f.secureHolder
     if not holder then
         holder = CreateFrame("Frame", nil, f.box)

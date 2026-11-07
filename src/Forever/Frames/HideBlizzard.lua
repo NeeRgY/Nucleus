@@ -1,8 +1,7 @@
 local _, ns = ...
 local N = ns.N
 
--- Hides Blizzard's party / raid frames: alpha 0 and mouse off on the containers (no taint), secure post-hooks
--- when Blizzard shows them again, events stripped from the hidden CompactUnitFrames. Party and raid are independent.
+-- Hides Blizzard's party / raid frames without taint: alpha 0, mouse off, post-hooks, stripped events.
 
 local HB = {}
 N.HideBlizzard = HB
@@ -23,8 +22,7 @@ local function conceal(frame, hide)
     end
 end
 
--- Edit Mode draws its preview for the containers whatever their alpha, so they are scaled to almost nothing
--- instead (out of combat). Member frames are never scaled: Blizzard measures them.
+-- Edit Mode draws a preview whatever the alpha: scale the containers down (out of combat), never the members.
 local origScale = setmetatable({}, { __mode = "k" })
 local function shrink(frame, hide)
     if not frame then return end
@@ -45,8 +43,7 @@ local function shrink(frame, hide)
     end
 end
 
--- Alpha only, for frames another addon or Edit Mode may have moved out of their container. Blizzard resets
--- member-frame alpha itself, so a raised alpha is put back in a timer, never inside its call.
+-- Alpha only, for frames moved out of their container; Blizzard resets member alpha, so it is restored in a timer.
 local alphaHidden = setmetatable({}, { __mode = "k" })
 local alphaHooked = setmetatable({}, { __mode = "k" })
 local alphaQueue, alphaQueued = {}, false
@@ -81,8 +78,7 @@ local function fade(frame, hide)
     end
 end
 
--- Blizzard's compact frames draw a yellow selection / threat outline on the target. Hidden frames
--- must not show it, so it is kept at alpha 0 (a pcall: those regions belong to protected frames).
+-- Compact frames draw a selection / threat outline: keep it at alpha 0 (pcall: protected).
 local function muteHighlights(frame)
     if not frame then return end
     for _, r in ipairs({ frame.selectionHighlight, frame.aggroHighlight }) do
@@ -99,14 +95,12 @@ end
 local function wantRaid() return N.db and N.db.raid.hideBlizzard end
 local function wantParty() return N.db and N.db.party.hideBlizzard end
 
--- Stripping events only saves CPU, so it gives way to the ping display; turning ping on afterwards needs a /reload.
+-- Stripping events only saves CPU, so it yields to the ping display; enabling ping later needs a /reload.
 local function pingWantsEvents() return N.db and N.db.ping and N.db.ping.enabled end
 
--- Frames inside a hidden Blizzard container that ignore its alpha (another addon may restyle them that
--- way) are hidden one by one; `muted` remembers their alpha for when the frames come back.
+-- Frames that ignore the hidden container's alpha are hidden one by one; `muted` keeps their alpha.
 local muted = setmetatable({}, { __mode = "k" })
--- Whether a frame is really on screen. A secret answer (another addon's frame bound to a hidden unit)
--- counts as "not": it can't be tested, and nothing is done to such a frame.
+-- Whether a frame is really on screen; a secret answer counts as "not" and the frame is left alone.
 local function onScreen(f)
     local okV, vis = pcall(f.IsVisible, f)
     if not okV or N.IsSecret(vis) or not vis then return false end

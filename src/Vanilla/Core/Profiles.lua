@@ -1,8 +1,6 @@
 local _, ns = ...
 local N = ns.N
 
--- Profiles: a profile holds the frame settings; language, scale, highlight color and lock state are
--- account-wide. N.db proxies profile keys to the active profile (or the shared copy).
 
 local P = {}
 N.Profiles = P
@@ -42,6 +40,13 @@ P.SITUATIONS = {
     { key = "battleground10", label = "Battleground (10)" },
     { key = "battleground15", label = "Battleground (15)" },
     { key = "battleground40", label = "Battleground (40)" },
+}
+
+-- autoSwitch.bySize: profile by raid size; a size without one falls back to the situation.
+P.SIZE_SITUATIONS = {
+    { key = "raidsize10", label = "Raid (up to 10 players)" },
+    { key = "raidsize20", label = "Raid (11 to 20 players)" },
+    { key = "raidsize40", label = "Raid (21 to 40 players)" },
 }
 
 local raw      -- the SavedVariables table
@@ -105,6 +110,7 @@ function P.Setup(saved)
     if type(raw.autoSwitch) ~= "table" then raw.autoSwitch = {} end
     local a = raw.autoSwitch
     if a.enabled == nil then a.enabled = true end
+    if a.bySize == nil then a.bySize = false end
     if type(a.role) ~= "table" then a.role = {} end
     if type(a.spec) ~= "table" then a.spec = {} end
     for _, role in ipairs({ "TANK", "HEALER", "DAMAGER" }) do
@@ -182,8 +188,7 @@ function P.UniqueName(name)
 end
 
 
--- A profile's generation goes up whenever its settings tables are replaced; the options window keeps its
--- built pages per profile and only reuses them while the generation is unchanged.
+-- Generation rises when a profile's tables are replaced; cached options pages follow it.
 local gens = {}
 function P.Generation(name) return gens[name] or 0 end
 local function bumpGeneration(name)
@@ -222,8 +227,7 @@ function P.Switch(name)
     return true
 end
 
--- Starting points for new profiles (Profile > New): settings laid over the defaults. Only keys the profile
--- already has are set, so one list serves every client.
+-- Starting points for new profiles: only keys the profile already has are set.
 P.TEMPLATES = {
     { id = "healer", label = "TPL_healer", data = {
         party = { width = 104, height = 48, spacing = 3,
@@ -299,8 +303,7 @@ function P.Create(name, copyFrom, template)
     return name
 end
 
--- Master profile: edits made while the master is active are copied into the linked profiles, in the ticked
--- parts only. Everything else stays profile-specific.
+-- Master profile: edits while it is active are copied into the linked profiles, in the ticked parts.
 local SYNC_FIELDS = {
     size     = { "width", "height", "spacing", "columnSpacing" },
     layout   = { "orientation", "reverse", "groupBy", "sortMethod", "unitsPerColumn", "maxColumns",
@@ -495,15 +498,13 @@ function P.SetScope(area, scope)
 end
 
 
--- Parts of the Group's settings the Raid can share (Position tab): the Raid's entry points at the Group's
--- table; saved files store it twice, so it is joined again on load.
+-- The Raid's entry can point at the Group's table; saved files store it twice, so it is re-joined on load.
 function P.IsLinked(cat)
     local r = N.db and N.db.raid
     return r and type(r.link) == "table" and r.link[cat] == true or false
 end
 
--- Switching on replaces the Raid's own settings of that part; switching off keeps the current values
--- as the Raid's own copy.
+-- Switching on replaces the Raid's settings; off keeps the current values as its own copy.
 function P.SetLink(cat, on)
     local raid, party = active.raid, active.party
     if not (raid and party and type(raid.link) == "table") then return end
@@ -623,6 +624,24 @@ function P.GetSituation()
     return "raid_outdoor"
 end
 
+-- The size situation of the raid you are in, nil outside a plain raid or when size rules are off.
+function P.GetSizeSituation()
+    if not (raw and raw.autoSwitch.bySize and IsInRaid()) then return nil end
+    local _, instanceType = GetInstanceInfo()
+    if instanceType == "arena" or instanceType == "pvp" then return nil end
+    local n = GetNumGroupMembers()
+    if n <= 10 then return "raidsize10" end
+    if n <= 20 then return "raidsize20" end
+    return "raidsize40"
+end
+
+-- Size situation if it has an assignment, else GetSituation().
+function P.ActiveSituation(tbl)
+    local size = P.GetSizeSituation()
+    if size and tbl and tbl[size] ~= nil then return size end
+    return P.GetSituation()
+end
+
 -- Whether this client has specializations at all (Classic Era and TBC have none).
 function P.HasSpecs()
     local spi = _G.C_SpecializationInfo
@@ -699,7 +718,7 @@ function P.Evaluate()
         return
     end
     local tbl = P.GetAssignmentTable()
-    local target = tbl and tbl[P.GetSituation()]
+    local target = tbl and tbl[P.ActiveSituation(tbl)]
     if target == HIDE then
         applyHidden(true)
     else

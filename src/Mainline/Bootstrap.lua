@@ -101,8 +101,7 @@ local function start()
     SlashCmdList.NUCLEUSWELCOME = showFirstRun
 end
 
--- NUCLEUS_DB_READY comes from ADDON_LOADED, PLAYER_LOGIN means the UI is up. Start on whichever
--- comes second.
+-- Start on whichever comes second: NUCLEUS_DB_READY (ADDON_LOADED) or PLAYER_LOGIN.
 local dbReady = false
 N:On("NUCLEUS_DB_READY", function()
     dbReady = true

@@ -5,8 +5,6 @@ local L = N.L
 
 local function uc(c) return c[1], c[2], c[3], c[4] or 1 end
 
--- Supporters: a pane that slides out right of the options window (About tab) listing supporters by tier,
--- testers below; the names live in Core/About.lua.
 
 local S = {}
 N.Supporters = S

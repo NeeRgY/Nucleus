@@ -2,8 +2,6 @@ local _, ns = ...
 local N = ns.N
 local IsSecret = N.IsSecret
 
--- Actions: a short animation on a member's frame when they use a listed spell. Display only, so global; hidden
--- spell IDs are ignored. Animations: sweep, wipe, rise.
 
 local Actions = {}
 N.Actions = Actions

@@ -1,8 +1,7 @@
 local _, ns = ...
 local N = ns.N
 
--- The classic clients carry some modern C_ APIs and not others, differing by flavor. Everything the addon needs
--- goes through this file: the client's function when there is one, the older global otherwise.
+-- Classic clients have some modern C_ APIs and not others: use the client's function, else the old global.
 
 local Compat = {}
 N.Compat = Compat
@@ -126,11 +125,9 @@ local function eachLegacy(fn)
     return n
 end
 
--- Calls fn(item, name, rank) for every active spell of the spellbook; item has { spellID, iconID }, rank is the
--- rank text or nil. The first spellbook that yields spells wins.
+-- fn(item, name, rank) per active spell; item = { spellID, iconID }. The first spellbook with spells wins.
 function SpellBook.Each(fn)
-    -- Unless the spellbook shows "all ranks", only the highest rank of a spell is listed, but the
-    -- lower ones are known and can be cast by name: Name(Rank n) resolves for each of them.
+    -- Without "all ranks" only the highest is listed, but lower ones can be cast by Name(Rank n).
     local seen = {}
     local function emit(item, name, sub)
         local key = name .. "\31" .. (sub or "")
@@ -174,8 +171,7 @@ function Item.GetItemInfo(item)
     if _G.GetItemInfo then return GetItemInfo(item) end
 end
 
--- /nucspells: what the client offers for the spellbook and how many spells each way finds (for bug
--- reports).
+-- /nucspells: spellbook diagnostics for bug reports.
 SLASH_NUCLEUSSPELLS1 = "/nucspells"
 SlashCmdList.NUCLEUSSPELLS = function()
     local function yes(v) return v and "yes" or "no" end

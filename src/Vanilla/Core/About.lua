@@ -9,8 +9,7 @@ N.About = {
     author = "NeRgY",
     -- Target of the Support button in the Supporters pane (nil = no button).
     supportUrl = "https://ko-fi.com/neergy",
-    -- Supporters pane: tiers, best first. Add names to a tier's `names`; empty tiers are hidden.
-    -- color = { r, g, b }.
+    -- Supporter tiers, best first; empty tiers are hidden.
     supporters = {
         { name = "Gold",      color = { 1.00, 0.82, 0.25 }, names = {} },
         { name = "Silver",    color = { 0.78, 0.82, 0.88 }, names = {} },

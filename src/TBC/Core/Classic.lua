@@ -1,8 +1,7 @@
 local _, ns = ...
 local N = ns.N
 
--- Everything specific to this game version: classes, dispel types, aura-row spell lists, raid buffs and Actions
--- potions. Spell IDs are per rank; a rank the client doesn't know is dropped at load (N.Classic.Known).
+-- Everything version-specific. Spell IDs are per rank; unknown ranks are dropped at load.
 
 N.IS_CLASSIC = true
 local C = {}
@@ -28,8 +27,6 @@ C.DISPEL = {
     MAGE    = { Curse = true },                                  -- Remove Lesser Curse
 }
 
--- Spell lists (aura rows). Each entry: the class it belongs to and the IDs of every rank/variant
--- of the aura.
 
 local function ids(...) return { ... } end
 
@@ -116,8 +113,7 @@ C.LIST = {
     buffs = csv(C.healingList),
 }
 
--- Raid buffs (Missing Buffs): `ids` = every spell that applies the buff, `cast` = the ranks the player can cast
--- (incl. group version), `icon` = the spell whose icon stands for it, `class` = who provides it.
+-- Raid buffs: ids = spells that apply it, cast = castable ranks, icon, class = provider.
 local FAMILY = {
     fort = { ids = { 1243, 1244, 1245, 2791, 10937, 10938, 10939, 10940, 13864, 23947, 23948, 21562, 21564, 450086 },
              cast = { 1243, 1244, 1245, 2791, 10937, 10938, 21562, 21564 } },
@@ -153,7 +149,7 @@ C.BUFFS = {
       ids = FAMILY.fort.ids, cast = FAMILY.fort.cast },
     { key = "spirit",    label = "Divine Spirit",         class = "PRIEST", icon = 14752,
       ids = FAMILY.spirit.ids, cast = FAMILY.spirit.cast },
-    { key = "shadowprot", label = "Shadow Protection",    class = "PRIEST", icon = 976, localized = true,
+    { key = "shadowprot", label = "Shadow Protection",    class = "PRIEST", icon = 976,
       ids = FAMILY.shadowprot.ids, cast = FAMILY.shadowprot.cast },
     { key = "intellect", label = "Arcane Intellect",      class = "MAGE",   icon = 1459,
       ids = FAMILY.intellect.ids, cast = FAMILY.intellect.cast },
@@ -167,8 +163,7 @@ C.BUFFS = {
       ids = union({ "might", "wisdom", "kings", "salvation", "light" }, "ids"),
       cast = union({ "might", "wisdom", "kings", "salvation", "light" }, "cast") },
 }
--- The blessings behind the "Blessings" entry: a member counts as missing it while they have none
--- of the ENABLED ones. Names come from the client, so they are localized.
+-- A member misses the Blessings entry while none of the enabled ones is on them.
 C.BLESSINGS = {
     { key = "might",     label = "Blessing of Might",     class = "PALADIN", icon = 19740,
       ids = FAMILY.might.ids, cast = FAMILY.might.cast },
@@ -197,8 +192,7 @@ C.ACTIONS = {
     { spell = 6262,  anim = "sweep", color = { 0.40, 1.00, 0.00 } }, -- Healthstone
 }
 
--- Numbers: Classic health values are small, so nothing under 10,000 is abbreviated; AbbreviateNumbers does the
--- work with these tiers, so hidden numbers stay safe.
+-- Classic health values are small, so nothing under 10,000 is abbreviated.
 local abbrevOpts
 function N.Abbreviate(n)
     if abbrevOpts == nil then

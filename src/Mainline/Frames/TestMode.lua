@@ -2,8 +2,6 @@ local _, ns = ...
 local N = ns.N
 local UF = N.UnitFrame
 
--- Preview mode: insecure mock unit frames so layout and look can be tuned without a group. Same
--- visual layer as the real frames (UF.CreateVisual), only the data is fake.
 
 local TM = {}
 N.TestMode = TM
@@ -263,8 +261,7 @@ local function syncHandles()
     end
 end
 
--- Mock players in the order the real header would use (custom sorting with pins, else Group by / Sort);
--- slot i shows order[i].
+-- Mock players in the header's order; slot i shows order[i].
 local ROLE_RANK = { TANK = 1, HEALER = 2, DAMAGER = 3 }
 local function testOrder(key, n)
     local order = {}
@@ -409,8 +406,7 @@ local function rebuild()
             local hosted = (key == "ownPet" or key == "groupPets" or key == "spotlight")
                 and not (key ~= "spotlight" and kc.attachEnabled)
             if hosted then
-                -- the raid frames when the raid is being tested, else the group frames; the other one
-                -- when only that one is switched on
+                -- the raid frames when the raid is tested, else the group frames; the other one when only that is on
                 local ctx = (edited == "raid" or extra.raid == true) and "raid" or "party"
                 local on = { party = kc.hostEnabled, raid = kc.raidHostEnabled }
                 if not on[ctx] then ctx = (ctx == "raid") and "party" or "raid" end

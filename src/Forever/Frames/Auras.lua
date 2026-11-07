@@ -2,8 +2,7 @@ local _, ns = ...
 local N = ns.N
 local M = N.Media
 
--- On-frame aura rows (buffs, debuffs, dispels, defensives, externals, offensives, crowd controls, private
--- auras). Hidden fields: cooldowns run from the duration object, spell IDs are checked with IsSecret.
+-- Hidden fields: cooldowns run from the duration object, spell IDs are checked with IsSecret.
 
 local A = {}
 N.Auras = A
@@ -30,8 +29,7 @@ local ROWS = {
 }
 A.ROWS = ROWS
 
--- Aura cache: in combat a live scan is refused but lookups by instance ID work, so auras are cached from a scan
--- plus the UNIT_AURA payload.
+-- In combat a live scan is refused but lookups by instance ID work: cache from scan + UNIT_AURA.
 
 local AC = {}
 N.AuraCache = AC
@@ -84,6 +82,12 @@ function AC.Each(unit, filter)
     return out
 end
 
+-- False while the unit's auras could not be read (a refused scan leaves the cache empty).
+function AC.Scanned(unit)
+    local e = cache[unit]
+    return e ~= nil and e.scanned == true
+end
+
 local function notify(unit)
     for _, fn in ipairs(listeners) do fn(unit) end
 end
@@ -92,7 +96,7 @@ local acFrame = CreateFrame("Frame")
 acFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
 acFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 acFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
--- After combat only the units whose data may be sealed or incomplete are scanned again, a few per frame.
+-- After combat only units with sealed or incomplete data are rescanned, a few per frame.
 local regenQueue = {}
 local regenDriver = CreateFrame("Frame")
 regenDriver:Hide()
@@ -135,8 +139,7 @@ acFrame:SetScript("OnEvent", function(_, event, unit, info)
     end
     local e = cache[unit]
     if not e then return end
-    -- In combat the payload is sealed (secret) and can't even be tested. Then the unit is scanned
-    -- again when the game allows; a refused scan keeps the old cache.
+    -- Secret payload in combat: rescan when allowed; a refused scan keeps the cache.
     local sealed = info ~= nil and (IsSecret(info) or IsSecret(info.isFullUpdate)
         or IsSecret(info.addedAuras) or IsSecret(info.updatedAuraInstanceIDs)
         or IsSecret(info.removedAuraInstanceIDs))
@@ -169,8 +172,7 @@ acFrame:SetScript("OnEvent", function(_, event, unit, info)
     notify(unit)
 end)
 
--- UNIT_AURA per unit with a frame; units without one (nameplates, targets, bosses) never reach this code. The cache
--- of a unit that loses its frame is dropped, since it would miss changes from then on.
+-- Per unit with a frame; the cache of a unit that loses its frame is dropped.
 local auraFrames = {}
 local function auraWatch(unit)
     local f = auraFrames[unit]
@@ -274,8 +276,7 @@ local function makeIcon(parent)
 end
 
 
--- True if the aura passes a Blizzard aura filter. The answer comes from the game, so it works even
--- when every aura field is secret.
+-- Asks the game's aura filter, so it works even when every aura field is secret.
 local function passesFilter(unit, d, filter)
     local fn = C_UnitAuras and C_UnitAuras.IsAuraFilteredOutByInstanceID
     if not (fn and d.auraInstanceID) then return false end
@@ -305,6 +306,14 @@ local DEBUFF_FILTERS = {
 }
 A.DEBUFF_FILTERS = DEBUFF_FILTERS
 
+-- Hidden on Debuffs rows: rested bonus, and Bloodlust exhaustion unless showSated.
+local HIDDEN_ALWAYS = { [1229451] = true }
+local HIDDEN_DEBUFFS = {
+    [57723] = true, [57724] = true, [80354] = true, [95809] = true,
+    [160455] = true, [264689] = true, [390435] = true, [1229451] = true,
+}
+local function hiddenFor(cfg) return cfg.showSated and HIDDEN_ALWAYS or HIDDEN_DEBUFFS end
+
 -- Who may have cast a debuff on the Debuffs row: "all", "npc", "me" or "others".
 local function debuffCastBy(cfg)
     if cfg.castBy then return cfg.castBy end
@@ -313,6 +322,8 @@ end
 A.DebuffCastBy = debuffCastBy
 
 local function debuffPasses(unit, d, cfg)
+    local sid = d.spellId
+    if sid ~= nil and not IsSecret(sid) and hiddenFor(cfg)[sid] then return false end
     local by = debuffCastBy(cfg)
     if by == "npc" then
         if not DEBUFF_FILTERS[1].test(unit, d) then return false end
@@ -381,8 +392,7 @@ local function accept(unit, d, row, cfg, excl)
             local set = parseList(cfg.list)
             return set ~= nil and set[id] == true
         end
-        -- Hidden ID: with "only my auras" the game already limited the list to the player's buffs,
-        -- so let those through.
+        -- Hidden ID with "only my auras": the game already limited the list to the player's buffs.
         return cfg.onlyMine == true
     end
     return true
@@ -425,8 +435,7 @@ local GOLD  = { 1.00, 0.85, 0.00 }
 local MINE  = { 0.00, 0.80, 0.00 }
 local CROWD = { 0.90, 0.20, 0.20 }
 
--- Time text: warning color below N seconds, tenths below M; hidden timing uses step curves over the duration
--- object.
+-- Time text: warning color below N seconds, tenths below M; hidden timing uses step curves.
 local TEXT_WHITE = { 1, 1, 1 }
 local function placeText(fs, icon, point, x, y)
     fs:ClearAllPoints()
@@ -608,7 +617,7 @@ local function setupTimeColor(icon, d, cfg, unit)
     tracked[icon] = true
     tickTime(icon)
 end
--- Stack count and countdown font size / position (the cooldown frame's FontString is found among its regions).
+-- Font size / position of stacks and countdown (the cooldown's FontString is found among its regions).
 local function styleTexts(icon, cfg)
     icon.count:SetFont(M.font, cfg.stackSize or 10, "OUTLINE")
     placeText(icon.count, icon, cfg.stackPoint or "BOTTOMRIGHT", cfg.stackX or 1, cfg.stackY or -1)
@@ -633,7 +642,7 @@ local function apply(icon, d, cfg, row, unit)
     styleTexts(icon, cfg)
     icon.tex:SetTexture(d.icon)
 
-    -- Cooldown: plain numbers when readable, the duration object when hidden; the cooldown frame draws the text.
+    -- Cooldown: numbers when readable, the duration object when hidden.
     local style = N.CooldownStyle(icon._gk, cfg.cdStyle)
     local wantAnim, wantTime = cfg.showCooldown, cfg.showTime
     local active = false
@@ -739,7 +748,6 @@ local function edgeSign(point)
     return ax, ay
 end
 
--- Dispellable-debuff effects (health bar highlight, border, type icons) follow the first dispellable debuff.
 
 local DISPEL_ATLAS = {
     Magic = "RaidFrame-Icon-DebuffMagic", Curse = "RaidFrame-Icon-DebuffCurse",
@@ -891,8 +899,7 @@ local function updateFX(b, cfg, list, unit)
         for i = 1, 4 do fx.bord[i]:Hide() end
     end
 
-    -- Dispel-type icons: one per distinct readable type, or a single tinted square when the type
-    -- is hidden.
+    -- One dispel icon per readable type, or one tinted square when the type is hidden.
     for _, t in ipairs(fx.icons) do t:Hide() end
     if cfg.typeIcons ~= false then
         local shown, seen = 0, {}
@@ -967,7 +974,7 @@ local function copy(t)
     return o
 end
 
--- Debuff row groups: one group for everything; "any" = one per ticked filter, "all" = one that satisfies all.
+-- Debuff groups: one for everything; "any" one per ticked filter, "all" one satisfying all.
 local function debuffGroupsRaw(cfg, exclude)
     local function cand(extra)
         local c = copy(extra)
@@ -1056,7 +1063,7 @@ local function rowSpec(b, row, cfg)
         spec.groups[1] = { key = "buff", filter = filter, candidate = cand, max = cfg.max }
     elseif row.kind == "debuff" then
         spec.dispelBorder = cfg.dispelBorder ~= false
-        spec.groups = debuffGroups(cfg, nil)
+        spec.groups = debuffGroups(cfg, hiddenFor(cfg))
     elseif row.kind == "crowd" then
         spec.dispelBorder = false
         spec.groups[1] = { key = "cc", filter = "HARMFUL|CROWD_CONTROL", max = cfg.max, border = CROWD }
@@ -1111,7 +1118,7 @@ local function rowSpec(b, row, cfg)
     return spec
 end
 
--- "Around the unit frame": the same aura groups once more, as a frame-wide glow that shows while any matches.
+-- Around the unit frame: the same groups as a frame-wide glow.
 local function frameGlowSpec(spec, cfg)
     local groups = {}
     for i, g in ipairs(spec.groups) do
@@ -1226,7 +1233,6 @@ end
 
 A.MakeIcon = makeIcon
 A.ApplyAura = apply
--- Offset of the i-th icon of a row: horizontal rows wrap after perRow icons, vertical rows are one column.
 function A.SlotOffset(i, size, spacing, lineSpacing, perRow, growth, point, count)
     local idx = i - 1
     if growth == "CENTER" then
@@ -1285,8 +1291,7 @@ function A.Create(b)
     for _, row in ipairs(ROWS) do b._nucAuras[row.cfg] = {} end
 end
 
--- Private auras: up to 5 Blizzard anchors that draw icon, countdown and border; re-created on roster, zone and
--- settings changes (timer, out of combat).
+-- Private auras: up to 5 Blizzard anchors, re-created on roster / zone / settings changes.
 
 local addAnchor = C_UnitAuras and C_UnitAuras.AddPrivateAuraAnchor
 local removeAnchor = C_UnitAuras and C_UnitAuras.RemovePrivateAuraAnchor

@@ -1,16 +1,14 @@
 local _, ns = ...
 local N = ns.N
 
--- Click-casting: modifier+click -> spell / item / macro on a unit frame, via secure attributes written out of
--- combat. The header's *type1 / *type2 wildcards stay for unbound clicks.
+-- Secure attributes are written out of combat; *type1 / *type2 stay for unbound clicks.
 
 local CC = {}
 N.ClickCasting = CC
 
 local BUTTON_INDEX = { LeftButton = 1, RightButton = 2, MiddleButton = 3, Button4 = 4, Button5 = 5 }
 
--- Wheel and keys have no button number: while the mouse is over a frame an override binding turns them into a
--- named click ("ctrlSCROLLUP", "altQ"); a key binding is stored as button = "KEY:Q".
+-- Wheel and keys have no button number: an override binding makes a named click ("ctrlSCROLLUP"); keys are "KEY:Q".
 local WHEEL = { ScrollUp = "SCROLLUP", ScrollDown = "SCROLLDOWN" }
 local WHEEL_KEY = { ScrollUp = "MOUSEWHEELUP", ScrollDown = "MOUSEWHEELDOWN" }
 
@@ -29,7 +27,7 @@ local function hoverName(button)
     return WHEEL[button] or keyOf(button)
 end
 
--- Modifiers are stored in Blizzard's attribute order (alt-, ctrl-, shift-); NormalizeModifier converts older saves.
+-- Modifiers use Blizzard's attribute order (alt-, ctrl-, shift-); NormalizeModifier fixes old saves.
 local ALL_MODS = {
     "none", "alt", "ctrl", "shift", "alt-ctrl", "alt-shift", "ctrl-shift", "alt-ctrl-shift",
 }
@@ -90,9 +88,59 @@ function CC.BindingText(binding)
     return table.concat(parts, " + ")
 end
 
--- The attribute name/value pairs a binding needs, or nil. Macro text starts with "/" or "#", anything else
--- is a macro name.
+-- Attributes a binding needs, or nil. Macro text starts with "/" or "#", else it is a macro name.
 local PLAIN_ACTIONS = { target = "target", focus = "focus", menu = "togglemenu", assist = "assist" }
+
+-- Smart resurrection: the binding becomes a macro: resurrect a dead unit, else the bound spell. The name casts the highest rank.
+local RES_SPELLS = {
+    PRIEST = { normal = { 2006, 2010, 10880, 10881, 20770, 25435 } },
+    PALADIN = { normal = { 7328, 10322, 10324, 20772, 20773, 48949 }, combat = { 391054 } },
+    SHAMAN = { normal = { 2008, 20609, 20610, 20776, 20777, 25590 } },
+    DRUID = { normal = { 50769, 50768, 50767, 50766, 50765, 50764, 50763 },
+              combat = { 20484, 20739, 20742, 20747, 20748, 26994 } },
+    MONK = { normal = { 115178 } }, DEATHKNIGHT = { combat = { 61999 } },
+}
+
+local function knownSpellName(ids)
+    for _, id in ipairs(ids or {}) do
+        if IsPlayerSpell and IsPlayerSpell(id) then
+            local name = C_Spell.GetSpellName and C_Spell.GetSpellName(id)
+            if not name then
+                local info = C_Spell.GetSpellInfo(id)
+                name = info and info.name
+            end
+            if name and name ~= "" then return name end
+        end
+    end
+    return nil
+end
+
+local function smartMacro(spell)
+    local mode = N.db.clickCasting.smartRes
+    if mode ~= "normal" and mode ~= "combat" then return nil end
+    local _, class = UnitClass("player")
+    local res = RES_SPELLS[class]
+    if not res then return nil end
+    local normal = knownSpellName(res.normal)
+    local combat = mode == "combat" and knownSpellName(res.combat) or nil
+    if not (normal or combat) then return nil end
+    local name = tonumber(spell) and C_Spell.GetSpellName(tonumber(spell)) or spell
+    if type(name) ~= "string" or name == "" then return nil end
+    local parts = {}
+    if normal then parts[#parts + 1] = "[@mouseover,help,dead,nocombat] " .. normal end
+    if combat then
+        parts[#parts + 1] = (normal and "[@mouseover,help,dead,combat] " or "[@mouseover,help,dead] ") .. combat
+    end
+    parts[#parts + 1] = "[@mouseover] " .. name
+    return "/cast " .. table.concat(parts, "; ")
+end
+
+-- Whether the player's class knows a resurrection that works in combat.
+function CC.HasCombatRes()
+    local _, class = UnitClass("player")
+    local res = RES_SPELLS[class]
+    return res ~= nil and knownSpellName(res.combat) ~= nil
+end
 
 local function attrPairs(binding)
     if not binding or binding.kind == "none" then return nil end
@@ -120,6 +168,8 @@ local function attrPairs(binding)
         if N.db.clickCasting.highestRank and type(spell) == "string" then
             spell = spell:gsub("%s*%b()$", "")
         end
+        local smart = smartMacro(spell)
+        if smart then return typeAttr, "macro", prefix .. "macrotext" .. idx, smart end
         return typeAttr, "spell", prefix .. "spell" .. idx, spell
     elseif binding.kind == "item" then
         -- Equipped item by slot ("slot:13"): a macro, so it follows swaps and works in combat.
@@ -143,8 +193,7 @@ local function attrPairs(binding)
     return nil
 end
 
--- Blizzard's gate: "target" with a modifier or off plain left click, and "togglemenu", only work through a
--- secure proxy button, reached with type="click".
+-- "target" off plain left click and "togglemenu" only work through a secure proxy (type="click").
 local proxyOf = setmetatable({}, { __mode = "k" }) -- kept off the secure frame
 local function clickProxy(button)
     local have = proxyOf[button]
@@ -167,8 +216,7 @@ local function isGated(typeAttr, action)
     return mod and (mod ~= "" or tonumber(num) ~= 1) or false
 end
 
--- Sets typeAttr (e.g. "shift-type1") to a plain action, through the proxy when the
--- gate needs it.
+-- Plain action on typeAttr, through the proxy when the gate needs it.
 local function setPlainAction(button, typeAttr, action)
     if isGated(typeAttr, action) then
         local proxy = clickProxy(button)
@@ -182,8 +230,7 @@ local function setPlainAction(button, typeAttr, action)
     button:SetAttribute(typeAttr, action)
 end
 
--- Clears every click-cast attribute slot before reapplying, so a removed or retyped binding stops
--- firing.
+-- Clears every click-cast slot first, so removed or retyped bindings stop firing.
 local appliedSlots = setmetatable({}, { __mode = "k" })
 local SLOT_ATTRS = { "clickbutton", "type", "spell", "item", "macro", "macrotext" }
 
@@ -225,8 +272,7 @@ function CC.ClearAll(button)
     end
 end
 
--- Wheel bindings need the mouse-over override binding. One secure handler owns it; the wrapped
--- OnEnter/OnLeave/OnHide of each frame set and clear it, so it also works in combat.
+-- Wheel bindings need the mouse-over override binding, set by a secure handler from wrapped scripts (works in combat).
 local wheelHandler = CreateFrame("Frame", "NucleusWheelHandler", UIParent, "SecureHandlerBaseTemplate")
 local wheelWrapped = setmetatable({}, { __mode = "k" })
 
@@ -278,12 +324,11 @@ function CC.Apply(button, bindings)
         end
     end
     appliedSlots[button] = slots
-    -- A plain right click without a binding falls back to the header's togglemenu wildcard, which
-    -- the gate blocks the same way, so route it through the proxy too.
+    -- An unbound right click falls back to the togglemenu wildcard, which the gate blocks: use the proxy.
     if not menuOnRight then setPlainAction(button, "type2", "togglemenu") end
 end
 
--- Bindings are per class: clickCasting.bindings is the played class's list, the others live in byClass.
+-- Bindings are per class: clickCasting.bindings is the played class's list, others live in byClass.
 local function knownSpell(value)
     if value == nil or value == "" then return false end
     -- Forever: "Name(Rank N)" - look the spell up by its name.
@@ -349,6 +394,75 @@ N:On("NUCLEUS_SETTING_CHANGED", function(_, section)
     end
 end)
 
+-- The self-cast key (Alt by default) casts on yourself, so bindings on it never reach the frame. Asked once per set of bindings.
+local function selfCastTokens()
+    local key = GetModifiedClick and GetModifiedClick("SELFCAST")
+    if type(key) ~= "string" or key == "" or key == "NONE" then return nil end
+    local need = {}
+    for part in key:gmatch("[^-]+") do need[#need + 1] = part:lower() end
+    return #need > 0 and need or nil
+end
+
+local function selfCastConflicts()
+    local need = selfCastTokens()
+    if not need then return nil end
+    local found = {}
+    for _, b in ipairs(N.db.clickCasting.bindings or {}) do
+        if (b.kind == "spell" or b.kind == "item" or b.kind == "macro") and b.value and b.value ~= "" then
+            local has = {}
+            for part in CC.NormalizeModifier(b.modifier):gmatch("[^-]+") do has[part] = true end
+            local all = true
+            for _, k in ipairs(need) do
+                if not has[k] then all = false break end
+            end
+            if all then found[#found + 1] = tostring(b.modifier) .. "|" .. tostring(b.button) .. "|" .. tostring(b.value) end
+        end
+    end
+    if #found == 0 then return nil end
+    table.sort(found)
+    return table.concat(need, "-") .. ":" .. table.concat(found, ";"), need
+end
+
+local function checkSelfCast()
+    if InCombatLockdown() or not (N.db and N.db.clickCasting and SetModifiedClick and N.Dialog) then return end
+    local sig, need = selfCastConflicts()
+    if not sig or N.db.clickCasting.selfCastDeclined == sig then return end
+    local names = {}
+    for _, k in ipairs(need) do names[#names + 1] = N.L["SELFCAST_KEY_" .. k] or k end
+    N.Dialog.Show({
+        title = N.L["Nucleus"],
+        text = N.L["SELFCAST_ASK"]:format(table.concat(names, " + ")),
+        buttons = {
+            { text = N.L["No"], onClick = function() N.db.clickCasting.selfCastDeclined = sig end },
+            { text = N.L["Yes"], primary = true, onClick = function()
+                local ok = pcall(SetModifiedClick, "SELFCAST", "NONE")
+                if ok then pcall(SaveBindings, GetCurrentBindingSet()) end
+                N:Print(N.L["SELFCAST_DONE"])
+            end },
+        },
+    })
+end
+
+local selfCastPending
+local function queueSelfCast(delay)
+    if selfCastPending then return end
+    selfCastPending = true
+    C_Timer.After(delay, function()
+        selfCastPending = nil
+        checkSelfCast()
+    end)
+end
+
+N:On("NUCLEUS_SETTING_CHANGED", function(_, section)
+    if section == "clickCasting" then queueSelfCast(0.5) end
+end)
+local selfCastLogin = CreateFrame("Frame")
+selfCastLogin:RegisterEvent("PLAYER_ENTERING_WORLD")
+selfCastLogin:SetScript("OnEvent", function(self)
+    self:UnregisterAllEvents()
+    queueSelfCast(6)
+end)
+
 -- Bound macros run the text they had when applied: re-apply when a macro is edited.
 local macroWatcher = CreateFrame("Frame")
 macroWatcher:RegisterEvent("UPDATE_MACROS")
@@ -372,16 +486,14 @@ specWatcher:SetScript("OnEvent", function(_, _, unit)
     end)
 end)
 
--- Re-apply whenever the header may have (re)built children, same cadence as HeaderGroup's
--- re-style, so a child created in combat gets its bindings once combat ends.
+-- Re-apply after the header may have rebuilt children (a child made in combat gets bindings later).
 local watcher = CreateFrame("Frame")
 watcher:RegisterEvent("GROUP_ROSTER_UPDATE")
 watcher:RegisterEvent("PLAYER_ENTERING_WORLD")
 watcher:RegisterEvent("PLAYER_REGEN_ENABLED")
 watcher:SetScript("OnEvent", CC.ApplyToAll)
 
--- Pick the class's list once the spellbook is readable (a hidden spellbook would make every spell
--- look unknown), then again on a profile switch.
+-- Pick the class's list once the spellbook is readable, and again on a profile switch.
 local selectTries = 0
 local function trySelect()
     if IsPlayerSpell and IsPlayerSpell(6603) or selectTries >= 6 then -- 6603: Auto Attack
@@ -407,8 +519,7 @@ function CC.Init()
     CC.ApplyToAll()
 end
 
--- /nucdebug helper: what each saved binding resolves to, and what is actually
--- on the first unit button (the real secure attributes).
+-- /nucdebug: what each saved binding resolves to and what the first unit button really has.
 function CC.DebugDump()
     local cc = N.db and N.db.clickCasting
     if not cc then return end

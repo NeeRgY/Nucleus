@@ -1,8 +1,6 @@
 local _, ns = ...
 local N = ns.N
 
--- Minimap button: a LibDBIcon button, so button managers can group it. Without the library a
--- plain button of our own is used.
 
 local MB = {}
 N.Minimap = MB
@@ -17,8 +15,7 @@ end
 local function updatePosition()
     if not button then return end
     local angle = math.rad(N.db.minimap.angle or 205)
-    -- Sits on the minimap edge: half its width plus a few pixels (the minimap isn't always 140
-    -- wide).
+    -- On the minimap edge: half its width plus a few pixels (the minimap isn't always 140 wide).
     local half = (Minimap:GetWidth() or 140) / 2
     local r = half + 5
     local x, y = r * math.cos(angle), r * math.sin(angle)

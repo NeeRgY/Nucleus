@@ -4,8 +4,6 @@ local M = N.Media
 local L = N.L
 local UF = N.UnitFrame
 
--- Inline per-indicator preview: a mock unit frame above each indicator's settings, drawn through the same visual
--- layer as the real frames and masked to the indicator being edited (unless "Show all enabled" is on).
 
 local P = {}
 N.Preview = P
@@ -29,6 +27,11 @@ local ROTATING = {
         { summonStatus = "declined" },
     },
     aggroBorder = {
+        { threat = 1 },
+        { threat = 2 },
+        { threat = 3 },
+    },
+    threatIcon = {
         { threat = 1 },
         { threat = 2 },
         { threat = 3 },
@@ -70,8 +73,7 @@ local ROTATING = {
     },
 }
 
--- Preview Settings > "cycle health": dead, then 25/50/75/100%, repeating. One ticker drives every
--- preview instance.
+-- Preview "cycle health": dead, then 25/50/75/100%, repeating; one ticker drives all previews.
 local HEALTH_CYCLE = { 0, 25, 50, 75, 100 }
 local healthCycleIdx = 1
 local healthTicker
@@ -186,8 +188,7 @@ function P.Create(parent, subId, customId)
     button:SetPoint("TOP", 0, -(TITLE_H + PAD / 2))
     UF.CreateVisual(button, N:Mode())
 
-    -- Private auras are drawn by Blizzard (not in a mock), so the preview shows placeholder slots
-    -- laid out like the real ones, each with the red border Blizzard draws.
+    -- Private auras are drawn by Blizzard, so the preview shows placeholder slots with the red border.
     local privSlots = {}
     for s = 1, 5 do
         local f = CreateFrame("Frame", nil, button.overlay)

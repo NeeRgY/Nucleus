@@ -4,8 +4,6 @@ local M = N.Media
 local L = N.L
 local IsSecret = N.IsSecret
 
--- Targeted Spell Bars: a floating, movable stack of cast bars, one per casting enemy nameplate. The target
--- comes from secret-safe Blizzard APIs and goes straight to SetText / SetTextColor.
 
 local TSB = {}
 N.TargetedSpellBars = TSB
@@ -21,8 +19,7 @@ local C_Spell = C_Spell
 local C_NamePlate = C_NamePlate
 local C_ClassColor = C_ClassColor
 
--- When a START event fires, UnitCastingInfo / UnitCastingDuration aren't populated yet (Blizzard
--- fills them a few frames later). 0.2s is past that and imperceptible on a cast bar.
+-- On a START event UnitCastingInfo / UnitCastingDuration aren't filled yet; 0.2s is past that.
 local PICKUP_DELAY = 0.2
 
 local Enum_ = _G.Enum
@@ -148,8 +145,7 @@ local function BuildBar()
     holder.icon:SetPoint("BOTTOMRIGHT", -2, 2)
     holder.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
-    -- No BackdropTemplate in this bar's subtree: a StatusBar driven by :SetTimerDuration() with a secret duration
-    -- object crashes Backdrop.lua's corner redraw. Plate and rim are plain textures (SkinRound).
+    -- No BackdropTemplate: a StatusBar on :SetTimerDuration() with a secret duration crashes its redraw.
     holder.barFrame = CreateFrame("Frame", nil, holder)
     N.SkinRound(holder.barFrame, M.color.segment, M.color.line, true)
 
@@ -208,8 +204,7 @@ local function StyleBar(holder, cfg)
         holder.barFrame:SetAllPoints(holder)
     end
 
-    -- The base color stays white; normal vs important is applied per cast through the fill's vertex color, since
-    -- "important" can be a secret boolean that only a native sink may act on.
+    -- Base color stays white; "important" can be a secret boolean, so it goes through the vertex color.
     holder.bar:SetStatusBarColor(1, 1, 1, 1)
 
     holder.name:ClearAllPoints()
@@ -307,8 +302,7 @@ local function SortShown()
 end
 
 
--- Only the synthetic preview entry computes a fraction by hand (fake times, so plain math is
--- safe). Real casts are driven natively by :SetTimerDuration() in ApplyCast.
+-- Only the preview computes a fraction by hand (fake times); real casts use :SetTimerDuration().
 local function BarOnUpdate(holder)
     local e = holder._entry
     if not e then return end
@@ -325,8 +319,7 @@ local function BarOnUpdate(holder)
         return
     end
 
-    -- Only the countdown text is refreshed here, via the duration object's accessor: GetRemainingDuration() can be
-    -- secret and SetFormattedText is a safe sink, so there is one fixed format.
+    -- Only the countdown text refreshes here; it can be secret, SetFormattedText is safe.
     local remaining
     if e.duration and e.duration.GetRemainingDuration then
         remaining = e.duration:GetRemainingDuration()
@@ -348,7 +341,7 @@ local function PaintTarget(holder, unit, cfg)
         if type(targetName) ~= "nil" then
             holder.target:SetText(targetName)
 
-            -- UnitSpellTargetClass is the secret-safe class token; C_ClassColor.GetClassColor() is a safe sink for it.
+            -- UnitSpellTargetClass is secret-safe; C_ClassColor.GetClassColor() is a safe sink for it.
             local color
             if UnitSpellTargetClass and C_ClassColor and C_ClassColor.GetClassColor then
                 color = C_ClassColor.GetClassColor(UnitSpellTargetClass(unit))
@@ -364,8 +357,7 @@ local function PaintTarget(holder, unit, cfg)
     holder.target:SetText("")
 end
 
--- spellId is secret for enemy nameplate casts; IsSpellImportant accepts it, so the raw return goes straight into
--- the color sink.
+-- spellId is secret for enemy casts; IsSpellImportant accepts it, so it goes straight into the color sink.
 local function ClassifyCast(spellId)
     local important
     if spellId ~= nil and C_Spell and C_Spell.IsSpellImportant then
@@ -375,8 +367,7 @@ local function ClassifyCast(spellId)
     return important
 end
 
--- Cast lifecycle: progress comes from the *Duration functions through :SetTimerDuration(), never from
--- arithmetic on the secret cast times; frame work is deferred a tick.
+-- Cast progress comes from the *Duration functions via :SetTimerDuration(), never from secret times.
 
 local function ResolveDuration(unit)
     local duration, isEmpowered
@@ -453,8 +444,7 @@ local function StartCast(unit, cfg, eventSpellId)
         if castGen[unit] ~= myGen then return end
         if not (active and cfg) then return end
 
-        -- type(x) == "nil", never `x ~= nil`: these can return a secret string. The extra parens force one value; an
-        -- inactive unit's UnitCastingInfo can return none, and type() with no argument errors.
+        -- type(x) == "nil", never `x ~= nil` (secret string); extra parens force one value, type() with none errors.
         local isChannel, exists
         if type((UnitCastingInfo(unit))) ~= "nil" then
             isChannel, exists = false, true
@@ -641,8 +631,7 @@ function TSB.Refresh()
     Reflow(cfg)
 end
 
--- Settings-page "Preview" button: one fake looping bar plus the drag handle,
--- shown even while the indicator itself is disabled.
+-- Settings preview: one fake looping bar plus handle, shown even while disabled.
 function TSB.SetPreview(show)
     local cfg = GetConfig()
     if not cfg then return end

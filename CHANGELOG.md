@@ -1,12 +1,38 @@
 # Nucleus Changelog
 
+## 1.0.8 (2026-11-07)
+
+### New
+
+- New Separate profiles by raid size (Profile > Auto Switch, off by default): a raid can switch to its own profile for up to 10, 11 to 20 or 21 to 40 players. Sizes without a profile keep the normal raid rules.
+- New profiles now keep every raid group on its own fixed place by default, so groups that are not full no longer close up. Existing profiles keep their setting (Raid > Size > Groups per row).
+- New The Debuffs rows now show debuffs cast by players too (for example Weakened Soul) on new profiles. The Bloodlust-type exhaustion debuffs and the rested bonus cooldown stay hidden. The Bloodlust exhaustion debuffs can be shown again with Show Bloodlust exhaustion on each Debuffs row. Existing profiles keep their "Cast by" setting.
+- New Smart resurrection is now in Forever too (Click-Casting tab, off by default): a click with a spell binding on a dead player casts your class's resurrection instead, in combat also its combat resurrection where the class has one. Living players still get the bound spell. (Forever, Classic Era, Anniversary)
+- New A warning when a click-casting binding uses the game's self-cast key (Alt by default): a click with that key casts on yourself, so the binding never reaches the frame you click. Nucleus asks once and can turn the self-cast key off for you.
+- New Power Bar color (Indicators > Power Bar > Bar color): the game's power color as before, the class color, or your own color.
+- New Power Bar position (Indicators > Power Bar): bottom, top, left or right. Left and right make it a vertical bar, and Thickness sets how wide it is.
+- New Show aura tooltips (Tooltip tab, off by default): hovering a buff or debuff icon on the frames shows that aura's tooltip. Clicks on the icons still go to the frame.
+- New Threat Icon indicator (Indicators > Threat Icon, off by default): threat as a colored square on the frame, yellow / orange / red, with the first level and a blink optional.
+- New Click-Casting bindings can be moved up and down with the arrow buttons next to each row.
+- New Click-Casting spell list: every spell with ranks has a "Highest rank" entry that always casts the best known rank, so it can be set for single spells (Forever, Classic Era, Anniversary).
+- New Custom indicators can be deleted with a right click on them in the list. Each one now shows what kind of indicator it is, and the type icons are sharper.
+
+### Fixes
+
+- Fixed the Missing Buffs list showing buffs the game does not have (a red question mark icon) and mixing spell names of the game language with the addon language. The names now follow the game's spell names (Forever, and the naming also on Classic Era and Anniversary).
+- Fixed the range fade of Spotlight frames graying out target, focus and target-of-target units even when they stand next to you.
+- Fixed Missing Buffs flashing up at the start of a fight when the game would not let the addon read a member's auras (Forever).
+- Fixed the target markers of the Marks tool not reacting to clicks when the game fires secure buttons on key press (Forever).
+- Fixed the group and raid frames ending up diagonal or half-moved after switching the orientation between vertical and horizontal (or other layout settings), which needed a /reload: the old frame anchors are cleared and the header is updated once after all its settings are in place. This also fixes the frame height or width not applying after such a change.
+- Fixed a Lua error "attempt to compare field 'class' (a secret string value)" on frames of units whose class is hidden, for example a Spotlight frame on the target while targeting NPCs in Timewalking dungeons, which repeated until the game crashed (Retail).
+
 ## 1.0.7 (2026-10-22)
 
 ### New
 
 - Click-Casting (Forever, Classic, TBC): new option Always cast the highest known rank, so a bound spell like Renew uses the newly trained rank without picking it again. Penance can now be picked as a spell binding (Forever).
 - New Raid Role Icon indicator (off by default): shows the main tank and main assist of the raid with Blizzard's icons, each one switchable.
-- The Leader Icon now also shows promoted raid members (assistants) with Blizzard's assistant icon; the leader keeps the crown. New option Show raid assistants turns it off.
+- The Leader Icon now also shows promoted raid members (assistants) with Blizzard's assistant icon. The leader keeps the crown. New option Show raid assistants turns it off.
 - New Smart resurrection (Click-Casting tab, off by default, Retail): a click with a spell binding on a dead player casts your class's resurrection instead, in combat also its combat resurrection. Living players still get the bound spell.
 - New /nuctaintlog command: switches the game's taint log on or off, for bug reports about blocked-action errors.
 
@@ -18,6 +44,7 @@
 
 ### Fixes
 
+- Fixed Missing Buffs showing every buff as missing for the rest of a Mythic+ run once the key started: when the game refuses to read a unit's auras, the indicator now shows nothing instead of treating them as gone (Retail).
 - Fixed a drop-down showing an old value after switching panels, for example the Frame type of the pet frames still reading NPC companions after a change to Own pet.
 - Group and raid frames: the header update is now started by the game itself instead of being called from our code, to avoid blocked-action errors after combat (Retail, Forever).
 - A Lua error in one part of Nucleus no longer stops the rest of an update: the Frame type drop down for pets and NPCs no longer gets stuck on the old page when something fails while switching, and the error is reported.
@@ -29,7 +56,7 @@
 - Spotlight, own pet and group pet frames have separate settings for hanging on the group frames and on the raid frames (Attach to group frames, Attach to raid frames): each one has its own switch, side and offset, so a frame can be attached in one and free in the other.
 - New Centered growth direction for aura rows and custom icon indicators: the icons spread to both sides of the anchor point, for example below or above the frame.
 - Health Text: new Hide at full health option that blanks the text at 100% in every format (before, only Deficit was empty at full health).
-- New What's new window: after an update it shows the changes of the new version once. It can be switched off under General > Interface (Show what's new after an update); /nucnews opens it again.
+- New What's new window: after an update it shows the changes of the new version once. It can be switched off under General > Interface (Show what's new after an update). /nucnews opens it again.
 - Range by spell (Appearance > Range, off by default): the range fade is measured with a friendly spell of your class, for example your heal, so frames fade at that spell's range (Retail).
 - Master profile: Nucleus asks whether to create a backup of a profile when it starts following the master, and before Sync now.
 - Dispel type colors: new buttons for colorblind-friendly colors and for the default colors.
@@ -45,9 +72,9 @@
 
 ### New
 
-- Master profile (Profile tab): other profiles can follow a master profile. Changes made while the master is active are copied into them, only in the parts you tick (appearance, indicators, auras, sizes and more); everything else stays per profile.
+- Master profile (Profile tab): other profiles can follow a master profile. Changes made while the master is active are copied into them, only in the parts you tick (appearance, indicators, auras, sizes and more). Everything else stays per profile.
 - Spotlight, own pet and group pet frames can hang on the party or raid frames (Attach to group frames): you set side and offset, and they stay in place when the group grows or turns into a raid.
-- New Cooldown animation card under Appearance > Layout: set the animation style (top to bottom or spiral) once for all indicators (Global) or per indicator; with Global the setting is hidden in the indicators. In Classic Era and TBC it affects the aura rows only.
+- New Cooldown animation card under Appearance > Layout: set the animation style (top to bottom or spiral) once for all indicators (Global) or per indicator. With Global the setting is hidden in the indicators. In Classic Era and TBC it affects the aura rows only.
 - Aura rows have a Glow option: around each icon or around the whole unit frame, with style, color, line length, thickness, speed and distance (Retail, Forever).
 - Spotlight: new button to add your current target by name.
 - Cooldown spell lists have Select all and Select none buttons.
@@ -75,7 +102,7 @@
 - New settings search in the options window header (or Ctrl+F): type part of a setting's name, in your language or in English, and click a result to jump to it.
 - Click-Casting presets: save the current bindings under a name and load or delete them later (per class, shared by all profiles). Resurrection spells now appear in the spell list as well.
 - New aura rows (off by default): Debuffs 2, 3 and 4, each with its own filter, position and look, and Defensives & Externals, which shows both cooldown lists in one row.
-- Utilities: the pull timer can show remaining or elapsed time (also with the total) and say Go! or 0 when it ends; Ready & Pull, Battle Res and Marks get a background, border, opacity and strata, and an option to show them only on mouseover.
+- Utilities: the pull timer can show remaining or elapsed time (also with the total) and say Go! or 0 when it ends. Ready & Pull, Battle Res and Marks get a background, border, opacity and strata, and an option to show them only on mouseover.
 - New Death Report utility (off by default): says when a group member dies, for you only or in the group chat, optionally only during encounters and only for tanks and healers.
 - Health Bar Color has a Dead color for the health bar of dead or ghost units.
 - Bar textures and fonts that other addons register with LibSharedMedia-3.0 can be chosen under Bar texture and in General > Fonts.
@@ -87,7 +114,7 @@
 
 ### Fixes
 
-- Party, raid and pet frames are no longer created in the middle of combat after a login or /reload; they appear when the combat ends.
+- Party, raid and pet frames are no longer created in the middle of combat after a login or /reload. They appear when the combat ends.
 - Fixed Lua errors from the raid marker indicator, the marker bar and group pings when the game hides a value (Retail, Forever).
 
 ## 1.0.3 (2026-10-14)
@@ -98,10 +125,10 @@
 - Name: new Max characters option to shorten long names.
 - New Column spacing option for the raid and group pet frames: the gap between the columns (the raid groups), next to Spacing between the frames of a column.
 - Raid can use the Group's settings: in the Position tab, appearance, indicators, aura rows and custom indicators can each be shared between Group and Raid, so a change in one changes both.
-- New Position tab: where the frames sit (anchor point, X / Y, centering, attach to owner) and copying settings between Group and Raid; the General card with the move handle settings is called Move handles.
+- New Position tab: where the frames sit (anchor point, X / Y, centering, attach to owner) and copying settings between Group and Raid. The General card with the move handle settings is called Move handles.
 - Block indicators show the cooldown animation, stack count and remaining time again (Retail, Forever).
 - Cell import: icon, text and row positions that use a different anchor on the indicator than on the frame, rectangular icon sizes, icons per line and spacing of custom icon rows, and the Spotlight size now convert correctly.
-- Hide Blizzard frames also hides the raid / party preview frames in Edit Mode and frames that ignore their container's transparency; the new /nucblizz command lists what is still visible.
+- Hide Blizzard frames also hides the raid / party preview frames in Edit Mode and frames that ignore their container's transparency. The new /nucblizz command lists what is still visible.
 
 ### Fixes
 
@@ -115,30 +142,30 @@
 - Click-Casting: the Item list shows your equipped trinkets and other usable equipped items, bound by slot so they follow a swap and work in combat.
 - New "Font outline" option (thin, thick, none) for the name, health text and status indicators.
 - "Cast by" choices (me, anyone, others) for custom indicators and the Debuffs row, so debuffs cast by players such as Weakened Soul can be shown.
-- General tab split into "All profiles" and "Per profile" sections; Tooltip, Click-Casting, Utilities and Spotlight can be shared by all profiles; new tooltip position option.
-- Frame position: anchor point, X / Y values and centering per group; a middle anchor point grows the group from the middle.
+- General tab split into "All profiles" and "Per profile" sections. Tooltip, Click-Casting, Utilities and Spotlight can be shared by all profiles. New tooltip position option.
+- Frame position: anchor point, X / Y values and centering per group. A middle anchor point grows the group from the middle.
 - Test Mode: a menu next to the button previews several groups at once, and the preview follows Group by and Sort.
-- Frames redraw right away when a group member leaves; Spotlight units can be moved up and down; Auto Switch has a Battleground (10) rule.
+- Frames redraw right away when a group member leaves. Spotlight units can be moved up and down. Auto Switch has a Battleground (10) rule.
 - Missing Buffs: Shadow Protection added, and each Blessing can be switched on or off. (Forever, Classic Era, TBC)
-- Smaller changes: one "Move tools" switch, Spotlight in Copy settings, larger group name offsets, X / Y names for Attach to owner, "Group" instead of "Party" in English, no duplicate movers in Test Mode, the language follows the game by default (it was German); marker buttons set marks through /tm.
-- Retail: NPC frames are on by default and show friendly boss units (such as the end boss of Temple of Sethraliss) next to the group frames; companions stay among the group frames unless "Move companions here" is on; new /nucnpc command.
+- Smaller changes: one "Move tools" switch, Spotlight in Copy settings, larger group name offsets, X / Y names for Attach to owner, "Group" instead of "Party" in English, no duplicate movers in Test Mode, the language follows the game by default (it was German). Marker buttons set marks through /tm.
+- Retail: NPC frames are on by default and show friendly boss units (such as the end boss of Temple of Sethraliss) next to the group frames. Companions stay among the group frames unless "Move companions here" is on. New /nucnpc command.
 - First version of Classic Era and TBC support, so far tested only by the author: simpler than Retail and Forever (no ping, heal / shield prediction, private auras or targeted spell bars), spells match by name so every rank works, plus a Targeted Spells indicator that only exists there.
 
 ### Fixes
 
-- Fixed the health bar gradient falling back to the class color while health is hidden; Fade at Full Health also works then.
+- Fixed the health bar gradient falling back to the class color while health is hidden. Fade at Full Health also works then.
 - Fixed Attach to owner, the time text color and decimals, and the Glow distance being reset on every login.
 
 ## 1.0.1 (2026-10-12)
 
 ### New
 
-- Click-Casting: mouse wheel, keyboard keys and extra mouse buttons (6 and up) can be bound; macros fire reliably.
+- Click-Casting: mouse wheel, keyboard keys and extra mouse buttons (6 and up) can be bound. Macros fire reliably.
 - Frame width updates the header and the shield, heal prediction and absorb bars right away.
 - Icon rows and custom indicators: new "Icons per row" and "Row spacing", a larger spacing range, and fixes for Anchor and size.
 - The indicator preview shows the configured frame size and your class color.
 - Test mode shows up to 8 raid groups, follows the group selection and custom sorting, and uses a 1 tank / 1 healer / 3 damage dealer party.
-- Move handles: smaller and resizable, a "Bar" style, X / Y offset, ALT-only drag mode, only the edited group is shown; party and raid frames can be moved in combat.
+- Move handles: smaller and resizable, a "Bar" style, X / Y offset, ALT-only drag mode, only the edited group is shown. Party and raid frames can be moved in combat.
 - The minimap button is a standard LibDBIcon button, so button managers can group it.
 
 ### Fixes

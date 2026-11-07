@@ -2,8 +2,6 @@ local _, ns = ...
 local N = ns.N
 local M = N.Media
 
--- Custom HSV color picker: a saturation/value square, a hue strip, a hex field, preset swatches
--- and a live preview. Replaces Blizzard's ColorPickerFrame.
 
 local CP = {}
 N.ColorPicker = CP

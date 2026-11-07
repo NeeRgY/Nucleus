@@ -3,13 +3,10 @@ local N = ns.N
 local M = N.Media
 local L = N.L
 
--- Drag overlays for moving the headers. Header positioning itself is in HeaderGroup; this only
--- moves the anchor and saves it.
 
 N.anchors = {}
 
--- Handle above each group. It sits on UIParent, not on the header, so a group that is not shown
--- right now (the raid while solo) can still be positioned.
+-- Handle on UIParent so a group that isn't shown (raid while solo) can still be moved.
 local ANCHOR_TITLES = {
     party = "Party Frames", raid = "Raid Frames",
     ownPet = "Own Pet Frame", groupPets = "Group Pet Frames", npc = "NPC Companion Frames",
@@ -84,8 +81,7 @@ local function makeAnchor(key)
         restyle()
     end)
 
-    -- Party/raid headers are protected and cannot be moved in combat; they hang on a plain frame
-    -- that can. The pet containers are plain frames themselves.
+    -- Party/raid headers are protected: they hang on a plain frame that can move in combat.
     local function mover() return N.HeaderPosFrame and N.HeaderPosFrame(key) or header end
 
     a:RegisterForDrag("LeftButton")

@@ -20,8 +20,7 @@ M.shieldTextures = {
     flat    = "Interface\\Buttons\\WHITE8X8",
     striped = "Interface\\AddOns\\Nucleus\\Media\\Textures\\NucleusShield.tga",
 }
--- Bundled font (SIL Open Font License, see Media/Fonts/TitilliumWeb-OFL.txt). Full Latin-1
--- coverage, so German umlauts work.
+-- Bundled font: full Latin-1 coverage (umlauts).
 M.font = "Interface\\AddOns\\Nucleus\\Media\\Fonts\\TitilliumWeb-Bold.ttf"
 M.fontDefault = M.font
 M.fontUI = M.font -- options window and dialogs
@@ -36,7 +35,7 @@ M.FONTS = {
     { key = "morpheus", text = "Morpheus",       path = "Fonts/MORPHEUS.ttf" },
 }
 
--- These languages need glyphs the bundled font lacks: the matching Blizzard font is used unless "Game default".
+-- These languages need glyphs the bundled font lacks: use the matching Blizzard font unless "Game default".
 M.LOCALE_FONTS = {
     ruRU = "Fonts/FRIZQT___CYR.TTF",
     koKR = "Fonts/2002.TTF",
@@ -56,7 +55,7 @@ local function activeLocale()
     return l
 end
 
--- LibSharedMedia-3.0 is optional: textures and fonts other addons register appear in the lists as "lsm:<name>".
+-- LibSharedMedia-3.0 is optional; its media show up as "lsm:<name>".
 local function sharedLib()
     return LibStub and LibStub("LibSharedMedia-3.0", true) or nil
 end
@@ -71,7 +70,6 @@ local function sharedPath(kind, key)
     return lib and lib:Fetch(kind, name, true) or nil
 end
 
--- { { value = "lsm:<name>", text = name, path = file }, ... } for "statusbar" or "font"; empty without the library.
 function M.SharedList(kind)
     local out, lib = {}, sharedLib()
     if not lib then return out end
@@ -103,8 +101,7 @@ end
 
 
 
--- Shape textures of the options UI: white RGB, shape in alpha, tinted by SetVertexColor; round and roundSm
--- are 9-sliced.
+-- Shape textures: white RGB, shape in alpha, tinted by SetVertexColor; round / roundSm are 9-sliced.
 local TEX = "Interface\\AddOns\\Nucleus\\Media\\Textures\\"
 M.tex = {
     round   = TEX .. "NucleusRound.tga",   -- 32px, radius 8, slice margin 9
@@ -156,8 +153,7 @@ M.color = {
     tank        = { 0.20, 0.55, 0.95, 1.00 },
 }
 
--- Recolors every accent-derived entry from one base {r,g,b} (General > Interface > Highlight color), in place.
--- Textures that baked a color in repaint through N.OnRecolor.
+-- Recolors accent-derived entries; baked textures repaint via N.OnRecolor.
 function N.ApplyAccentColor(rgb)
     rgb = rgb or { 0.20, 0.55, 0.95 }
     local r, g, b = rgb[1], rgb[2], rgb[3]
@@ -185,8 +181,7 @@ function N.Recolor(rgb)
 end
 
 
--- Class color as {r,g,b} from Blizzard's fixed colors (not CUSTOM_CLASS_COLORS). pcall-guarded: a bad or secret
--- class token must not abort the render; the fallback is grey.
+-- Class color from Blizzard's fixed colors, pcall-guarded (a secret token falls back to grey).
 function N.ClassRGB(class)
     if class == nil then return 0.6, 0.6, 0.6 end
 

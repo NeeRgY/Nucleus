@@ -4,8 +4,6 @@ local M = N.Media
 local L = N.L
 local UF = N.UnitFrame
 
--- Inline per-indicator preview: a mock unit frame above each indicator's settings, drawn through the same visual
--- layer as the real frames and masked to the indicator being edited (unless "Show all enabled" is on).
 
 local P = {}
 N.Preview = P
@@ -29,6 +27,11 @@ local ROTATING = {
         { summonStatus = "declined" },
     },
     aggroBorder = {
+        { threat = 1 },
+        { threat = 2 },
+        { threat = 3 },
+    },
+    threatIcon = {
         { threat = 1 },
         { threat = 2 },
         { threat = 3 },
@@ -70,8 +73,7 @@ local ROTATING = {
     },
 }
 
--- Preview Settings > "cycle health": dead, then 25/50/75/100%, repeating. One ticker drives every
--- preview instance.
+-- Preview "cycle health": dead, then 25/50/75/100%, repeating; one ticker drives all previews.
 local HEALTH_CYCLE = { 0, 25, 50, 75, 100 }
 local healthCycleIdx = 1
 local healthTicker

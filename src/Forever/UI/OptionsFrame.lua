@@ -289,6 +289,9 @@ local function BuildTooltip(p)
     c:AddRow(N.MakeCheckbox(c, L["Hide tooltips in combat"],
         function() return N.db.tooltip.hideInCombat end,
         function(v) N:Set("tooltip.hideInCombat", v) end))
+    c:AddRow(N.MakeCheckbox(c, L["Show aura tooltips"],
+        function() return N.db.tooltip.auras end,
+        function(v) N:Set("tooltip.auras", v) end))
     c:AddRow(N.MakeDropdown(c, L["TT_ANCHOR"], {
         { value = "frame", text = L["TT_FRAME"] },
         { value = "cursor", text = L["TT_CURSOR"] },
@@ -639,8 +642,6 @@ end
 
 local function BuildFramePosition(p, key)
     BuildPetSwitch(p, key)
-    -- An anchor point of the frames at the same point of the screen plus an offset; a middle point grows the
-    -- group from the middle.
     do
         local pos = N.MakeCard(p, L["Frame position"])
         local POINTS = {
@@ -1233,6 +1234,26 @@ local function BuildIndicator(p, key, meta)
             function() return o.showAssist ~= false end, function(v) N:Set(pth("showAssist"), v) end))
     end
 
+    if meta.threat then
+        local function note(row, text)
+            local info = N.FontString(row, 11)
+            info:SetPoint("RIGHT", row, "RIGHT", 0, 0)
+            info:SetTextColor(uc(M.color.textDim))
+            info:SetText(text)
+            return row
+        end
+        c:AddRow(note(N.MakeCheckbox(c, L["Blink"],
+            function() return o.blink end, function(v) N:Set(pth("blink"), v) end), L["THREAT_BLINK_INFO"]))
+        c:AddRow(note(N.MakeCheckbox(c, L["Show low threat"],
+            function() return o.showLow end, function(v) N:Set(pth("showLow"), v) end), L["THREAT_LOW_INFO"]))
+        c:AddRow(note(N.MakeColorPicker(c, L["Yellow"],
+            function() return o.lowColor end, function(v) N:Set(pth("lowColor"), v) end), L["THREAT_YELLOW_INFO"]))
+        c:AddRow(note(N.MakeColorPicker(c, L["Orange"],
+            function() return o.warnColor end, function(v) N:Set(pth("warnColor"), v) end), L["AGGRO_ORANGE_INFO"]))
+        c:AddRow(note(N.MakeColorPicker(c, L["Red"],
+            function() return o.tankColor end, function(v) N:Set(pth("tankColor"), v) end), L["AGGRO_RED_INFO"]))
+    end
+
     if meta.name == "raidRole" then
         c:AddRow(N.MakeCheckbox(c, L["Show main tank"],
             function() return o.showTank ~= false end, function(v) N:Set(pth("showTank"), v) end))
@@ -1383,7 +1404,13 @@ local function BuildIndicator(p, key, meta)
         c:AddRow(N.MakeSlider(c, L["Y offset"], -40, 40, 1,
             function() return o.y end, function(v) N:Set(pth("y"), N.Round(v)) end))
     elseif meta.bar then
-        c:AddRow(N.MakeSlider(c, L["Height"], 2, 14, 1,
+        c:AddRow(N.MakeDropdown(c, L["Position"], {
+            { value = "bottom", text = L["Bottom"] },
+            { value = "top", text = L["Top"] },
+            { value = "left", text = L["Left"] },
+            { value = "right", text = L["Right"] },
+        }, function() return o.position or "bottom" end, function(v) N:Set(pth("position"), v) end))
+        c:AddRow(N.MakeSlider(c, L["Thickness"], 2, 14, 1,
             function() return o.height end, function(v) N:Set(pth("height"), N.Round(v)) end))
         c:AddRow(N.MakeSlider(c, L["X offset"], -40, 40, 1,
             function() return o.x end, function(v) N:Set(pth("x"), N.Round(v)) end))
@@ -1443,7 +1470,7 @@ local function BuildIndicator(p, key, meta)
     if meta.missing then
         local bc = N.MakeCard(p, L["Buffs to check"])
         for _, buff in ipairs(N.Indicators.missingBuffs) do
-            local cb = N.MakeCheckbox(bc, (buff.localized and N.Classic.SpellName(buff.icon)) or L[buff.label] or buff.label,
+            local cb = N.MakeCheckbox(bc, (buff.key ~= "blessing" and N.Classic.SpellName(buff.icon)) or L[buff.label] or buff.label,
                 function() return not (o.buffs and o.buffs[buff.key] == false) end,
                 function(v) N:Set(pth("buffs." .. buff.key), v) end)
             local pic = cb:CreateTexture(nil, "ARTWORK")
@@ -1489,6 +1516,18 @@ local function BuildIndicator(p, key, meta)
         CheckGrid(pc, items, 3)
         p:AddCard(pc)
     end
+    if meta.bar then
+        local bc = N.MakeCard(p, L["Bar color"])
+        bc:AddRow(N.MakeDropdown(bc, L["Color mode"], {
+            { value = "power", text = L["Power color"] },
+            { value = "class", text = L["Class color"] },
+            { value = "custom", text = L["Custom color"] },
+        }, function() return o.barColorMode end, function(v) N:Set(pth("barColorMode"), v) end))
+        bc:AddRow(N.MakeColorPicker(bc, L["Color"],
+            function() return o.barColor end, function(v) N:Set(pth("barColor"), v) end))
+        p:AddCard(bc)
+    end
+
     if meta.bar then
         local t = N.MakeCard(p, L["Power Text"])
         t:AddRow(N.MakeCheckbox(t, L["Show text"],
@@ -1655,6 +1694,8 @@ local function BuildAuras(p, key, kind)
            function(v) N:Set(pth("castBy"), v) end)
         N.SetTip(by, L["Cast by"], L["CAST_NPC_TIP"])
         c:AddRow(by)
+        c:AddRow(N.MakeCheckbox(c, L["Show Bloodlust exhaustion"],
+            function() return o.showSated end, function(v) N:Set(pth("showSated"), v) end))
     elseif kind == "crowdControls" then
         c:AddRow(N.MakeCheckbox(c, L["Only what I can dispel"],
             function() return o.dispellableOnly end, function(v) N:Set(pth("dispellableOnly"), v) end))
@@ -1829,7 +1870,6 @@ local function BuildAuras(p, key, kind)
         p:AddCard(gc)
     end
 
-    -- Cooldown rows: the list decides when the game shows the spell ID, otherwise Blizzard's classification (if on).
     if kind == "defensives" or kind == "externals" or kind == "defext" or kind == "offensives" or kind == "buffs" then
         local lc = N.MakeCard(p, L["Spell list"])
         local relayout
@@ -2778,8 +2818,7 @@ local QUESTION_ICON = 134400
 
 -- Picker data, rebuilt each time a list opens; pcall-guarded so a failure gives an empty list.
 
--- Classic: every spell rank is its own spellbook entry; a binding is written Name(Rank N), which the secure
--- "spell" attribute needs to cast that rank.
+-- Classic: each rank is a spellbook entry; the secure "spell" attribute needs Name(Rank N).
 local function spellBookEntries(fn)
     pcall(function()
         local bank = Enum.SpellBookSpellBank.Player
@@ -2831,7 +2870,7 @@ local RES_SPELLS = {
     [20707] = true, [20762] = true, [20763] = true, [20764] = true, [20765] = true, [27239] = true,
 }
 
--- Spells that heal friends and hurt enemies count as harmful to the game but belong in the list (Penance).
+-- Dual spells (Penance) count as harmful to the game but belong in the list.
 local DUAL_IDS = { 1240720, 1240721, 1240723, 1240724, 1240727, 1240730, 1316991, 1316993, 1316995, 402284, 402289, 47540, 53005, 53006, 53007, 47757, 47758 }
 local dualNames
 local function isDualSpell(name)
@@ -2845,8 +2884,6 @@ local function isDualSpell(name)
     return dualNames[name]
 end
 
--- Spells the player knows that are beneficial (can be cast on another player),
--- one entry per rank.
 local function getSpellOptions()
     local out, seen = {}, {}
     local helpful = C_Spell and C_Spell.IsSpellHelpful
@@ -2866,6 +2903,16 @@ local function getSpellOptions()
             }
         end
     end)
+    -- A plain name casts the highest known rank.
+    local top = {}
+    for _, e in ipairs(out) do
+        if e.rank > 0 and (not top[e.name] or e.rank > top[e.name].rank) then top[e.name] = e end
+    end
+    for name, e in pairs(top) do
+        if not seen[name] then
+            out[#out + 1] = { value = name, text = name .. " (" .. L["Highest rank"] .. ")", icon = e.icon, name = name, rank = 1000 }
+        end
+    end
     table.sort(out, function(a, b)
         if a.name ~= b.name then return a.name < b.name end
         return a.rank > b.rank
@@ -2966,7 +3013,7 @@ local function getItemOptions()
     return out
 end
 
--- Text and icon for a saved value that may not be in the open list (off-spec spell, sold item, deleted macro).
+-- Text and icon for a saved value that may not be in the list (off-spec spell, sold item, deleted macro).
 local function resolveSpell(value)
     local text, base = value, value
     if type(value) == "string" and value ~= "" then
@@ -2974,9 +3021,8 @@ local function resolveSpell(value)
         if name then
             base, text = name, name .. " (" .. rank .. ")"
         else
-            -- Saved without a rank: it casts the highest known rank, so show that one.
             local hi = highestRanks()[value]
-            if hi and hi.sub then text = value .. " (" .. hi.sub .. ")" end
+            if hi and hi.sub then text = value .. " (" .. L["Highest rank"] .. ")" end
         end
     end
     local icon = C_Spell and C_Spell.GetSpellTexture and C_Spell.GetSpellTexture(base)
@@ -3024,7 +3070,7 @@ end
 
 -- Click-Casting tab, rebuilt in place: one row per binding.
 
-local CC_KEY_W, CC_KIND_W, CC_DEL_W, CC_GAP = 150, 84, 24, 6
+local CC_KEY_W, CC_KIND_W, CC_DEL_W, CC_GAP, CC_MOVE_W = 150, 84, 24, 6, 18
 
 local function BuildBindingRow(card, cc, binding, i, rebuild)
     if PLAIN_KINDS[binding.kind] then
@@ -3072,7 +3118,7 @@ local function BuildBindingRow(card, cc, binding, i, rebuild)
             function() return binding.value end,
             function(v) binding.value = v; fireClickCastingChanged() end)
         put(value, x)
-        value:SetPoint("TOPRIGHT", row, "TOPRIGHT", -(CC_DEL_W + CC_GAP), 0)
+        value:SetPoint("TOPRIGHT", row, "TOPRIGHT", -(CC_DEL_W + 2 * CC_MOVE_W + 2 * CC_GAP + 2), 0)
     end
 
     local picker = PICKERS[binding.kind]
@@ -3082,8 +3128,40 @@ local function BuildBindingRow(card, cc, binding, i, rebuild)
             function(v) binding.value = v; fireClickCastingChanged() end,
             picker.resolve)
         put(value, x)
-        value:SetPoint("TOPRIGHT", row, "TOPRIGHT", -(CC_DEL_W + CC_GAP), 0)
+        value:SetPoint("TOPRIGHT", row, "TOPRIGHT", -(CC_DEL_W + 2 * CC_MOVE_W + 2 * CC_GAP + 2), 0)
     end
+
+    local function moveButton(dir, x)
+        local btn = CreateFrame("Button", nil, row)
+        btn:SetSize(CC_MOVE_W, 22)
+        btn:SetPoint("TOPRIGHT", row, "TOPRIGHT", -x, -1)
+        N.SkinRound(btn, M.color.base, M.color.line, true)
+        local caret = btn:CreateTexture(nil, "OVERLAY")
+        caret:SetColorTexture(1, 1, 1, 1)
+        caret:SetSize(8, 4)
+        caret:SetPoint("CENTER")
+        N.ShapeCaret(caret, dir)
+        local function paint(hover)
+            if hover then caret:SetVertexColor(1, 1, 1, 1) else caret:SetVertexColor(uc(M.color.textDim)) end
+        end
+        paint(false)
+        btn:SetScript("OnEnter", function() paint(true) end)
+        btn:SetScript("OnLeave", function() paint(false) end)
+        btn:SetScript("OnClick", function()
+            local list = cc.bindings
+            local j = (dir == "up") and (i - 1) or (i + 1)
+            if not (list and list[j]) then return end
+            list[i], list[j] = list[j], list[i]
+            fireClickCastingChanged()
+            rebuild()
+        end)
+        return btn
+    end
+    local total = cc.bindings and #cc.bindings or 0
+    local upBtn = moveButton("up", CC_DEL_W + CC_GAP + CC_MOVE_W + 2)
+    local downBtn = moveButton("down", CC_DEL_W + CC_GAP)
+    upBtn:SetShown(i > 1)
+    downBtn:SetShown(i < total)
 
     local del = CreateFrame("Button", nil, row)
     del:SetSize(CC_DEL_W, 22)
@@ -3174,6 +3252,33 @@ local function BuildClickCasting(p)
     scope:AddRow(N.MakeCheckbox(scope, L["Always cast the highest known rank"],
         function() return cc.highestRank end, function(v) N:Set("clickCasting.highestRank", v) end))
     p:AddCard(scope)
+
+    local sr = N.MakeCard(p, L["Smart resurrection"])
+    local hasCombatRes = N.ClickCasting.HasCombatRes()
+    local srOpts = { { value = "off", text = L["SMARTRES_off"] } }
+    if hasCombatRes then
+        srOpts[#srOpts + 1] = { value = "normal", text = L["SMARTRES_normal"] }
+        srOpts[#srOpts + 1] = { value = "combat", text = L["SMARTRES_combat"] }
+    else
+        srOpts[#srOpts + 1] = { value = "normal", text = L["Enabled"] }
+    end
+    sr:AddRow(N.MakeDropdown(sr, L["Smart resurrection"], srOpts,
+        function()
+            local v = cc.smartRes or "off"
+            if v == "combat" and not hasCombatRes then v = "normal" end
+            return v
+        end,
+        function(v) N:Set("clickCasting.smartRes", v) end))
+    local srHint = N.FontString(sr, 11)
+    srHint:SetPoint("TOPLEFT", sr, "TOPLEFT", N.CARD_PAD, sr._y)
+    srHint:SetWidth(sr:GetWidth() - 2 * N.CARD_PAD)
+    srHint:SetJustifyH("LEFT")
+    srHint:SetTextColor(uc(M.color.textDim))
+    srHint:SetText(L["SMARTRES_HINT_CLASSIC"])
+    srHint:SetHeight(srHint:GetStringHeight() + 4)
+    sr:SetHeight(-sr._y + srHint:GetHeight() + N.CARD_PAD)
+    p:AddCard(sr)
+
     if not bindings then
         local note = N.MakeCard(p, L["Bindings"])
         local fs = N.FontString(note, 11)
@@ -3615,7 +3720,7 @@ local function SyncCustomSubs()
         local id = e.id
         live["custom:" .. id] = true
         subs[#subs + 1] = {
-            id = "custom:" .. id, label = e.name, custom = true, perMode = true, glyph = e.type,
+            id = "custom:" .. id, label = e.name, custom = true, perMode = true, glyph = e.type, customId = id,
             build = function(p, m) BuildCustom(p, m, id) end,
             enabledCheck = function()
                 local _, en = customEntryIndex(mode, id)
@@ -3643,8 +3748,7 @@ local function HasSub(tab, id)
     for _, s in ipairs(tab.subs) do if s.id == id and not s.action then return true end end
 end
 
--- Frames are never freed, so built pages are kept per profile (cacheStash) instead of being thrown away on
--- every profile switch; a set is reused only while its profile's settings tables are the same.
+-- Frames are never freed: built pages are kept per profile (cacheStash) and reused while its tables are the same.
 local cacheStash, cachedProfile, cachedGen = {}, nil, nil
 local function noteCacheOwner()
     if not cachedProfile then
@@ -3737,28 +3841,42 @@ local function SelectSub(tabId, subId)
     if scroll.SetOffset then scroll.SetOffset(0) end
 end
 
--- Small type glyphs: lists of {x, y, w, h, alpha} on a 16x16 grid (y from the top).
+-- Type glyphs of the custom indicators: lists of {x, y, w, h, alpha} in screen pixels on a 20x20 grid (y from the
+-- top), so every edge sits on a whole pixel.
 local GLYPHS = {
-    icon    = { {1,1,14,2}, {1,13,14,2}, {1,3,2,10}, {13,3,2,10}, {5,5,6,6} },
-    icons   = { {0,4,4,8}, {6,4,4,8}, {12,4,4,8} },
-    text    = { {2,2,12,3}, {6,5,4,9} },
-    rect    = { {2,2,12,12} },
-    color   = { {2,2,12,12, 0.35}, {2,2,6,12}, {2,2,3,12} },
-    bar     = { {1,5,14,1}, {1,10,14,1}, {1,5,1,6}, {14,5,1,6}, {3,7,7,2} },
-    border  = { {1,1,14,2}, {1,13,14,2}, {1,3,2,10}, {13,3,2,10} },
-    overlay = { {2,2,12,12, 0.35}, {2,9,12,5} },
-    glow    = { {5,5,6,6}, {7,0,2,3}, {7,13,2,3}, {0,7,3,2}, {13,7,3,2},
-                {2,2,2,2, 0.6}, {12,2,2,2, 0.6}, {2,12,2,2, 0.6}, {12,12,2,2, 0.6} },
+    icon    = { {2,2,16,2}, {2,16,16,2}, {2,4,2,12}, {16,4,2,12}, {7,7,6,6} },
+    icons   = { {0,7,6,6}, {7,7,6,6}, {14,7,6,6} },
+    text    = { {3,3,14,3}, {8,6,4,11} },
+    rect    = { {3,3,14,14} },
+    color   = { {3,3,14,14, 0.35}, {3,3,9,14, 0.6}, {3,3,4,14} },
+    bar     = { {1,5,18,2}, {1,13,18,2}, {1,7,2,6}, {17,7,2,6}, {4,8,9,4} },
+    border  = { {2,2,16,3}, {2,15,16,3}, {2,5,3,10}, {15,5,3,10} },
+    overlay = { {3,3,14,14, 0.35}, {3,10,14,7} },
+    glow    = { {7,7,6,6}, {9,1,2,4}, {9,15,2,4}, {1,9,4,2}, {15,9,4,2},
+                {3,3,2,2, 0.6}, {15,3,2,2, 0.6}, {3,15,2,2, 0.6}, {15,15,2,2, 0.6} },
 }
 
-local function SetNavGlyph(b, kind)
+-- One screen pixel in the units of this frame.
+local function pixelUnit(frame)
+    local PU = _G.PixelUtil
+    local scale = frame:GetEffectiveScale()
+    if PU and PU.GetPixelToUIUnitFactor and scale and scale > 0 then
+        return PU.GetPixelToUIUnitFactor() / scale
+    end
+    return 1
+end
+
+local function SetNavGlyph(b, kind, rowHeight)
     local shape = kind and GLYPHS[kind]
     local glyph = b.glyph
     if not shape then
         glyph:Hide()
-        b.label:SetPoint("RIGHT", -6, 0)
-        return
+        return false
     end
+    local px = pixelUnit(glyph)
+    glyph:SetSize(20 * px, 20 * px)
+    glyph:ClearAllPoints()
+    glyph:SetPoint("TOPRIGHT", b, "TOPRIGHT", -8, -math.floor(((rowHeight or 26) / px - 20) / 2) * px)
     for i, r in ipairs(shape) do
         local t = glyph.parts[i]
         if not t then
@@ -3767,19 +3885,20 @@ local function SetNavGlyph(b, kind)
             glyph.parts[i] = t
         end
         t:ClearAllPoints()
-        t:SetPoint("TOPLEFT", glyph, "TOPLEFT", r[1], -r[2])
-        t:SetSize(r[3], r[4])
+        t:SetPoint("TOPLEFT", glyph, "TOPLEFT", r[1] * px, -r[2] * px)
+        t:SetSize(r[3] * px, r[4] * px)
         t._alpha = r[5] or 1
         t:Show()
     end
     for i = #shape + 1, #glyph.parts do glyph.parts[i]:Hide() end
     glyph:Show()
-    b.label:SetPoint("RIGHT", glyph, "LEFT", -6, 0)
     b.Repaint()
+    return true
 end
 
 local function MakeNavItem(parent)
     local b = CreateFrame("Button", nil, parent)
+    b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 
     local function pill(color)
         local t = b:CreateTexture(nil, "BACKGROUND")
@@ -3797,7 +3916,7 @@ local function MakeNavItem(parent)
     b.accentBg = accentBg
 
     local glyph = CreateFrame("Frame", nil, b)
-    glyph:SetSize(16, 16)
+    glyph:SetSize(20, 20)
     glyph:SetPoint("RIGHT", b, "RIGHT", -8, 0)
     glyph.parts = {}
     glyph:Hide()
@@ -3809,6 +3928,12 @@ local function MakeNavItem(parent)
     b.label:SetJustifyH("LEFT")
     b.label:SetWordWrap(false)
     b.label:SetTextColor(uc(M.color.textDim))
+
+    b.typeText = N.FontString(b, 10)
+    b.typeText:SetJustifyH("LEFT")
+    b.typeText:SetWordWrap(false)
+    b.typeText:SetTextColor(uc(M.color.textDim))
+    b.typeText:Hide()
 
     b._active = false
     local function paint()
@@ -3841,36 +3966,67 @@ local function refreshNavDim(b)
     b:SetAlpha((not b.enabledCheck or b.enabledCheck()) and 1 or 0.45)
 end
 
+-- Custom indicators get two lines: the name and, below it, the kind of indicator.
+local ROW_H, CUSTOM_ROW_H = 26, 34
+
 local navBuiltFor
 local function BuildSubNav(tab)
     for _, b in ipairs(subNavPool) do b:Hide() end
     local y = -8
     local keep = (navBuiltFor == tab.id) and railScroll:GetVerticalScroll() or 0
     navBuiltFor = tab.id
-    railChild:SetHeight(#tab.subs * 26 + 16)
+    local total = 16
+    for _, sub in ipairs(tab.subs) do total = total + (sub.custom and CUSTOM_ROW_H or ROW_H) end
+    railChild:SetHeight(total)
     railScroll.SetOffset(keep)
     for i, sub in ipairs(tab.subs) do
         local b = subNavPool[i]
         if not b then
             b = MakeNavItem(railChild)
-            b:SetHeight(26)
             subNavPool[i] = b
         end
+        local h = sub.custom and CUSTOM_ROW_H or ROW_H
+        b:SetHeight(h)
         b:ClearAllPoints()
         b:SetPoint("TOPLEFT", 6, y)
         b:SetPoint("TOPRIGHT", -6, y)
         b.subId = sub.id
         b.label:SetText(sub.label)
         b.isAction = sub.action and true or false
-        SetNavGlyph(b, sub.glyph)
+        local hasGlyph = SetNavGlyph(b, sub.glyph, h)
+        local right = hasGlyph and -34 or -6
+        b.label:ClearAllPoints()
+        b.typeText:ClearAllPoints()
+        if sub.custom then
+            b.label:SetPoint("TOPLEFT", b, "TOPLEFT", 12, -5)
+            b.label:SetPoint("TOPRIGHT", b, "TOPRIGHT", right, -5)
+            b.typeText:SetPoint("TOPLEFT", b, "TOPLEFT", 12, -19)
+            b.typeText:SetPoint("TOPRIGHT", b, "TOPRIGHT", right, -19)
+            b.typeText:SetText(L["CI_TYPE_" .. tostring(sub.glyph)] or "")
+            b.typeText:Show()
+        else
+            b.label:SetPoint("LEFT", b, "LEFT", 12, 0)
+            b.label:SetPoint("RIGHT", b, "RIGHT", right, 0)
+            b.typeText:Hide()
+        end
         b.Repaint()
         b.enabledCheck = sub.enabledCheck
-        b:SetScript("OnClick", function()
-            if sub.action then sub.onClick() else SelectSub(tab.id, sub.id) end
+        b:SetScript("OnClick", function(_, button)
+            if button == "RightButton" then
+                if sub.custom then
+                    N.Dialog.Confirm(L["CI_DELETE_CONFIRM"]:format(sub.label), function()
+                        N.DeleteCustomIndicator(N:Mode(), sub.customId)
+                    end)
+                end
+            elseif sub.action then
+                sub.onClick()
+            else
+                SelectSub(tab.id, sub.id)
+            end
         end)
         b:Show()
         refreshNavDim(b)
-        y = y - 26
+        y = y - h
     end
 end
 
@@ -3977,8 +4133,7 @@ function N.OptionsDropPanels(prefix)
     indexedMode = nil
 end
 
--- The pages hold the settings tables they were built from: another profile gets its own set, and a set whose
--- tables were replaced (generation changed) is dropped and rebuilt on demand.
+-- Pages keep the tables they were built from; replaced tables (new generation) drop the set.
 N:On("NUCLEUS_PROFILE_CHANGED", function()
     local P = N.Profiles
     local cur = P.Current()

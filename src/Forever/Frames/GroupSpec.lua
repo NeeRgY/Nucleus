@@ -2,8 +2,7 @@ local _, ns = ...
 local N = ns.N
 local IsSecret = N.IsSecret
 
--- Group members' specializations for the Class / Spec icon: your own from the talent API, others via the
--- inspect call one at a time, out of combat and only while needed; cached by GUID.
+-- Specs: own via the talent API, others via inspect one at a time (out of combat), cached by GUID.
 
 local GS = {}
 N.GroupSpec = GS

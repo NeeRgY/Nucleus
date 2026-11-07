@@ -1,14 +1,12 @@
 local _, ns = ...
 local N = ns.N
 
--- Secure group headers: Blizzard's template owns child creation, visibility and unit assignment; we feed it
--- attributes out of combat and skin each child once.
+-- Blizzard's template owns children, visibility and units; we feed it attributes out of combat.
 
 local HG = {}
 N.HeaderGroup = HG
 
--- The position of a group header lives on a plain frame the header is anchored to. Moving the
--- header itself is forbidden in combat (it is protected); moving this frame is not.
+-- The header's position lives on a plain frame (the header is protected in combat, the frame is not).
 local posFrames = {}
 function N.HeaderPosFrame(key) return posFrames[key] end
 
@@ -19,7 +17,7 @@ local HOST_SIDES = {
     TOP = { "BOTTOMLEFT", "TOPLEFT" }, BOTTOM = { "TOPLEFT", "BOTTOMLEFT" },
 }
 
--- enabled, side, gap, shift of the set that applies now: raid frames in a raid, otherwise the group frames.
+-- enabled, side, gap, shift of the set in use: raid frames in a raid, else group frames.
 local function hostSettings(cfg)
     if IsInRaid() then return cfg.raidHostEnabled, cfg.raidHostSide, cfg.raidHostGap, cfg.raidHostShift end
     return cfg.hostEnabled, cfg.hostSide, cfg.hostGap, cfg.hostShift
@@ -119,8 +117,7 @@ HG.StyleChildren = styleChildren
 
 local CLASS_ORDER = table.concat(N.Classic.CLASSES, ",")
 
--- Translates the orientation / reverse settings into the header's anchor attributes (vertical: groups form
--- columns to the right; horizontal: groups stack downward).
+-- Orientation / reverse -> header anchors (vertical: groups form columns; horizontal: rows).
 local function applyFlow(header, cfg)
     if cfg.orientation == "horizontal" then
         header:SetAttribute("point", cfg.reverse and "RIGHT" or "LEFT")
@@ -225,8 +222,7 @@ local function placeInContainer(container, buttons, cfg, count)
     else container:SetSize(w, n * h + (n - 1) * sp) end
 end
 
--- Custom order: the header can't put chosen people first, so the roster is ordered here and handed over as a
--- name list (out of combat).
+-- The header can't put chosen people first: order the roster here and pass a name list.
 
 -- Role ranks (1 = first) and pinned names; nil when the custom order is off.
 local function sortConfig(key)
@@ -248,12 +244,10 @@ local function raidGroupAllowed(group)
 end
 N.RaidGroupAllowed = raidGroupAllowed
 
--- Raid groups on a grid ("Groups per row"): one header per group on fixed slots of one block, so nothing moves
--- while the roster changes.
+-- Raid grid: one header per group on fixed slots, so nothing moves when the roster changes.
 local RG = {}
 N.RaidGrid = RG
 
--- { primary x, primary y, secondary x, secondary y }: where the next group goes in a row, then the next row.
 local FLOWS = {
     RIGHT_DOWN = { 1, 0, 0, -1 }, LEFT_DOWN = { -1, 0, 0, -1 },
     RIGHT_UP = { 1, 0, 0, 1 }, LEFT_UP = { -1, 0, 0, 1 },
@@ -271,8 +265,7 @@ function RG.Active()
     return not (rank and #pins > 0)
 end
 
--- { list = allowed groups, index = group -> slot, slots[k] = { x, y } (top left, downwards is negative), w, h of
--- the block, gw / gh of one group }.
+-- { list = allowed groups, index = group -> slot, slots[k] = {x, y} (down is negative), w, h, gw, gh }.
 function RG.Layout()
     local cfg = N.db.raid
     local w, h, sp = cfg.width, cfg.height, cfg.spacing
@@ -321,8 +314,7 @@ function RG.Size()
     return l.w, l.h
 end
 
--- The header corner that sits on the slot corner, and its offset from the block's anchor point. The corner
--- follows the way the units grow inside the group, so a group that is not full keeps its place.
+-- Header corner on the slot corner; it follows the unit growth, so a part-full group keeps its place.
 function RG.Anchor(group)
     local cfg = N.db.raid
     local l = RG.Layout()
@@ -341,7 +333,7 @@ function RG.Anchor(group)
     return corner, cx - fx * l.w, cy + fy * l.h
 end
 
--- Role order without pins needs no name list: the header sorts by assigned role. Returns the grouping order or nil.
+-- Role order without pins needs no name list: the header sorts by assigned role.
 local function nativeRoleOrder(key)
     local rank, pins = sortConfig(key)
     if not rank or #pins > 0 then return nil end
@@ -372,8 +364,7 @@ local function customNameList(key)
         local group = inRaid and select(3, GetRaidRosterInfo(i)) or nil
         if UnitExists(u) and not (npcOut and isNpcUnit(u)) and (not group or raidGroupAllowed(group)) then
             local full = GetUnitName(u, true)
-            -- A name the client doesn't know yet would order wrongly: keep the native order until
-            -- UNIT_NAME_UPDATE.
+            -- A name the client doesn't know yet would sort wrong: keep native order until UNIT_NAME_UPDATE.
             if full == _G.UNKNOWNOBJECT or full == _G.UNKNOWN then return nil end
             if full and full ~= "" then
                 local role = UnitGroupRolesAssigned(u)
@@ -587,8 +578,7 @@ local function configurePetContainer(container)
     styleChildren(container)
 end
 
--- The headers of raid groups 2-8 (group 1 is the raid header itself), made once out of combat when "Groups per
--- row" is first used; each one only shows its own group.
+-- Headers of raid groups 2-8 (1 is the raid header), made once out of combat.
 local builtGroup = setmetatable({}, { __mode = "k" })
 local function createGroupHeaders()
     local main = N.headers.raid
@@ -608,9 +598,8 @@ local function createGroupHeaders()
 end
 local syncGroupHeaders
 
--- Pushes the full attribute set from SavedVariables onto the header. Must run out of combat;
--- SecureGroupHeader_Update relays it to the children.
-local function configure(header)
+-- Pushes all attributes onto the header, out of combat.
+local function configureInner(header)
     local key = N.HeaderKey(header)
     local cfg = N.db[key]
     local group = headerInfo[header] and headerInfo[header].group
@@ -666,8 +655,7 @@ local function configure(header)
         header:SetAttribute("maxColumns", cfg.maxColumns)
         header:SetAttribute("sortMethod", cfg.sortMethod)
 
-        -- groupingOrder goes in before groupBy: setting groupBy alone already triggers a header
-        -- update, which errors without it. A stale nameList is dropped first for the same reason.
+        -- groupingOrder before groupBy (groupBy alone triggers an update that errors); drop a stale nameList first.
         header:SetAttribute("nameList", nil)
         if cfg.groupBy == "GROUP" then
             header:SetAttribute("groupingOrder", "1,2,3,4,5,6,7,8")
@@ -745,12 +733,27 @@ local function configure(header)
     end
 
     applyChildSize(header)
-    -- A changed attribute makes the header run its own update; calling the update from here would run it as our code.
-    header:SetAttribute("nucRefresh", (header:GetAttribute("nucRefresh") or 0) + 1)
     styleChildren(header)
     C_Timer.After(0, function() styleChildren(header) end)
     if key == "groupPets" then applyGroupPetsMode() end
     if key == "raid" and not group then syncGroupHeaders() end
+end
+
+-- _ignore holds the per-attribute updates; one nucRefresh bump runs the game's update (calling it ourselves taints).
+local function configure(header)
+    local info = headerInfo[header]
+    if info then header:SetAttribute("_ignore", "attributeChanges") end
+    local ok, err = pcall(configureInner, header)
+    if info then
+        -- The header never clears old anchors: after a direction change a child sits diagonal. The update below re-sets them.
+        if ok and not InCombatLockdown() then
+            forChildren(header, function(child) child:ClearAllPoints() end)
+        end
+        header:SetAttribute("_ignore", nil)
+        header:SetAttribute("nucRefresh", (header:GetAttribute("nucRefresh") or 0) + 1)
+        if ok and not InCombatLockdown() then applyChildSize(header) end
+    end
+    if not ok then geterrorhandler()(err) end
 end
 
 syncGroupHeaders = function()
@@ -824,8 +827,7 @@ local function createHeader(key)
         return c
     end
     local template = (key == "groupPets") and "SecureGroupPetHeaderTemplate" or "SecureGroupHeaderTemplate"
-    -- Party/raid headers sit in a plain holder: the visibility driver goes on the holder, never on the header (a
-    -- driver on the header tainted the game's header update in combat).
+    -- The visibility driver goes on the holder, never the header (it tainted the update in combat).
     local holder
     if key == "party" or key == "raid" then
         holder = CreateFrame("Frame", name .. "Holder", UIParent, "SecureFrameTemplate")
@@ -839,8 +841,7 @@ local function createHeader(key)
     N.headers[key] = header
     configure(header)
 
-    -- Create every child the header could need now, out of combat: a child born in its update in combat runs our
-    -- styling mid-update and the game blocks it.
+    -- Create all children now, out of combat: one born in combat would run our styling mid-update.
     local perColumn = tonumber(header:GetAttribute("unitsPerColumn")) or 5
     local columns = tonumber(header:GetAttribute("maxColumns")) or 1
     header:SetAttribute("startingIndex", -(perColumn * columns))
@@ -905,8 +906,7 @@ function HG.Init()
     local lastFilter
     local rosterDirtyInCombat = false
     rosterFrame:SetScript("OnEvent", function(_, event)
-        -- Restyling touches the secure children: not while the game may be rearranging them in
-        -- combat. After combat it only runs again if the roster changed meanwhile.
+        -- Restyling touches secure children: not in combat, afterwards only if the roster changed.
         if InCombatLockdown() then
             if event == "GROUP_ROSTER_UPDATE" then rosterDirtyInCombat = true end
         elseif event ~= "PLAYER_REGEN_ENABLED" or rosterDirtyInCombat then
@@ -1012,6 +1012,29 @@ N:On("NUCLEUS_SETTING_CHANGED", function(_, section, path)
     N.RunWhenSafe(N.RefreshAllButtons, "refresh-buttons")
 end)
 
+-- /nucsize: configured vs real size of the first frame.
+local function sizeText(v)
+    local ok, r = pcall(tostring, v)
+    return ok and r or "?"
+end
+SLASH_NUCLEUSSIZE1 = "/nucsize"
+SlashCmdList.NUCLEUSSIZE = function()
+    for _, key in ipairs({ "party", "raid" }) do
+        local h, cfg = N.headers[key], N.db[key]
+        local child = h and _G[h:GetName() .. "UnitButton1"]
+        if child then
+            N:Print(key, "| set:", sizeText(cfg.width), "x", sizeText(cfg.height), "| frame:",
+                sizeText(child:GetWidth()), "x", sizeText(child:GetHeight()), "| header:",
+                sizeText(h:GetWidth()), "x", sizeText(h:GetHeight()))
+            for i = 1, child:GetNumPoints() do
+                local p, rel, rp, x, y = child:GetPoint(i)
+                N:Print("  anchor", i, sizeText(p), "->", sizeText(rel and rel.GetName and rel:GetName() or rel),
+                    sizeText(rp), sizeText(x), sizeText(y))
+            end
+        end
+    end
+end
+
 -- /nucorder: what the custom order produced for the raid and why (for bug reports).
 SLASH_NUCLEUSORDER1 = "/nucorder"
 SlashCmdList.NUCLEUSORDER = function()
@@ -1043,8 +1066,7 @@ SlashCmdList.NUCLEUSORDER = function()
     end
 end
 
--- /nuctaint: scans the header frames for fields written insecurely and reports the last blocked
--- action together with the combat state at that moment (for taint bug reports).
+-- /nuctaint: last blocked action plus insecure header fields.
 do
     local events, blocked = {}, {}
     local function note(text)
@@ -1096,8 +1118,7 @@ do
     end
 end
 
--- /nuctaintlog [on|off] [level]: switches the game's taint log (Logs/taint.log), for taint bug reports. Level 2 (the
--- default) logs the most but makes the game raise errors of its own; level 1 is quieter.
+-- /nuctaintlog [on|off] [level]: taint log; level 2 logs most but raises extra errors.
 SLASH_NUCLEUSTAINTLOG1 = "/nuctaintlog"
 SlashCmdList.NUCLEUSTAINTLOG = function(msg)
     local word, level = strsplit(" ", strlower(strtrim(msg or "")))

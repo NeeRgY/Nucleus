@@ -4,8 +4,7 @@ local M = N.Media
 local Indicators = N.Indicators
 local IsSecret = N.IsSecret
 
--- Missing Buffs: an icon per raid buff a unit lacks while someone in the group can provide it. A hidden aura ID
--- means unknown, so nothing is shown; the scan runs in a timer and is cached on the button.
+-- A hidden aura ID counts as unknown (nothing shown); the scan runs in a timer and is cached.
 
 local BUFFS = N.Classic.BUFFS
 Indicators.missingBuffs = BUFFS
@@ -23,8 +22,7 @@ end
 
 local MAX_ICONS = #BUFFS
 
--- Only the buffs the player can cast are checked: the buff's class is the player's own
--- and the spellbook holds a rank of it (or the group version). Cached for a few seconds.
+-- Only buffs the player can cast (class matches, spellbook has a rank); cached a few seconds.
 local _, playerClass = UnitClass("player")
 local castCache, castStamp = {}, 0
 local function isKnown(id)
@@ -48,8 +46,7 @@ local function canCast(buff)
     return v
 end
 
--- The names of every rank (from the spell IDs), so a rank missing from the ID list still
--- counts: built the first time it is needed.
+-- Names of every rank, so a rank missing from the ID list still counts; built on first use.
 local nameToKey
 local function names()
     if nameToKey then return nameToKey end

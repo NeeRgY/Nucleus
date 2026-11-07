@@ -1,8 +1,7 @@
 local _, ns = ...
 local N = ns.N
 
--- Secret values (Midnight): combat-sensitive unit info is secret when the caller is tainted. Secrets only go to
--- a few APIs (SetValue, SetMinMaxValues, ...); arithmetic, comparison or string.format on one errors.
+-- Secret values: arithmetic, comparison or string.format on one errors; only a few APIs take them.
 
 local issecret  = _G.issecretvalue
 local anysecret = _G.hasanysecretvalues
@@ -23,8 +22,7 @@ function N.AnySecret(...)
     return false
 end
 
--- Health as a 0..1 fraction. Uses UnitHealthPercent when available, otherwise divides the raw
--- values if they are not secret. nil if neither works.
+-- Health as 0..1: UnitHealthPercent if available, else the raw values when not secret, else nil.
 local UnitHealthPercent = _G.UnitHealthPercent
 local ScaleTo100 = _G.CurveConstants and _G.CurveConstants.ScaleTo100
 

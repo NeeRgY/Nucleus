@@ -15,14 +15,12 @@ local Abbrev = N.Abbreviate or _G.AbbreviateNumbers or function(v)
     return tostring(v)
 end
 
--- Custom Health / Power text templates: {p}=percent, {v}=value, {m}=max, {d}=deficit. Built in one gsub pass so
--- the Nth argument matches the Nth %d; only the final SetFormattedText touches secret values.
+-- Text templates: {p} percent, {v} value, {m} max, {d} deficit; one gsub pass keeps arguments in order.
 local function applyCustomFormat(fs, tmpl, val, valMax, pct)
     local args = {}
     local spec = (tmpl or ""):gsub("%%", "%%%%")
     spec = spec:gsub("{(%a)}", function(tok)
-        -- A token with an unknown (nil) value is dropped: a "%d" without a matching argument would
-        -- make SetFormattedText throw.
+        -- A token with a nil value is dropped: a "%d" without an argument would make SetFormattedText throw.
         if tok == "p" then
             if pct == nil then return "" end
             args[#args + 1] = pct
@@ -64,7 +62,7 @@ local UNIT_EVENTS = {
     "UNIT_HEAL_PREDICTION", "UNIT_ABSORB_AMOUNT_CHANGED",
     "UNIT_HEAL_ABSORB_AMOUNT_CHANGED",
 }
--- Power events fire for every regenerating unit: they are only registered while the power bar or its text is shown.
+-- Power events are registered only while the power bar or its text is shown.
 local POWER_EVENTS = { "UNIT_POWER_UPDATE", "UNIT_MAXPOWER", "UNIT_DISPLAYPOWER" }
 
 
@@ -92,8 +90,7 @@ function UF.CreateVisual(b, key)
     N.SkinBar(health)
     b.health = health
 
-    -- Incoming heal / absorb bars are StatusBars on health's scale, anchored to its fill texture: SetValue
-    -- gives the fraction without arithmetic on secrets (Core/Secret.lua).
+    -- Heal / absorb bars: StatusBars on health's scale, so SetValue needs no arithmetic on secrets.
     local overlayClip = CreateFrame("Frame", nil, b)
     overlayClip:SetAllPoints(health)
     overlayClip:SetClipsChildren(true)
@@ -115,8 +112,7 @@ function UF.CreateVisual(b, key)
     -- Shield: the raw absorb amount is fine, overlayClip cuts off whatever passes the bar's right edge.
     b.absorb = overlayBar()
 
-    -- Second bar for the part of the shield that doesn't fit into the missing health, growing from the right
-    -- edge.
+    -- Second bar for the shield part beyond the missing health, from the right edge.
     local fillClip = CreateFrame("Frame", nil, b)
     fillClip:SetPoint("TOPLEFT", health, "TOPLEFT")
     fillClip:SetPoint("BOTTOMRIGHT", fillTex, "BOTTOMRIGHT")
@@ -214,8 +210,7 @@ function UF.CreateVisual(b, key)
     UF.LayoutBars(b)
 end
 
--- Preview mask: a preview button carries button._previewOnly = <element name>;
--- everything whose name doesn't match is hidden so only that indicator shows.
+-- Preview mask: button._previewOnly = <element name> hides everything else.
 local function pShow(b, name)
     return (not b._previewOnly) or b._previewOnly == name
         or (b._previewOnly == "actions" and name == "name")
@@ -236,7 +231,7 @@ local function styleText(fs, o, dim)
     fs:SetTextColor(c[1], c[2], c[3])
 end
 
--- The bundled font has no Chinese, Japanese or Korean glyphs: such a name gets a Blizzard font that has them.
+-- The bundled font lacks CJK glyphs: such names use a Blizzard font.
 local function glyphFont(text)
     if type(text) ~= "string" or N.IsSecret(text) then return false end
     if text:find("[\234-\237]") then return "Fonts/2002.TTF" end
@@ -255,8 +250,7 @@ local function setNameFont(b, o, text)
     end
 end
 
--- 9-point text placement inside the health bar: { point, justifyH, justifyV,
--- inset x, inset y }. "center" has no inset; the edge spots keep 2px off the border.
+-- 9-point text placement: { point, justifyH, justifyV, inset x, inset y }.
 local ANCHORS = {
     topleft     = { "TOPLEFT",     "LEFT",   "TOP",     2, -2 },
     top         = { "TOP",         "CENTER", "TOP",     0, -2 },
@@ -271,8 +265,7 @@ local ANCHORS = {
 UF.TEXT_POSITIONS = { "topleft", "top", "topright", "left", "center", "right",
                       "bottomleft", "bottom", "bottomright" }
 
--- o = the indicator's settings (position, x, y); dy = extra vertical shift
--- used when name and health text share the middle.
+-- o = the indicator's settings; dy = shift when name and health text share the middle.
 local function placeText(fs, host, o, dy)
     local a = ANCHORS[o.position or "center"] or ANCHORS.center
     fs:ClearAllPoints()
@@ -295,8 +288,7 @@ local function applyShieldStyle(bar, cfg)
     bar:SetStatusBarColor(c[1], c[2], c[3], cfg.opacity or 1)
 end
 
--- Target / mouseover outline edges in TOP / BOTTOM / LEFT / RIGHT order; it grows outward, TOP / BOTTOM take
--- the corners.
+-- Outline edges in TOP / BOTTOM / LEFT / RIGHT order, growing outward; TOP / BOTTOM take the corners.
 local MARGIN = 0
 local function applyOutlineStyle(edges, cfg)
     local c = cfg.color or { 1, 1, 1 }
@@ -366,12 +358,12 @@ function UF.PowerAllowed(b)
     return not (byClass and byClass.ALL == false)
 end
 
--- Height the shown power bar takes at the bottom of the frame: icons anchored to a
--- bottom point sit above it instead of on it.
+-- Height the shown power bar takes at the bottom: icons on a bottom point sit above it.
 function N.PowerInset(b)
     local pb = b.power
     if not (pb and pb:IsShown()) then return 0 end
     local o = N.db[b.groupKey].indicators.powerBar
+    if o.position == "top" or o.position == "left" or o.position == "right" then return 0 end
     return (o.height or 4) + (o.y or 0)
 end
 
@@ -411,12 +403,33 @@ function UF.LayoutBars(b)
         opacity = appearance.healPredict.opacity })
 
     b.power:SetShown(pOn(b, "powerBar", pb.enabled) and b._powerShown and pShow(b, "powerBar"))
-    b.power:SetHeight(pb.height or 4)
+    -- The bar sits along one edge; left and right make it vertical. Health gives up the strip it takes.
+    local pos = pb.position
+    if pos ~= "top" and pos ~= "left" and pos ~= "right" then pos = "bottom" end
+    local thick, ox, oy = pb.height or 4, pb.x or 0, pb.y or 0
     b.power:ClearAllPoints()
-    b.power:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", snap(b, 1) + (pb.x or 0), snap(b, 1) + (pb.y or 0))
-    b.power:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", snap(b, -1) + (pb.x or 0), snap(b, 1) + (pb.y or 0))
-    b.health:SetPoint("TOPLEFT", b, "TOPLEFT", snap(b, 1), snap(b, -1))
-    b.health:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", snap(b, -1), snap(b, 1 + (ph > 0 and ph + 1 or 0)))
+    if pos == "left" or pos == "right" then
+        local side = (pos == "left") and "LEFT" or "RIGHT"
+        local sx = (pos == "left") and snap(b, 1) or snap(b, -1)
+        b.power:SetOrientation("VERTICAL")
+        b.power:SetHeight(0)
+        b.power:SetWidth(thick)
+        b.power:SetPoint("TOP" .. side, b, "TOP" .. side, sx + ox, snap(b, -1) + oy)
+        b.power:SetPoint("BOTTOM" .. side, b, "BOTTOM" .. side, sx + ox, snap(b, 1) + oy)
+    else
+        local edge = (pos == "top") and "TOP" or "BOTTOM"
+        local sy = (pos == "top") and snap(b, -1) or snap(b, 1)
+        b.power:SetOrientation("HORIZONTAL")
+        b.power:SetWidth(0)
+        b.power:SetHeight(thick)
+        b.power:SetPoint(edge .. "LEFT", b, edge .. "LEFT", snap(b, 1) + ox, sy + oy)
+        b.power:SetPoint(edge .. "RIGHT", b, edge .. "RIGHT", snap(b, -1) + ox, sy + oy)
+    end
+    local gap = (ph > 0) and (ph + 1) or 0
+    b.health:SetPoint("TOPLEFT", b, "TOPLEFT",
+        snap(b, pos == "left" and 1 + gap or 1), snap(b, pos == "top" and -(1 + gap) or -1))
+    b.health:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT",
+        snap(b, pos == "right" and -(1 + gap) or -1), snap(b, pos == "bottom" and 1 + gap or 1))
 
     -- Explicit width from the frame width so long names truncate; one anchor lets X / Y move the text.
     local textW = N.db[b.groupKey].width - 6
@@ -494,8 +507,7 @@ local function mapUnit(b, old, new)
     end
 end
 
--- onNew(unit) runs when a unit gets its first frame (also for the units that have one already), onGone(unit)
--- when it loses the last one. Unit events are only registered for these units.
+-- onNew(unit) on a unit's first frame (also existing ones), onGone(unit) on its last; events only for these.
 function UF.WatchUnits(onNew, onGone)
     unitWatchers[#unitWatchers + 1] = { onNew, onGone }
     for unit in pairs(byUnit) do onNew(unit) end
@@ -522,8 +534,7 @@ local function readUnit(b)
 end
 
 
--- Class color, fixed color or red-yellow-green gradient; the gradient only does arithmetic on N.HealthFraction
--- (nil when unknown).
+-- The gradient does arithmetic only on N.HealthFraction (nil when unknown).
 local gradientCurve
 local function healthGradientCurve()
     if gradientCurve ~= nil then return gradientCurve or nil end
@@ -579,7 +590,7 @@ local function textRGB(b, o, fallback)
     return c[1], c[2], c[3]
 end
 
--- AbbreviateNumbers accepts secret numbers; the result may be secret, so it only goes into a FontString.
+-- AbbreviateNumbers takes secrets; the result only goes into a FontString.
 local function shortNum(v)
     if v == nil then return nil end
     local ok, s = pcall(Abbrev, v)
@@ -596,7 +607,7 @@ local function hpPercent(b)
     return pct
 end
 
--- Missing health as "-12.3K", blank when nothing is missing; TruncateWhenZero blanks the zero case of a secret.
+-- Missing health as "-12.3K"; TruncateWhenZero blanks zero even when secret.
 local function setDeficitText(b, fs)
     local missing
     if _G.UnitHealthMissing and b.unit then missing = UnitHealthMissing(b.unit, true) end
@@ -766,12 +777,22 @@ local function setPowerText(b, fs, o)
     fs:SetTextColor(powerTextRGB(b, o))
 end
 
+local function powerBarRGB(b, o)
+    local mode = o and o.barColorMode or "power"
+    if mode == "class" then return N.ClassRGB(b.class) end
+    if mode == "custom" then
+        local c = o.barColor or { 0.2, 0.4, 1 }
+        return c[1], c[2], c[3]
+    end
+    return powerRGB(b)
+end
+
 local function renderPower(b, ind)
     if b.power:IsShown() then
         -- A unit that does not exist (Spotlight target without a target) reports no power at all.
         b.power:SetMinMaxValues(0, type(b.ppMax) == "number" and b.ppMax or 1)
         if b.connected and type(b.pp) == "number" then b.power:SetValue(b.pp) else b.power:SetValue(0) end
-        b.power:SetStatusBarColor(powerRGB(b))
+        b.power:SetStatusBarColor(powerBarRGB(b, ind.powerBar))
     end
 
     if b.powerText:IsShown() then
@@ -878,8 +899,7 @@ UF.Render = render
 local function fullUpdate(b)
     if not b.unit or not UnitExists(b.unit) then return end
     readUnit(b)
-    -- The power bar can be limited to certain roles, and a unit's role can
-    -- change (or only become known) after the frame was laid out.
+    -- The power bar can be limited to roles, and a role can change or become known after layout.
     if b._powerShown ~= UF.PowerAllowed(b) then UF.LayoutBars(b) end
     render(b)
 end
@@ -921,8 +941,7 @@ local function bindUnit(b)
         end
         fullUpdate(b)
         syncPowerEvents(b)
-        -- Bar widths resolve a frame after anchoring: run LayoutBars again once they have, or
-        -- absorb/heal-predict stay at zero width.
+        -- Bar widths resolve a frame after anchoring: lay out again or absorb / heal-predict stay at 0.
         C_Timer.After(0, function()
             if b.unit == unit then
                 UF.LayoutBars(b)
@@ -933,8 +952,7 @@ local function bindUnit(b)
     if N.Auras and N.Auras.BindPrivate then N.Auras.BindPrivate(b) end
 end
 
--- Unit events are collected per button and handled once on the next frame; power, prediction and absorb events
--- only repaint their own part.
+-- Unit events are collected per button and handled once next frame.
 local function refreshPower(b)
     local u = b.unit
     b.pp, b.ppMax = UnitPower(u), UnitPowerMax(u)
@@ -991,8 +1009,7 @@ local function onEvent(b, event)
     end
 end
 
--- Alpha as a function of health: full below the threshold, the out-of-range alpha above it. The
--- game evaluates the curve, so it works while health is hidden (the result goes to SetAlpha).
+-- Alpha by health: a curve the game evaluates, so it works with hidden health.
 local fadeCurve, fadeKey
 local function healthFadeCurve(threshold, dim)
     local key = threshold .. "|" .. dim
@@ -1023,9 +1040,11 @@ local function updateRange(b)
     if me == nil or N.IsSecret(me) or not me then
         local checked
         inRange, checked = UnitInRange(b.unit)
-        -- Pets: UnitInRange often says false for an unchecked range, so a pet only fades when the range was
-        -- really checked.
-        if b.unit:find("pet") and not (checked ~= nil and not N.IsSecret(checked) and checked) then
+        -- Pets and units outside the group (target, focus): UnitInRange says false for an unchecked range, so
+        -- fade only after a real check.
+        local u = b.unit
+        local outside = u:find("pet") or not (u:find("^party%d") or u:find("^raid%d"))
+        if outside and not (checked ~= nil and not N.IsSecret(checked) and checked) then
             inRange = nil
         end
     end
@@ -1063,8 +1082,7 @@ local function updateRange(b)
     b:SetAlpha(alpha)
 end
 
--- Range: UNIT_IN_RANGE_UPDATE names the unit that changed; one slow shared timer covers what the event does not
--- (health fade, dead units, pets, frames that just appeared).
+-- UNIT_IN_RANGE_UPDATE names the unit; one slow timer covers the rest (fade, dead units, pets, new frames).
 local rangeFrame = CreateFrame("Frame")
 rangeFrame:RegisterEvent("UNIT_IN_RANGE_UPDATE")
 rangeFrame:SetScript("OnEvent", function(_, _, unit)
@@ -1086,8 +1104,7 @@ rangeFrame:SetScript("OnUpdate", function(_, dt)
     end
 end)
 
--- The header runs these two handlers inside its own (secure) update. Our reaction is queued and
--- done a moment later, so none of our code runs inside that update.
+-- Run inside the header's secure update: our reaction is queued, so none of our code runs there.
 local pendingBind, bindScheduled = {}, false
 local function flushBinds()
     bindScheduled = false
@@ -1107,8 +1124,7 @@ local function queueBind(b, what)
     end
 end
 
--- Header children are Blizzard's frames: nothing of ours is written into their tables; drawing lives on a plain
--- "visual" frame inside the secure button.
+-- Header children are Blizzard's: nothing of ours goes into their tables; we draw on a "visual" frame inside.
 local visualOf = setmetatable({}, { __mode = "k" })
 local plainStyled = setmetatable({}, { __mode = "k" })
 
@@ -1146,12 +1162,10 @@ function N.StyleUnitButton(name)
     UF.CreateVisual(b, key)
     allButtons[#allButtons + 1] = b
 
-    -- A plain Button knows only the left mouse button; without this, right / middle / extra-button click-casting and
-    -- the menu never fire.
+    -- A plain Button only knows the left button; without this right / middle clicks never fire.
     child:RegisterForClicks("AnyUp")
 
-    -- Ping system: with this, the ping key pings the unit this frame shows instead of the ground behind it. The
-    -- mixin finds the unit in the "unit" attribute; its methods stay Blizzard's own.
+    -- With the mixin the ping key pings this frame's unit; it reads the "unit" attribute.
     if _G.PingableType_UnitFrameMixin then
         Mixin(child, _G.PingableType_UnitFrameMixin)
         N.RunWhenSafe(function() child:SetAttribute("ping-receiver", true) end)
@@ -1191,8 +1205,7 @@ local function forEachButton(fn)
 end
 UF.ForEachButton = forEachButton
 
--- A button keeps its unit token while the person behind it changes; each button is checked against the GUID it
--- last drew, deferred out of the header update.
+-- A button keeps its token when the person behind it changes: compare the GUID, outside the header update.
 local rosterWatch = CreateFrame("Frame")
 rosterWatch:RegisterEvent("GROUP_ROSTER_UPDATE")
 local function checkGuids()

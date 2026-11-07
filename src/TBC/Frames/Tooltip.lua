@@ -1,8 +1,6 @@
 local _, ns = ...
 local N = ns.N
 
--- GameTooltip on mouseover for unit frames. UnitFrame calls Tooltip.Attach per button, this module
--- decides when to show or hide.
 
 local TT = {}
 N.Tooltip = TT

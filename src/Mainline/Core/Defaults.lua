@@ -101,7 +101,9 @@ local function groupDefaults(overrides)
                            filter = powerFilterDefaults(), -- [class][role] = show the bar
                            text = false, textFormat = "percent", customFormat = "{p}%",
                            textSize = 9, textPosition = "bottom", textX = 0, textY = 0,
-                           textColorMode = "power", textColor = { 1, 1, 1 } },
+                           textColorMode = "power", textColor = { 1, 1, 1 },
+                           barColorMode = "power", barColor = { 0.2, 0.4, 1 },
+                           position = "bottom" },
             -- Status: a pill naming the unit's state; anchor / align place it, `show` switches single states.
             status     = { enabled = true, size = 11, outline = "thin", anchor = "bottom", align = "center", y = 2,
                            showTimer = true, showBackground = true,
@@ -155,6 +157,9 @@ local function groupDefaults(overrides)
             -- Aggro Border: warnColor = almost aggro, tankColor = aggro; gradient fades inward.
             aggroBorder   = { enabled = true, thickness = 2, gradient = true,
                               warnColor = { 1.00, 0.60, 0.00 }, tankColor = { 1.00, 0.00, 0.00 } },
+            threatIcon    = { enabled = false, position = "bottomleft", size = 10, x = 0, y = 0, showLow = false, blink = false,
+                              lowColor = { 1.00, 0.90, 0.10 }, warnColor = { 1.00, 0.60, 0.00 },
+                              tankColor = { 1.00, 0.00, 0.00 } },
             -- Level Text: format = "full" (Level 80) | "short" (Lvl 80) | "number" (80)
             levelText     = { enabled = false, size = 10, x = 0, y = -16, color = { 0.85, 0.85, 0.87 }, format = "full" },
             -- Missing Buffs: an icon per missing raid buff; `buffs` switches each one.
@@ -178,8 +183,9 @@ local function groupDefaults(overrides)
                 showStacks = true, showCooldown = true, cdStyle = "spiral", showTime = true, timeSize = 10, timeX = 0, timeY = 0, stackSize = 10, stackX = 1, stackY = -1, stackPoint = "BOTTOMRIGHT", stackColor = { 1, 1, 1 }, timePoint = "CENTER", timeBaseColor = { 1, 1, 1 }, dispelBorder = true,
                 -- Filters: with showAll off only debuffs matching the ticked filters show (match = "any" | "all").
                 showAll = true, match = "any",
-                onlyNonPlayer = true, -- kept for older settings; castBy below is what counts
-                castBy = "npc", -- "all" | "npc" (hide debuffs cast by players or their pets, e.g. the
+                showSated = false, -- true: also show the Bloodlust-type exhaustion debuffs
+                onlyNonPlayer = false, -- kept for older settings; castBy below is what counts
+                castBy = "all", -- "all" | "npc" (hide debuffs cast by players or their pets, e.g. the
                                 -- Bloodlust exhaustion) | "me" | "others"
                 filters = { nonplayer = false, priority = false, cc = false, bossaura = false,
                             roleaura = false, raid = false, raidcombat = false,
@@ -202,8 +208,7 @@ local function groupDefaults(overrides)
                 typeIconGrowth = "LEFT", typeIconX = 0, typeIconY = 4,
                 showStacks = true, showCooldown = true, cdStyle = "spiral", showTime = true, timeSize = 10, timeX = 0, timeY = 0, stackSize = 10, stackX = 1, stackY = -1, stackPoint = "BOTTOMRIGHT", stackColor = { 1, 1, 1 }, timePoint = "CENTER", timeBaseColor = { 1, 1, 1 }, dispelBorder = true,
             },
-            -- Cooldown rows: `list` = spell IDs. A hidden ID falls back to Blizzard's classification when `useFilter`
-            -- is on. Defensives sit far left, externals far right.
+            -- Cooldown rows: `list` = spell IDs; others fall back to Blizzard's classification if `useFilter`.
             defensives = {
                 enabled = true, max = 2, size = 16, spacing = 2, perRow = 8, lineSpacing = 2,
                 point = "LEFT", growth = "RIGHT", x = 0, y = 6,
@@ -302,8 +307,7 @@ N.Defaults = {
 
     editMode = "party", -- party | raid | ownPet | groupPets | npc | spotlight
     lastPetMode = "ownPet", -- the pet-side group the "Pets" switch opens
-    -- Which areas every profile shares ("global") instead of keeping per profile; see Profiles.lua
-    -- Master profile: the linked profiles follow it in the ticked parts.
+    -- Areas every profile shares ("global"); the master's linked profiles follow it in the ticked parts.
     profileSync = {
         master = "",
         slaves = { _list = true },
@@ -364,6 +368,7 @@ N.Defaults = {
     tooltip = {
         enabled = true,
         hideInCombat = false,
+        auras = false, -- tooltips of single auras when hovering their icons
         anchor = "frame", -- frame | cursor | default
     },
 
@@ -384,7 +389,7 @@ N.Defaults = {
         -- How many groups are shown at most (1-8): groups 1..maxGroups.
         maxGroups = 8,
         -- Groups per row: 0 = the groups in one run; 1-8 puts every raid group on its own slot of a grid.
-        groupsPerRow = 0, rowSpacing = 3, groupFlow = "RIGHT_DOWN",
+        groupsPerRow = 8, rowSpacing = 3, groupFlow = "RIGHT_DOWN",
         -- Parts that use the Group's settings (see Profiles.lua): one switch per part.
         link = { appearance = false, indicators = false, auras = false, customIndicators = false },
         groupNames = { enabled = false, position = "above", size = 11, x = 0, y = 0, color = { 1, 1, 1 } },
@@ -403,8 +408,7 @@ N.Defaults = {
         appearance = { healthCustomColor = { 0.40, 0.60, 1.00 } },
     })),
 
-    -- Spotlight: frames you choose (tanks, a name, target / focus). `units` entries: { type = "target" |
-    -- "targettarget" | "focus" }, { type = "role", value = "TANK" | "HEALER" }, { type = "name", value }.
+    -- Spotlight `units`: { type = "target"|"targettarget"|"focus" | "role" | "name", value }.
     spotlight = groupDefaults({
         enabled = false,
         showSolo = true,
@@ -416,7 +420,6 @@ N.Defaults = {
         indicators = { powerBar = { enabled = true } },
     }),
 
-    -- Actions: animation on a member's frame when they use a listed spell; anim = "sweep" | "wipe" | "rise".
     actions = {
         enabled = true,
         speed = 1,
@@ -476,18 +479,18 @@ N.Defaults = {
 
     -- Click-casting: global; kind = "none" | "spell" | "item" | "macro" | "general".
     clickCasting = {
-        -- Smart resurrection (Retail): "off" | "normal" | "combat" (also the combat resurrection of the class).
+        -- "off" | "normal" | "combat" (also the class's combat resurrection)
         smartRes = "off",
+        selfCastDeclined = "",
 
         -- Left select and right menu: ordinary rows the user can change.
         bindings = {
             { modifier = "none", button = "LeftButton",  kind = "general", value = "target" },
             { modifier = "none", button = "RightButton", kind = "general", value = "menu" },
         },
-        -- `bindings` is the list of the class being played (ClickCasting.SelectClass); the other classes keep
-        -- theirs in byClass.
+        -- `bindings` = list of the played class; other classes live in byClass.
         migrated = false,
-        -- [specID] = list; a specialization without one uses its class's list. _list keeps it out of default merging.
+        -- [specID] = list; a spec without one uses its class's list. _list keeps it out of default merging.
         bySpec = { _list = true },
         byClass = {
             DEATHKNIGHT = {

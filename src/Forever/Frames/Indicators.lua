@@ -12,8 +12,6 @@ local Abbrev = N.Abbreviate or _G.AbbreviateNumbers or function(v)
     return tostring(v)
 end
 
--- Indicator framework: modules with create / update hooks and trigger events, registered without touching
--- UnitFrame or HeaderGroup.
 
 local registry = {}
 local byEvent = {}
@@ -21,8 +19,7 @@ local byEvent = {}
 local Indicators = {}
 N.Indicators = Indicators
 
--- def = { create(button) -> obj, update(button, obj), events = { ... },
---         enabled(button) -> bool (optional) }
+-- def = { create(button) -> obj, update(button, obj), events = {...}, enabled(button) -> bool }
 function Indicators.Register(name, def)
     def.name = name
     registry[#registry + 1] = def
@@ -135,8 +132,7 @@ local function dispatch(event, unit)
     end
 end
 
--- Events whose fan-out must reach every button, not just arg1's unit (e.g. a
--- retarget changes the target counter on two other frames).
+-- Events that must reach every button, not just arg1's unit (a retarget changes two frames).
 local BROADCAST = {
     UNIT_TARGET = true, PLAYER_TARGET_CHANGED = true, RAID_TARGET_UPDATE = true,
     PLAYER_REGEN_ENABLED = true, PLAYER_REGEN_DISABLED = true,
@@ -159,8 +155,7 @@ evFrame:SetScript("OnEvent", function(_, event, arg1)
     dispatch(event, unit)
 end)
 
--- Unit events (UNIT_HEALTH, UNIT_AURA, ...) are registered per unit, only for units that have a frame: nameplates,
--- targets and bosses never reach this code. Events without a unit stay on evFrame.
+-- Unit events are per unit and only for units with a frame; unitless events stay on evFrame.
 local unitFrames, unitEventList = {}, {}
 local function unitOnEvent(_, event, unit)
     dispatch(event, not BROADCAST[event] and unit or nil)
@@ -202,8 +197,6 @@ N:On("NUCLEUS_SETTING_CHANGED", function(_, _, path)
 end)
 
 
--- Ordered metadata: one options sub-tab per entry. name / healthText / powerBar / status are rendered by
--- UnitFrame.
 Indicators.builtins = {
     { name = "name", label = "Name", text = true, positioned = true },
     { name = "healthText", label = "Health Text", text = true, format = true, positioned = true },
@@ -224,6 +217,7 @@ Indicators.builtins = {
     { name = "shieldBar", label = "Shield Bar", shield = true },
     { name = "healthThresholds", label = "Health Thresholds", thresholds = true },
     { name = "aggroBorder", label = "Aggro Border", aggro = true },
+    { name = "threatIcon", label = "Threat Icon", icon = true, iconPosition = true, threat = true },
     { name = "privateAura", label = "Private Aura", private = true },
 }
 
@@ -235,7 +229,7 @@ local function corner(button, point, size)
     return t
 end
 
--- Role icon art is hardcoded so it survives Blizzard removing helpers; "circle" is Blizzard's round role sheet.
+-- Role icon art is hardcoded so it survives Blizzard removing helpers.
 local ROLE_TC_SQUARE = {
     TANK    = { 0,    0.25, 0, 0.5 },
     HEALER  = { 0.25, 0.50, 0, 0.5 },
@@ -276,8 +270,7 @@ Indicators.Register("role", {
         if b._mock then role = b._mock.role else role = UnitGroupRolesAssigned(b.unit) end
         if N.IsSecret(role) then icon:Hide(); return end
 
-        -- Solo (your own frame, no group): the "Show when solo" switch decides. The game
-        -- assigns no role then, so the one of your own specialization is used.
+        -- Solo: the game assigns no role, so your own specialization's is used.
         if not b._mock and b.unit and playingSolo() then
             local me = UnitIsUnit(b.unit, "player")
             if me ~= nil and not N.IsSecret(me) and me then
@@ -306,7 +299,7 @@ Indicators.Register("role", {
     end,
 })
 
--- Class / spec icon: one sheet (NucleusClassSpec.tga, 64px cells); "spec" falls back to the class icon.
+-- Class / spec icon: one sheet (NucleusClassSpec.tga, 64px cells).
 local function sheetCoords(cell)
     local cw = 1 / 8
     local x0, y0 = (cell % 8) * cw, math.floor(cell / 8) * cw
@@ -537,7 +530,7 @@ Indicators.Register("raidMarker", {
 })
 
 
--- Accepted / declined summons drop off after a few seconds; `since` is stamped when a state is first seen.
+-- Accepted / declined summons drop off after a few seconds (`since` stamps the first sighting).
 local SUMMON_FADE = 6
 local function summonStillShown(b, key)
     local seen = b._summonSeen
@@ -602,7 +595,7 @@ local PHASE_COLOR = {
     [3] = { 1.00, 1.00, 0.00 },
 }
 
--- Aura IDs (flag / orb carrier, rez, soulstone), looked up in pcall: an unknown answer must mean "don't show".
+-- Aura IDs are read in pcall: an unknown answer means "don't show".
 local BG_FLAGS = { [156621] = "nameplates-icon-flag-alliance", [156618] = "nameplates-icon-flag-horde" }
 local BG_ORBS = {
     [121164] = "nameplates-icon-orb-blue", [121175] = "nameplates-icon-orb-purple",
@@ -628,8 +621,7 @@ local function isShown(o, key)
     return not (o.show and o.show[key] == false)
 end
 
--- Aura-based kinds are looked up in a timer and cached as b._auraKind: reading auras inside the header update
--- would taint it.
+-- Aura kinds are looked up in a timer: reading auras in the header update would taint it.
 local function refreshAuraKind(b, wantDead)
     if b._auraPending then return end
     b._auraPending = true
@@ -905,7 +897,6 @@ Indicators.Register("absorbText", {
     end,
 })
 
--- Status: a pill naming the unit's state in per-state colors, with an optional timer for Offline / AFK.
 
 -- Priority order (first match wins), shared with the options and the preview.
 Indicators.statusStates = {
@@ -934,8 +925,7 @@ local function drinkSet()
     return drinkNames
 end
 
--- Only out of combat: in combat the game seals other units' auras (and nobody
--- drinks in combat).
+-- Out of combat only: in combat the game seals other units' auras (and nobody drinks then).
 local function isDrinking(b)
     if InCombatLockdown() or not (N.AuraCache and N.AuraCache.Each) then return false end
     -- The status updates on every health change: look at the auras once a second at most.
@@ -1178,8 +1168,7 @@ Indicators.Register("shieldBar", {
     end,
 })
 
--- Health Thresholds: a line across the health bar below chosen percentages, one at a time (the next one to
--- cross). With hidden health a color curve over the health calculator drives the alpha.
+-- Health thresholds: a line below chosen percentages; hidden health uses a color curve for alpha.
 
 Indicators.THRESHOLD_MAX = 8
 
@@ -1191,8 +1180,7 @@ local function curvesFor(fracs)
     thresholdCurves[key] = false
     if not (C_CurveUtil and C_CurveUtil.CreateColorCurve and CreateColor) then return nil end
     local opaque, invisible = CreateColor(1, 1, 1, 1), CreateColor(1, 1, 1, 0)
-    -- Band i is on between the previous threshold and this one; each jump is a pair of points a hair apart so x
-    -- keeps rising.
+    -- Band i is on between the previous threshold and this one; jumps are a hair apart so x keeps rising.
     local EDGE = 1e-4
     local function band(lo, hi)
         local curve = C_CurveUtil.CreateColorCurve()
@@ -1303,7 +1291,7 @@ Indicators.Register("healthThresholds", {
         end
     end,
 })
--- Aggro Border: orange "almost aggro", red "aggro" (colors are settings, Blizzard's by default); yellow is not shown.
+-- Aggro border: orange "almost aggro", red "aggro"; yellow is not shown.
 
 Indicators.Register("aggroBorder", {
     events = {
@@ -1371,6 +1359,57 @@ Indicators.Register("aggroBorder", {
     end,
 })
 
+
+local function setBlink(icon, on)
+    if on then
+        if not icon._blink then
+            local ag = icon:CreateAnimationGroup()
+            ag:SetLooping("BOUNCE")
+            local a = ag:CreateAnimation("Alpha")
+            a:SetFromAlpha(1)
+            a:SetToAlpha(0.15)
+            a:SetDuration(0.4)
+            icon._blink = ag
+        end
+        if not icon._blink:IsPlaying() then icon._blink:Play() end
+    elseif icon._blink and icon._blink:IsPlaying() then
+        icon._blink:Stop()
+        icon:SetAlpha(1)
+    end
+end
+
+Indicators.Register("threatIcon", {
+    anchor = "BOTTOMLEFT",
+    events = {
+        "UNIT_THREAT_SITUATION_UPDATE", "UNIT_THREAT_LIST_UPDATE",
+        "PLAYER_REGEN_ENABLED", "PLAYER_REGEN_DISABLED",
+    },
+    create = function(b) return corner(b, "BOTTOMLEFT", 10) end,
+    update = function(b, icon)
+        local status
+        if b._mock then
+            status = b._mock.threat or (b._mock.aggro and 3 or 0)
+        elseif b.unit then
+            status = UnitThreatSituation(b.unit)
+        end
+        if type(status) ~= "number" or IsSecret(status) then
+            icon:Hide()
+            return
+        end
+        local o = N.db[b.groupKey].indicators.threatIcon
+        local c
+        if status >= 3 then c = o.tankColor
+        elseif status == 2 then c = o.warnColor
+        elseif status == 1 and o.showLow then c = o.lowColor end
+        if not c then
+            icon:Hide()
+            return
+        end
+        icon:SetColorTexture(c[1], c[2], c[3], 1)
+        setBlink(icon, o.blink)
+        icon:Show()
+    end,
+})
 
 Indicators.Register("levelText", {
     events = { "UNIT_LEVEL", "PLAYER_LEVEL_UP", "GROUP_ROSTER_UPDATE" },

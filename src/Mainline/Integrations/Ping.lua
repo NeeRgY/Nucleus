@@ -1,9 +1,7 @@
 local _, ns = ...
 local N = ns.N
 
--- Pulses a Nucleus frame when a groupmate pings that unit. Blizzard's ping events are protected, so its ping
--- icon (.pingIconFrame) is mirrored: hooks on ShowPing / ClearPing give the texture kit and the owner's .unit picks
--- the button. Needs the compact frames' events (HideBlizzard skips stripping while on) and showPingsOnRaidFrames.
+-- Pulses a frame on a groupmate's ping. The ping events are protected, so the ping icon (.pingIconFrame) is mirrored via hooks.
 
 local Ping = {}
 N.Ping = Ping
@@ -14,8 +12,7 @@ local activePings = {}   -- guid -> texture kit
 local expireTokens = {}  -- guid -> generation, to invalidate a stale safety timer
 
 
--- Blizzard's own ping art, referenced by atlas name (built into the client). "kit" is the ping
--- type Blizzard hands back: Attack, Warning, OnMyWay, ...
+-- Ping art by atlas name; "kit" is the ping type Blizzard hands back (Attack, Warning, OnMyWay, ...).
 local iconPool = {}
 
 local function iconFor(button)
@@ -32,8 +29,7 @@ local function iconFor(button)
     return icon
 end
 
--- persist=true skips the auto-hide timer (used by the Ping Settings popup's
--- live preview, which controls the icon's visibility itself).
+-- persist = true skips the auto-hide timer (the Ping Settings preview controls visibility itself).
 local function pulse(button, kit, persist)
     local icon = iconFor(button)
     local p = N.db.ping
@@ -46,8 +42,7 @@ local function pulse(button, kit, persist)
     local okBg = pcall(icon.bg.SetAtlas, icon.bg, "Ping_Frame_BG_" .. kit, true)
     local okGlyph = pcall(icon.glyph.SetAtlas, icon.glyph, "Ping_Frame_" .. kit, true)
     if not (okBg or okGlyph) then
-        -- Unknown kit name (Blizzard adds ping types now and then): fall back to a plain accent
-        -- dot instead of nothing.
+        -- Unknown kit name (Blizzard adds ping types now and then): a plain accent dot instead of nothing.
         icon.bg:SetTexture(nil)
         icon.glyph:SetTexture(N.Media.flat)
         local c = N.Media.color.accentBright
@@ -173,8 +168,7 @@ local function sweepBlizzardFrames()
     for g = 1, 8 do
         for m = 1, 5 do hookOwner(_G["CompactRaidGroup" .. g .. "Member" .. m]) end
     end
-    -- Self / target / focus pings land on Blizzard's classic PlayerFrame / TargetFrame / FocusFrame, which
-    -- carry their own .pingIconFrame.
+    -- Self / target / focus pings land on Blizzard's own frames, which carry a .pingIconFrame.
     hookOwner(_G.PlayerFrame)
     hookOwner(_G.TargetFrame)
     hookOwner(_G.FocusFrame)

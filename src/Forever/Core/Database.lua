@@ -1,8 +1,7 @@
 local _, ns = ...
 local N = ns.N
 
--- Loads NucleusDB, merges defaults and fires NUCLEUS_DB_READY. When a release changes the layout of saved
--- data, bump dbVersion (Defaults.lua) and add a block below guarded by `fromVersion < n`.
+-- Layout change of saved data: bump dbVersion and add a `fromVersion < n` block.
 local function InitDB()
     local raw = _G.NucleusDB_Forever
     if type(raw) ~= "table" then
@@ -12,8 +11,7 @@ local function InitDB()
 
     local fromVersion = raw.dbVersion or 0
 
-    -- Profiles.Setup merges defaults and installs the N.db proxy. First, the old power bar switches (tanks /
-    -- healers / damage dealers) become the per-class table.
+    -- Old per-role power bar switches become the per-class table.
     N.Profiles.PreNormalize = function(tbl)
         for _, k in ipairs({ "ownPet", "groupPets", "spotlight" }) do
             local g = type(tbl[k]) == "table" and tbl[k]
@@ -95,8 +93,7 @@ local function InitDB()
         end
         N.db.blizzFilterOff = true
     end
-    -- One-time: the language used to default to German for everyone; it now follows the game client.
-    -- (German clients see no difference.)
+    -- One-time: the language used to default to German; it now follows the client.
     if not N.db.localeAutoDefaulted then
         if N.db.locale == "deDE" then N.db.locale = "auto" end
         N.db.localeAutoDefaulted = true

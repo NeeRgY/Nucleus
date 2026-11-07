@@ -4,8 +4,7 @@ local M = N.Media
 local Indicators = N.Indicators
 local IsSecret = N.IsSecret
 
--- Missing Buffs: an icon per raid buff a unit lacks while someone in the group can provide it. A hidden aura ID
--- means unknown, so nothing is shown; the scan runs in a timer and is cached on the button.
+-- A hidden aura ID counts as unknown (nothing shown); the scan runs in a timer and is cached.
 
 local BUFFS = {
     { key = "fortitude", label = "Power Word: Fortitude", class = "PRIEST",  ids = { 21562 } },
@@ -69,6 +68,7 @@ local function scan(u, o)
             if key then present[key] = true end
         end
     end
+    if not (N.AuraCache.Scanned and N.AuraCache.Scanned(u)) then return nil end
     local classes = groupClasses()
     local missing = {}
     for _, buff in ipairs(BUFFS) do

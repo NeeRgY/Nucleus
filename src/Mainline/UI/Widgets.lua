@@ -2,8 +2,6 @@ local _, ns = ...
 local N = ns.N
 local M = N.Media
 
--- Widget set of the options window: every control is a full-width row, label left, control right; cards own
--- vertical stacking and width.
 
 local function unpackColor(c) return c[1], c[2], c[3], c[4] or 1 end
 
@@ -15,15 +13,12 @@ local CARD_PAD = 12
 local CARD_HEADER = 32
 local ROW_GAP = 8
 
--- Exposed so panels that lay out their own text inside a card line up with the standard rows: x
--- inset, and y where content starts.
 N.CARD_PAD = CARD_PAD
 N.CARD_TOP = CARD_HEADER + ROW_GAP
 
 N.CONTENT_WIDTH = 512
 
--- Tooltip in the options window's style. N.SetTip(widget, title, text, colorFn): title / text may be functions;
--- colorFn() -> {r,g,b} adds a color chip beside the title.
+-- N.SetTip(widget, title, text, colorFn): title / text may be functions; colorFn() -> {r,g,b}.
 
 local tip
 local TIP_W, TIP_PAD = 250, 9
@@ -378,8 +373,7 @@ function N.MakeTextInput(parent, label, get, set)
     return f
 end
 
--- Multi-line text box (whitelist entry). get() -> string ; set(string) on
--- focus loss / Enter-less commit. Sits below its label, full row width.
+-- Multi-line text box: get() -> string; set(string) on focus loss.
 function N.MakeMultiEdit(parent, label, get, set)
     local f = CreateFrame("Frame", nil, parent)
     f._rowHeight = 80
@@ -440,6 +434,8 @@ local function shapeCaret(tex, dir)
         tex:SetVertexOffset(4, -w / 2, 0)  -- LOWER_RIGHT -> bottom centre
     end
 end
+
+N.ShapeCaret = shapeCaret
 
 function N.MakeDropdown(parent, label, options, get, set)
     local f = CreateFrame("Frame", nil, parent)
@@ -570,8 +566,7 @@ function N.MakeDropdown(parent, label, options, get, set)
     return f
 end
 
--- Key capture: a button that, once clicked, waits for the next modifier + mouse click anywhere and
--- reports it. Used for click-cast bindings.
+-- Key capture for click-cast bindings: waits for the next modifier + mouse click and reports it.
 
 local grabber
 local function getGrabber()
@@ -646,8 +641,7 @@ local function getGrabber()
     return grabber
 end
 
--- getText() -> string shown on the button; onCapture(modifier, button) gets the
--- canonical modifier ("none" | "alt-ctrl-shift" subset) and the button name.
+-- getText() -> button text; onCapture(modifier, button) gets the canonical modifier and button.
 function N.MakeKeyCapture(parent, getText, onCapture)
     local b = CreateFrame("Button", nil, parent)
     b._rowHeight = 24
@@ -695,8 +689,7 @@ function N.MakeKeyCapture(parent, getText, onCapture)
     return b
 end
 
--- Icon picker: a compact dropdown whose entries carry icons, with search and a scrolling list. getOptions() is
--- rebuilt on each open; resolve(value) -> text, icon covers a saved value not in the list.
+-- Icon picker: getOptions() rebuilds on each open; resolve(value) -> text, icon for unlisted values.
 
 local PICK_ROW, PICK_VISIBLE, PICK_MIN_W = 22, 9, 250
 local QUESTION_ICON = 134400
@@ -900,8 +893,7 @@ function N.MakeLabeledPicker(parent, label, getOptions, get, set, resolve, plain
     return f
 end
 
--- Custom scroll area: thin auto-hiding accent scrollbar with wheel support; trackX moves the bar right of the
--- area's edge (negative to tuck it inside a small panel).
+-- Scroll area: trackX moves the bar right of the area's edge (negative tucks it inside a small panel).
 
 function N.MakeScroll(parent, trackX)
     local scroll = CreateFrame("ScrollFrame", nil, parent)
@@ -968,8 +960,7 @@ function N.MakeScroll(parent, trackX)
         thumb:SetScript("OnUpdate", function()
             local _, y = GetCursorPosition()
             local scale = thumb:GetEffectiveScale()
-            -- Cursor Y decreases downward; dragging the thumb down must
-            -- increase the scroll offset (move the view down).
+            -- Cursor Y decreases downward: dragging the thumb down must increase the scroll offset.
             local deltaDown = (thumb.dragY - y) / scale
             local h = track:GetHeight()
             local th = thumb:GetHeight()

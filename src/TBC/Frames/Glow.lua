@@ -5,8 +5,7 @@ local M = N.Media
 -- Frame-wide glow used by the custom indicator "Glow" and its preview.
 local WHITE = "Interface/Buttons/WHITE8X8"
 
--- Frame-wide glows (custom indicator Glow, preview): only what the game animates itself, no Lua per frame.
--- E.NewGlow(parent, anchor) -> g; g:Show(style, r, g, b, offset, thickness, speed, length).
+-- Frame-wide glows (pulse, halo, pixel) from game animations: E.NewGlow(parent, anchor) -> g.
 local PROC_ATLAS = "UI-HUD-ActionBar-Proc-Loop-Flipbook"
 
 local function loopingAlpha(region, duration)
@@ -45,8 +44,7 @@ function N.NewGlow(parent, anchor)
         wrap:Hide()
     end
 
-    -- One side of a marching ring. side: "top" (moves right), "right" (down),
-    -- "bottom" (left), "left" (up).
+    -- One side of a marching ring: "top" moves right, "right" down, "bottom" left, "left" up.
     local function makeStrip()
         local clip = CreateFrame("Frame", nil, wrap)
         clip:EnableMouse(false)

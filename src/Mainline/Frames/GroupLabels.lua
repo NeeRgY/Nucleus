@@ -4,8 +4,6 @@ local M = N.Media
 local L = N.L
 local IsSecret = N.IsSecret
 
--- Raid group names: small text on the first frame of each raid group when the raid is grouped by group
--- (db.raid.groupNames); it lives in the frame's overlay.
 
 local GL = {}
 N.GroupLabels = GL
@@ -38,8 +36,7 @@ local function style(fs, b, o, group)
     fs:Show()
 end
 
--- entries: { { button = b, group = n | nil }, ... } in frame order. The first frame of each group
--- gets the label, the rest lose it.
+-- entries: { { button = b, group = n | nil }, ... } in frame order; the first of each group gets the label.
 local function apply(entries)
     local o = settings()
     local on = o and o.enabled and N.db.raid.groupBy == "GROUP"

@@ -1,8 +1,6 @@
 local _, ns = ...
 local N = ns.N
 
--- Profile import: builds a Nucleus profile from an exported profile string; whatever has no counterpart is
--- skipped and listed in the report.
 
 local CI = {}
 N.CellImport = CI
@@ -64,8 +62,7 @@ local function put(t, k, v)
     if v ~= nil then t[k] = v end
 end
 
--- The source frames are scaled by appearance.scale; the same factor is applied to every size,
--- spacing and offset so the frames come out as big as before.
+-- Every size, spacing and offset is scaled by the source's appearance.scale.
 local SCALE = 1
 local function sc(v)
     if v == nil then return nil end
@@ -87,8 +84,7 @@ local function place(pos)
     return point, sc(num(pos[4])), sc(num(pos[5]))
 end
 
--- The source anchors an indicator with its own point on a point of the frame; here an object hangs on one point only,
--- so the offset is corrected by the difference of the two points times its size.
+-- Objects hang on one point only: offset corrected by the point difference times the size.
 local function fx(p) return p:find("LEFT") and 0 or p:find("RIGHT") and 1 or 0.5 end
 local function fy(p) return p:find("BOTTOM") and 0 or p:find("TOP") and 1 or 0.5 end
 
@@ -456,8 +452,7 @@ local function convertGroup(layout, out, report, isRaid)
             if main.combineGroups == true then out.groupBy = "NONE"
             elseif main.combineGroups == false then out.groupBy = "GROUP" end
         end
-        -- Role sorting inside groups is replaced by the custom order here, so it is only switched
-        -- on when the groups are combined.
+        -- Role sorting inside groups is replaced by the custom order, so it only applies with combined groups.
         local ord = ensure(out, "ordering")
         if type(main.roleOrder) == "table" then
             ord.first, ord.second, ord.third = main.roleOrder[1], main.roleOrder[2], main.roleOrder[3]
@@ -598,8 +593,7 @@ local function convertClickCasting(cc, profile, report)
                 if type(k) == "number" and type(v) == "table" then ids[#ids + 1] = k end
             end
             table.sort(ids)
-            -- The class's list: "common" when one list serves every specialization, otherwise the
-            -- first specialization's.
+            -- "common" when one list serves every specialization, else the first specialization's.
             local list = spec.useCommon and spec.common
             if type(list) ~= "table" then list = ids[1] and spec[ids[1]] or spec.common end
             if type(list) == "table" then

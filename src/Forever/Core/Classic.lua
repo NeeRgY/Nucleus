@@ -1,8 +1,7 @@
 local _, ns = ...
 local N = ns.N
 
--- Everything that differs from Retail: classes, dispel types, aura-row spell lists, raid buffs and Actions
--- potions. Spell IDs are per rank; a rank the client doesn't know is dropped at load (N.Classic.Known).
+-- Everything that differs from Retail. Spell IDs are per rank; unknown ranks are dropped at load.
 
 N.IS_FOREVER = true
 local C = {}
@@ -28,8 +27,6 @@ C.DISPEL = {
     MAGE    = { Curse = true },                                  -- Remove Lesser Curse
 }
 
--- Spell lists (aura rows). Each entry: the class it belongs to and the IDs of every rank/variant
--- of the aura.
 
 local function ids(...) return { ... } end
 
@@ -111,8 +108,7 @@ C.LIST = {
     buffs = csv(C.healingList),
 }
 
--- Raid buffs (Missing Buffs): `ids` = every spell that applies the buff, `cast` = the ranks the player can cast
--- (incl. group version), `icon` = the spell whose icon stands for it, `class` = who provides it.
+-- Raid buffs: ids = spells that apply it, cast = castable ranks, icon, class = provider.
 local FAMILY = {
     fort = { ids = { 1243, 1244, 1245, 2791, 10937, 10938, 10939, 10940, 13864, 23947, 23948, 21562, 21564, 450086 },
              cast = { 1243, 1244, 1245, 2791, 10937, 10938, 21562, 21564 } },
@@ -143,12 +139,17 @@ local function union(keys, field)
     end
     return out
 end
+local BLESS_ICON = { might = 19740, wisdom = 19742, kings = 20217, salvation = 1038, light = 19977 }
+local blessKeys = {}
+for _, k in ipairs({ "might", "wisdom", "kings", "salvation", "light" }) do
+    if known(BLESS_ICON[k]) then blessKeys[#blessKeys + 1] = k end
+end
 C.BUFFS = {
     { key = "fort",      label = "Power Word: Fortitude", class = "PRIEST", icon = 1243,
       ids = FAMILY.fort.ids, cast = FAMILY.fort.cast },
     { key = "spirit",    label = "Divine Spirit",         class = "PRIEST", icon = 14752,
       ids = FAMILY.spirit.ids, cast = FAMILY.spirit.cast },
-    { key = "shadowprot", label = "Shadow Protection",    class = "PRIEST", icon = 976, localized = true,
+    { key = "shadowprot", label = "Shadow Protection",    class = "PRIEST", icon = 976,
       ids = FAMILY.shadowprot.ids, cast = FAMILY.shadowprot.cast },
     { key = "intellect", label = "Arcane Intellect",      class = "MAGE",   icon = 1459,
       ids = FAMILY.intellect.ids, cast = FAMILY.intellect.cast },
@@ -159,11 +160,9 @@ C.BUFFS = {
     { key = "shout",     label = "Battle Shout",          class = "WARRIOR", icon = 6673,
       ids = FAMILY.shout.ids, cast = FAMILY.shout.cast },
     { key = "blessing",  label = "Blessings",             class = "PALADIN", icon = 20217,
-      ids = union({ "might", "wisdom", "kings", "salvation", "light" }, "ids"),
-      cast = union({ "might", "wisdom", "kings", "salvation", "light" }, "cast") },
+      ids = union(blessKeys, "ids"), cast = union(blessKeys, "cast") },
 }
--- The blessings behind the "Blessings" entry: a member counts as missing it while they have none
--- of the ENABLED ones. Names come from the client, so they are localized.
+-- A member misses the Blessings entry while none of the enabled ones is on them.
 C.BLESSINGS = {
     { key = "might",     label = "Blessing of Might",     class = "PALADIN", icon = 19740,
       ids = FAMILY.might.ids, cast = FAMILY.might.cast },
@@ -176,6 +175,15 @@ C.BLESSINGS = {
     { key = "light",     label = "Blessing of Light",     class = "PALADIN", icon = 19977,
       ids = FAMILY.light.ids, cast = FAMILY.light.cast },
 }
+local function present(list)
+    local out = {}
+    for _, buff in ipairs(list) do
+        if known(buff.icon) then out[#out + 1] = buff end
+    end
+    return out
+end
+C.BUFFS = present(C.BUFFS)
+C.BLESSINGS = present(C.BLESSINGS)
 C.BUFF_DEFAULT = { fort = true, spirit = true, shadowprot = false, intellect = true, mark = true, thorns = true,
                    shout = true, blessing = true, might = true, wisdom = true, kings = true, salvation = true,
                    light = true }
@@ -192,8 +200,7 @@ C.ACTIONS = {
     { spell = 6262,  anim = "sweep", color = { 0.40, 1.00, 0.00 } }, -- Healthstone
 }
 
--- Numbers: Classic health values are small, so nothing under 10,000 is abbreviated; AbbreviateNumbers does the
--- work with these tiers, so hidden numbers stay safe.
+-- Classic health values are small, so nothing under 10,000 is abbreviated.
 local abbrevOpts
 function N.Abbreviate(n)
     if abbrevOpts == nil then
@@ -211,8 +218,7 @@ function N.Abbreviate(n)
     return AbbreviateNumbers(n)
 end
 
--- Names: a Forever character has a surname (UnitName's second return; on Retail that is the realm). The Name
--- indicator can reduce "First Surname" to the first or the last word.
+-- Forever characters have a surname (second UnitName return).
 local fullNames = {}
 local function surnameSeparator()
     local consts = _G.Constants and Constants.CharacterNameSeparatorConsts
@@ -243,8 +249,7 @@ function N.WithSurname(name, surname)
 end
 
 local shortNames = { first = {}, last = {} }
--- mode "first" keeps the first word, "last" the last; anything else (or a one-word,
--- secret or non-string name) comes back unchanged.
+-- "first" / "last" keeps that word; one-word, secret or non-string names stay unchanged.
 function N.ShortName(name, mode)
     local cache = shortNames[mode]
     if not cache or type(name) ~= "string" or N.IsSecret(name) then return name end

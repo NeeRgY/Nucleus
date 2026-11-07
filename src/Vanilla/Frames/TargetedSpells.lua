@@ -3,8 +3,7 @@ local N = ns.N
 local M = N.Media
 local Indicators = N.Indicators
 
--- Targeted Spells (Classic): a frame lights up with the spell icon while an enemy casts at that member. Casters
--- are the units the client lets us read; the target is the caster's "target" unit, compared by GUID.
+-- Casters are the units the client lets us read; the target is their "target", compared by GUID.
 
 local TS = {}
 N.TargetedSpells = TS

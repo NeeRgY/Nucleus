@@ -1,8 +1,6 @@
 local _, ns = ...
 local N = ns.N
 
--- Optional Cyrillic -> Latin transliteration for player names (General > Interface). Plain
--- letter-for-letter romanization.
 
 local MAP = {
     ["А"] = "A", ["а"] = "a", ["Б"] = "B", ["б"] = "b", ["В"] = "V", ["в"] = "v",

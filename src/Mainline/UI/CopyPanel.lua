@@ -3,8 +3,6 @@ local N = ns.N
 local M = N.Media
 local L = N.L
 
--- Copies settings between the Party and Raid half of the active profile. A popup picks the
--- direction and exactly which parts to copy; anything not ticked stays as it is.
 
 local function uc(c) return c[1], c[2], c[3], c[4] or 1 end
 

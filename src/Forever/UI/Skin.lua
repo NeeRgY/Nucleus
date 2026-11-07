@@ -80,8 +80,6 @@ function N.SkinPanel(frame, fillColor, borderColor, noHighlight)
     frame._nucFill:SetColorTexture(unpackColor(fillColor or M.color.frameBg))
 end
 
--- Rounded skin for the options UI, same contract as SkinPanel; fill and rim are 9-sliced textures with a
--- SetColorTexture shim, so existing fill:SetColorTexture calls keep working.
 local function tintable(tex)
     tex.SetColorTexture = function(self, r, g, b, a) self:SetVertexColor(r, g, b, a or 1) end
     return tex
@@ -188,8 +186,7 @@ function N.SkinBar(bar)
     end
 end
 
--- Swaps a skinned bar's fill texture; call N.SkinBar first and re-apply SetStatusBarColor afterwards (a texture
--- change resets the tint).
+-- Re-apply SetStatusBarColor after a texture swap (it resets the tint).
 function N.SetBarTexture(bar, key)
     bar:SetStatusBarTexture(M.BarTexturePath(key))
     local tex = bar:GetStatusBarTexture()
@@ -200,8 +197,7 @@ function N.SetBarLossColor(bar, color)
     if bar._nucLoss then bar._nucLoss:SetColorTexture(unpackColor(color or M.color.healthLoss)) end
 end
 
--- Fonts: every text made here is remembered with its base size. Texts under a _nucUI root use the window font and
--- the font scale, under _nucFace the window font unscaled; everything else follows the frame font.
+-- Fonts: _nucUI roots use the window font + scale, _nucFace the window font unscaled, else the frame font.
 local fontRegistry = setmetatable({}, { __mode = "k" })
 local fontPending
 

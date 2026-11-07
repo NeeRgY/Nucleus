@@ -2,8 +2,7 @@ local _, ns = ...
 local N = ns.N
 local M = N.Media
 
--- Aura engine (Retail 12.1+): addon code can't read auras in combat, but it can tell the game's AuraContainer
--- which auras to show and how its buttons look. Structural changes wait for the end of combat.
+-- Retail 12.1+: auras can't be read in combat, but the game's AuraContainer can be told what to show.
 
 local E = {}
 N.AuraEngine = E
@@ -32,8 +31,7 @@ end
 function E.Supported()
     if supported ~= nil then return supported end
     local toc = select(4, GetBuildInfo())
-    -- Forever (build 16001) has the AuraContainer API but reports a low build number, so the build
-    -- gate doesn't apply there; the container probe below does.
+    -- Forever has the AuraContainer API but reports a low build number, so the container probe decides.
     if not N.IS_FOREVER and (type(toc) ~= "number" or toc < 120100) then supported = false return false end
     if InCombatLockdown() then return false end -- creating a container in combat is a hard error
     loadModule()
@@ -44,15 +42,13 @@ function E.Supported()
 end
 
 
--- Countdown text is a formatter over the remaining seconds (decimal / color bands) the game evaluates, so it
--- works while the timing is hidden.
+-- Countdown text is a formatter the game evaluates, so it works while timing is hidden.
 local formatters = {}
 local function hex(c)
     return ("|cff%02x%02x%02x"):format(math.floor(c[1] * 255 + 0.5), math.floor(c[2] * 255 + 0.5), math.floor(c[3] * 255 + 0.5))
 end
 
--- A health bar highlight sits below the texts and icons: its own frame above the overlays, below the indicator
--- overlay.
+-- Health bar highlight: own frame above the overlays, below the indicator overlay.
 local function lowLayer(button, owner)
     local host = owner.health or owner
     local f = CreateFrame("Frame", nil, button)
@@ -110,8 +106,7 @@ local function pulseGroup(region, duration)
     return ag, a
 end
 
--- Frame-wide glows (custom indicator Glow, preview) built only from what the game animates itself: pulse, halo,
--- pixel. E.NewGlow(parent, anchor) -> g; g:Show(style, r, g, b, offset, thickness, speed, length).
+-- Frame-wide glows (pulse, halo, pixel) from game animations: E.NewGlow(parent, anchor) -> g.
 local PROC_ATLAS = "UI-HUD-ActionBar-Proc-Loop-Flipbook"
 
 local function loopingAlpha(region, duration)
@@ -397,6 +392,23 @@ local function bindTime(button, fs, spec)
     pcall(button.SetDurationText, button, fs, { textFormatter = formatterFor(spec.timeColor) })
 end
 
+-- Aura tooltips: icons take mouse motion, never clicks, so click-casting underneath works.
+local function applyTip(button)
+    local sz = button._nuc
+    if not sz then return end
+    local tt = N.db and N.db.tooltip
+    local on = (sz.tip and tt and tt.auras) and true or false
+    if on then
+        if button.SetHideTooltipInCombat then pcall(button.SetHideTooltipInCombat, button, tt.hideInCombat and true or false) end
+        if button.SetTooltipAnchorPoint then
+            pcall(button.SetTooltipAnchorPoint, button, (tt.anchor == "cursor") and "ANCHOR_CURSOR" or "ANCHOR_BOTTOMLEFT")
+        end
+    end
+    pcall(button.SetMouseClickEnabled, button, false)
+    pcall(button.SetMouseMotionEnabled, button, on)
+    if on then pcall(button.SetPropagateMouseMotion, button, true) end
+end
+
 local function initButton(h, group)
     return function(button)
         local spec = h.spec
@@ -407,11 +419,11 @@ local function initButton(h, group)
         if not button._nuc then
             local sz = {}
             button._nuc = sz
+            sz.tip = (spec.shape == "icon")
             local shape = spec.shape
             local b = h.owner
             if shape ~= "icon" and shape ~= "dispel" then
-                -- The engine wants an icon bound to every button it manages; these
-                -- shapes show none of their own.
+                -- The engine wants an icon bound to every button; these shapes show none.
                 local hidden = button:CreateTexture(nil, "ARTWORK")
                 hidden:SetAllPoints(button)
                 hidden:SetAlpha(0)
@@ -634,6 +646,7 @@ local function initButton(h, group)
             end
         end
         restyle(button, spec)
+        applyTip(button)
     end
 end
 
@@ -865,8 +878,7 @@ local function handleOf(button, id)
     return h
 end
 
--- Takes a row's container out of play and keeps it for reuse (containers can't be destroyed). In
--- combat it is only hidden.
+-- Parks a row's container for reuse (containers can't be destroyed); in combat it is only hidden.
 local function removeOne(button, id)
     local map = state[button]
     local h = map and map[id]
@@ -965,3 +977,18 @@ end
 function E.Apply(button, id, spec)
     applyOne(button, id, spec)
 end
+
+function E.RefreshTips()
+    for _, map in pairs(state) do
+        for _, h in pairs(map) do
+            for btn in pairs(h.buttons or {}) do applyTip(btn) end
+            for _, set in pairs(h.parkedButtons or {}) do
+                for btn in pairs(set) do applyTip(btn) end
+            end
+        end
+    end
+end
+
+N:On("NUCLEUS_SETTING_CHANGED", function(_, section)
+    if section == "tooltip" then N.RunWhenSafe(E.RefreshTips, "auratips") end
+end)

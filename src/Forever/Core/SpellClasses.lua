@@ -1,12 +1,8 @@
 local _, ns = ...
 local N = ns.N
 
--- The class of each default spell and the spells the Buffs picker offers, from Core/Classic.lua. Spells without
--- a class show under General.
 N.SpellClass = N.Classic.spellClass
 
--- Spells offered by the Buffs picker (healing buffs of every class), plus shields
--- and utility buffs that are only worth a custom indicator, not a default row.
 local pool = {}
 for _, id in ipairs(N.Classic.healingList) do pool[#pool + 1] = id end
 local extra = {

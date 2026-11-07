@@ -3,8 +3,6 @@ local N = ns.N
 local M = N.Media
 local L = N.L
 
--- Options > Profile: profiles, auto-switch rules, export / import and backups; one panel, rebuilt in place when
--- the list, the active profile or the situation changes.
 
 local function uc(c) return c[1], c[2], c[3], c[4] or 1 end
 
@@ -398,8 +396,7 @@ local function BuildProfiles(p)
     c:AddRow(N.MakeDropdown(c, L["Active profile"], ProfileOptions(false),
         function() return P.Current() end,
         function(v)
-            -- Picking one by hand also pauses the automatic switch for a moment:
-            -- the next situation change (zone, group, spec) re-evaluates it.
+            -- Picking one by hand also pauses auto-switch until the next situation change (zone, group, spec).
             P.Switch(v)
         end))
     local tplOptions = { { value = "none", text = L["TPL_none"] } }
@@ -436,13 +433,15 @@ end
 
 local function CurrentSummary()
     local P = N.Profiles
-    local situation = P.GetSituation()
+    local tbl, by = P.GetAssignmentTable()
+    local situation = P.ActiveSituation(tbl)
     local label = situation
-    for _, s in ipairs(P.SITUATIONS) do
-        if s.key == situation then label = L[s.label] break end
+    for _, list in ipairs({ P.SITUATIONS, P.SIZE_SITUATIONS }) do
+        for _, s in ipairs(list) do
+            if s.key == situation then label = L[s.label] break end
+        end
     end
     local _, role, specName = P.GetSpec()
-    local tbl, by = P.GetAssignmentTable()
     local target = tbl and tbl[situation]
     local who = (by == "spec" and specName) or (role and L[role]) or "?"
     local result
@@ -460,6 +459,9 @@ local function BuildAutoSwitch(p)
     c:AddRow(N.MakeCheckbox(c, L["Switch profiles automatically"],
         function() return a.enabled end,
         function(v) a.enabled = v and true or false; P.Evaluate(); N:Fire("NUCLEUS_PROFILES_CHANGED") end))
+    c:AddRow(N.MakeCheckbox(c, L["Separate profiles by raid size"],
+        function() return a.bySize end,
+        function(v) a.bySize = v and true or false; P.Evaluate(); N:Fire("NUCLEUS_PROFILES_CHANGED") end))
 
     local _, by, specID, role = P.GetAssignmentTable()
     local _, _, specName = P.GetSpec()
@@ -505,7 +507,12 @@ local function BuildAutoSwitch(p)
 
     local tbl = P.GetAssignmentTable()
     local options = ProfileOptions(true)
-    for _, s in ipairs(P.SITUATIONS) do
+    local situations = {}
+    for _, s in ipairs(P.SITUATIONS) do situations[#situations + 1] = s end
+    if a.bySize then
+        for _, s in ipairs(P.SIZE_SITUATIONS) do situations[#situations + 1] = s end
+    end
+    for _, s in ipairs(situations) do
         local row = CreateFrame("Frame", nil, c)
         row._rowHeight = 24
         local fs = N.FontString(row, 12)

@@ -6,14 +6,13 @@ local addonName, ns = ...
 ns.CLIENT = "Vanilla"
 ns.ADDON = addonName
 local getMeta = (C_AddOns and C_AddOns.GetAddOnMetadata) or _G.GetAddOnMetadata
-ns.VERSION = getMeta and getMeta(addonName, "Version") or "1.0.7"
+ns.VERSION = getMeta and getMeta(addonName, "Version") or "1.0.8"
 
 local N = {}
 ns.N = N
 _G.Nucleus = N
 
--- A client refuses to register an event it does not know (the modern ones are missing here), and
--- that error would stop the whole file. These register what exists and skip the rest.
+-- Unknown events make RegisterEvent error: register what exists, skip the rest.
 function N.SafeRegister(frame, event)
     return pcall(frame.RegisterEvent, frame, event)
 end

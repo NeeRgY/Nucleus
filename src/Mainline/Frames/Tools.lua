@@ -27,8 +27,7 @@ local function canControl()
     return UnitIsGroupLeader("player") or (IsInRaid() and UnitIsGroupAssistant("player")) or false
 end
 
--- Show only on mouseover: the tool fades out and back in; a child frame drives the fade so the host keeps its
--- own OnUpdate.
+-- Show only on mouseover: a child frame drives the fade so the host keeps its own OnUpdate.
 local FADE_TIME = 0.25
 local function fadeStep(driver, elapsed)
     local host = driver:GetParent()
@@ -434,11 +433,10 @@ local function buildMarks()
         return b
     end
 
-    -- Markers go through the game's /tm command on a secure button (addons may not call SetRaidTarget); updateMarks
-    -- keeps the command current, a second click clears a mark already set.
+    -- Markers use /tm on a secure button (addons can't call SetRaidTarget); a second click clears.
     for i = 1, 9 do
         local b = newButton(true)
-        b:RegisterForClicks("AnyUp")
+        b:RegisterForClicks("AnyUp", "AnyDown")
         b:SetAttribute("type", "macro")
         if i == 9 then
             b.icon:SetTexture("Interface\\Buttons\\UI-GroupLoot-Pass-Up")
