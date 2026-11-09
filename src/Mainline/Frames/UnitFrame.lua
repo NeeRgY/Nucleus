@@ -1245,7 +1245,8 @@ local function checkGuids()
     forEachButton(function(b)
         if b.unit and b:IsShown() then
             local guid = UnitGUID(b.unit)
-            if N.IsSecret(guid) or guid ~= b._drawnGuid then
+            -- Handle secret values that can't be compared directly due to taint restrictions
+            if N.IsSecret(guid) or (not N.IsSecret(b._drawnGuid) and guid ~= b._drawnGuid) then
                 b._drawnGuid = guid
                 fullUpdate(b)
             end
