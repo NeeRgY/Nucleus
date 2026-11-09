@@ -84,6 +84,11 @@ queueFrame:SetScript("OnEvent", function()
     if #queue > 0 and not flushing then flush() end
 end)
 
+-- SetPropagateKeyboardInput is protected in combat.
+function N.Propagate(frame, on)
+    if InCombatLockdown() then return end
+    frame:SetPropagateKeyboardInput(on)
+end
 -- Runs fn now, or after combat. A key replaces an earlier deferral of the same action.
 function N.RunWhenSafe(fn, key)
     if not InCombatLockdown() and #queue == 0 then

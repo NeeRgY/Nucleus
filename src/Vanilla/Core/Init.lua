@@ -6,7 +6,7 @@ local addonName, ns = ...
 ns.CLIENT = "Vanilla"
 ns.ADDON = addonName
 local getMeta = (C_AddOns and C_AddOns.GetAddOnMetadata) or _G.GetAddOnMetadata
-ns.VERSION = getMeta and getMeta(addonName, "Version") or "1.0.8"
+ns.VERSION = getMeta and getMeta(addonName, "Version") or "1.0.9"
 
 local N = {}
 ns.N = N

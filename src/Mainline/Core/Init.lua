@@ -3,7 +3,7 @@ local addonName, ns = ...
 
 ns.CLIENT = "Mainline"
 ns.ADDON = addonName
-ns.VERSION = C_AddOns and C_AddOns.GetAddOnMetadata(addonName, "Version") or "1.0.8"
+ns.VERSION = C_AddOns and C_AddOns.GetAddOnMetadata(addonName, "Version") or "1.0.9"
 
 local N = {}
 ns.N = N

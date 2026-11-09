@@ -1,7 +1,7 @@
 local _, ns = ...
 local N = ns.N
 
--- Pulses a frame on a groupmate's ping. The ping events are protected, so the ping icon (.pingIconFrame) is mirrored via hooks.
+-- Pulses a frame on a groupmate's ping. The ping events are protected, so .pingIconFrame is mirrored via hooks.
 
 local Ping = {}
 N.Ping = Ping

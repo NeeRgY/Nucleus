@@ -781,7 +781,9 @@ local function powerBarRGB(b, o)
     local mode = o and o.barColorMode or "power"
     if mode == "class" then return N.ClassRGB(b.class) end
     if mode == "custom" then
-        local c = o.barColor or { 0.2, 0.4, 1 }
+        local tok = b.ppType
+        local own = o.barColors and type(tok) == "string" and not N.IsSecret(tok) and o.barColors[tok]
+        local c = own or o.barColor or { 0.2, 0.4, 1 }
         return c[1], c[2], c[3]
     end
     return powerRGB(b)
@@ -1043,7 +1045,7 @@ local function updateRange(b)
         -- Pets and units outside the group (target, focus): UnitInRange says false for an unchecked range, so
         -- fade only after a real check.
         local u = b.unit
-        local outside = u:find("pet") or not (u:find("^party%d") or u:find("^raid%d"))
+        local outside = u:find("pet") or u:find("target$") or not (u:find("^party%d") or u:find("^raid%d"))
         if outside and not (checked ~= nil and not N.IsSecret(checked) and checked) then
             inRange = nil
         end
@@ -1100,7 +1102,10 @@ rangeFrame:SetScript("OnUpdate", function(_, dt)
     local all = UF.AllButtons()
     for n = 1, #all do
         local b = all[n]
-        if b:IsShown() then updateRange(b) end
+        if b:IsShown() then
+            updateRange(b)
+            if b.groupKey == "partyTargets" then fullUpdate(b) end
+        end
     end
 end)
 
@@ -1212,7 +1217,7 @@ local function checkGuids()
     forEachButton(function(b)
         if b.unit and b:IsShown() then
             local guid = UnitGUID(b.unit)
-            if N.IsSecret(guid) or guid ~= b._drawnGuid then
+            if N.IsSecret(guid) or N.IsSecret(b._drawnGuid) or guid ~= b._drawnGuid then
                 b._drawnGuid = guid
                 fullUpdate(b)
             end
@@ -1260,6 +1265,12 @@ watcher:SetScript("OnEvent", function(_, event, unit)
         forEachButton(function(child)
             local u = child.unit
             if (u == "target" or u == "focus" or u == "targettarget") and child:IsShown() then fullUpdate(child) end
+        end)
+    end
+    if event == "UNIT_TARGET" and type(unit) == "string" and (unit == "player" or unit:find("^party%d$")) then
+        local watched = unit .. "target"
+        forEachButton(function(child)
+            if child.unit == watched and child:IsShown() then fullUpdate(child) end
         end)
     end
     if event == "PLAYER_FOCUS_CHANGED" or event == "UNIT_TARGET" then return end

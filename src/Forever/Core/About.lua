@@ -14,8 +14,9 @@ N.About = {
         { name = "Gold",      color = { 1.00, 0.82, 0.25 }, names = {} },
         { name = "Silver",    color = { 0.78, 0.82, 0.88 }, names = {} },
         { name = "Supporter", color = { 0.42, 0.70, 1.00 },
-          names = { "Longhorn", "Milkerson", "Kieran Smith", "Zozo", "McPeanut", "foxyface" } },
+          names = { "Longhorn", "Milkerson", "Kieran Smith", "Zozo", "McPeanut", "foxyface", "Pmagic" } },
     },
+    thanks = { "Geeerckier", "BotBender", "blasphemicbunny_", "taco_mane", "Xenia", "sushibarf" },
     testers = { "McPeanut", "B3Rti", "Omfgdan", "Graza", "sushibarf", "Nadjell", "vaesca", "Doc", "Bearowltree", "Danilo", "Arga", "Flerbs", "foxyface", "Grem", "Tantrim" },
     links = {
         {

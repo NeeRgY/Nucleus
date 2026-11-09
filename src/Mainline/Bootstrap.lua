@@ -71,22 +71,7 @@ local function start()
         N:Print(N.L["WELCOME_MSG"]:format(ns.VERSION or "?"))
     end
 
-    local function showFirstRun()
-        N.Dialog.Show({
-            title = N.L["FIRST_RUN_TITLE"],
-            text = N.L["FIRST_RUN_TEXT"],
-            buttons = {
-                { text = "GitHub", onClick = function() N.Dialog.Link("GitHub", "https://github.com/NeeRgY/Nucleus") end },
-                { text = "Discord", onClick = function() N.Dialog.Link("Discord", "https://discord.gg/HTgSf7Bjy8") end },
-                { text = N.L["Got it"], primary = true },
-            },
-        })
-    end
-    local freshInstall = not N.db.firstRunShown
-    if freshInstall then
-        N.db.firstRunShown = true
-        C_Timer.After(3, showFirstRun)
-    end
+    local freshInstall = N.db.whatsNewSeen == ""
     -- "What's new": once per new version; not on a fresh install or when switched off.
     local top = N.Changelog and N.Changelog[1]
     if top and top.version == ns.VERSION and N.db.whatsNewSeen ~= ns.VERSION then
@@ -97,8 +82,6 @@ local function start()
     end
     SLASH_NUCLEUSNEWS1 = "/nucnews"
     SlashCmdList.NUCLEUSNEWS = function() if N.ShowWhatsNew then N.ShowWhatsNew() end end
-    SLASH_NUCLEUSWELCOME1 = "/nucwelcome"
-    SlashCmdList.NUCLEUSWELCOME = showFirstRun
 end
 
 -- Start on whichever comes second: NUCLEUS_DB_READY (ADDON_LOADED) or PLAYER_LOGIN.

@@ -316,6 +316,9 @@ local function BuildPosition(p)
         { value = "bar", text = L["MOVER_STYLE_BAR"] },
     }, function() return N.db.moverStyle or "label" end,
        function(v) N:Set("moverStyle", v) end))
+    c:AddRow(N.MakeCheckbox(c, L["Show only on mouseover"],
+        function() return N.db.moverHover == true end,
+        function(v) N:Set("moverHover", v and true or false) end))
     c:AddRow(N.MakeSlider(c, L["Mover bar width"], 20, 400, 5,
         function() return N.db.moverBarWidth or 100 end,
         function(v) N:Set("moverBarWidth", N.Round(v)) end))
@@ -1539,14 +1542,47 @@ local function BuildIndicator(p, key, meta)
 
     if meta.bar then
         local bc = N.MakeCard(p, L["Bar color"])
+        local barDim
         bc:AddRow(N.MakeDropdown(bc, L["Color mode"], {
             { value = "power", text = L["Power color"] },
             { value = "class", text = L["Class color"] },
             { value = "custom", text = L["Custom color"] },
-        }, function() return o.barColorMode end, function(v) N:Set(pth("barColorMode"), v) end))
-        bc:AddRow(N.MakeColorPicker(bc, L["Color"],
-            function() return o.barColor end, function(v) N:Set(pth("barColor"), v) end))
+        }, function() return o.barColorMode end,
+           function(v) N:Set(pth("barColorMode"), v); if barDim then barDim() end end))
+        local resourcePickers = {}
+        local allColor = N.MakeColorPicker(bc, L["Color for all resources"],
+            function() return o.barColor end,
+            function(v)
+                N:Set(pth("barColor"), v)
+                for _, w in ipairs(resourcePickers) do w.Refresh() end
+            end)
+        bc:AddRow(allColor)
         p:AddCard(bc)
+
+        local rc = N.MakeCard(p, L["Colors by resource"])
+        for _, tok in ipairs({ "MANA", "RAGE", "FOCUS", "ENERGY", "RUNIC_POWER", "LUNAR_POWER", "MAELSTROM", "INSANITY", "FURY", "PAIN", "ESSENCE" }) do
+            local w = N.MakeColorPicker(rc, L["RES_" .. tok],
+                function() return (o.barColors and o.barColors[tok]) or o.barColor end,
+                function(v) N:Set(pth("barColors." .. tok), v) end)
+            resourcePickers[#resourcePickers + 1] = w
+            rc:AddRow(w)
+        end
+        local rn = N.FontString(rc, 11)
+        rn:SetPoint("TOPLEFT", rc, "TOPLEFT", N.CARD_PAD, rc._y)
+        rn:SetWidth(rc:GetWidth() - 2 * N.CARD_PAD)
+        rn:SetJustifyH("LEFT")
+        rn:SetTextColor(uc(M.color.textDim))
+        rn:SetText(L["RESOURCE_COLORS_NOTE"])
+        rn:SetHeight(rn:GetStringHeight() + 4)
+        rc:SetHeight(-rc._y + rn:GetHeight() + N.CARD_PAD)
+        p:AddCard(rc)
+        -- Only used in Custom color.
+        barDim = function()
+            local a = (o.barColorMode == "custom") and 1 or 0.45
+            allColor:SetAlpha(a)
+            for _, w in ipairs(resourcePickers) do w:SetAlpha(a) end
+        end
+        barDim()
     end
 
     if meta.bar then
@@ -1665,12 +1701,12 @@ local function BuildAuras(p, key, kind)
         function() return o.max end, function(v) N:Set(pth("max"), N.Round(v)) end))
     c:AddRow(N.MakeSlider(c, L["Icon size"], 8, 48, 1,
         function() return o.size end, function(v) N:Set(pth("size"), N.Round(v)) end))
-    c:AddRow(N.MakeSlider(c, L["Spacing"], 0, 40, 1,
+    c:AddRow(N.MakeSlider(c, L["Spacing"], 0, 200, 1,
         function() return o.spacing end, function(v) N:Set(pth("spacing"), N.Round(v)) end))
     if kind ~= "dispels" then
         c:AddRow(N.MakeSlider(c, L["Icons per row"], 1, 8, 1,
             function() return o.perRow or 8 end, function(v) N:Set(pth("perRow"), N.Round(v)) end))
-        c:AddRow(N.MakeSlider(c, L["Row spacing"], 0, 40, 1,
+        c:AddRow(N.MakeSlider(c, L["Row spacing"], 0, 200, 1,
             function() return o.lineSpacing or o.spacing end, function(v) N:Set(pth("lineSpacing"), N.Round(v)) end))
     end
     c:AddRow(N.MakeDropdown(c, L["Anchor"], {
@@ -2624,9 +2660,9 @@ local function BuildCustom(p, mode, id)
             slider(look, L["Icon size"], "size", 8, 48)
             if kind == "icons" then
                 slider(look, L["Max icons"], "max", 1, 8)
-                slider(look, L["Spacing"], "spacing", 0, 40)
+                slider(look, L["Spacing"], "spacing", 0, 200)
                 slider(look, L["Icons per row"], "perRow", 1, 8)
-                slider(look, L["Row spacing"], "lineSpacing", 0, 40)
+                slider(look, L["Row spacing"], "lineSpacing", 0, 200)
                 look:AddRow(N.MakeDropdown(look, L["Growth direction"], {
                     { value = "RIGHT", text = L["Right"] }, { value = "LEFT", text = L["Left"] },
                     { value = "UP", text = L["Up"] }, { value = "DOWN", text = L["Down"] },
@@ -3158,6 +3194,7 @@ local function PlayerSpecs()
 end
 
 local ccScope = "class"
+local ccScopeSet = false
 local ccPreset = ""
 local ccPresetsOpen = false
 
@@ -3177,6 +3214,13 @@ local function BuildClickCasting(p)
     local _, class = UnitClass("player")
     if type(cc.bySpec) ~= "table" then cc.bySpec = { _list = true } end
 
+    -- First visit: open on the list that is in use (the specialization's own one, if it has one).
+    if not ccScopeSet then
+        ccScopeSet = true
+        local inUse = N.Profiles and N.Profiles.GetSpec and N.Profiles.GetSpec()
+        if inUse and type(cc.bySpec[inUse]) == "table" then ccScope = inUse end
+    end
+
     local specs = PlayerSpecs()
     local scopeOpts = { { value = "class", text = L["All specializations"] } }
     local valid = ccScope == "class"
@@ -3190,6 +3234,19 @@ local function BuildClickCasting(p)
     scope:AddRow(N.MakeDropdown(scope, L["Bindings for"], scopeOpts,
         function() return ccScope end,
         function(v) ccScope = v; rebuild() end))
+    local active = N.Profiles and N.Profiles.GetSpec and N.Profiles.GetSpec()
+    if ccScope == "class" and active and type(cc.bySpec[active]) == "table" then
+        local warn = CreateFrame("Frame", nil, scope)
+        local wt = N.FontString(warn, 11)
+        wt:SetPoint("TOPLEFT", warn, "TOPLEFT", 0, 0)
+        wt:SetWidth(scope:GetWidth() - 2 * N.CARD_PAD)
+        wt:SetJustifyH("LEFT")
+        wt:SetTextColor(uc(M.color.textDim))
+        wt:SetText(L["CC_CLASS_OVERRIDDEN"])
+        warn._rowHeight = wt:GetStringHeight() + 8
+        scope:AddRow(warn)
+        scope:AddRow(ActionButton(scope, L["CC_EDIT_OWN"], function() ccScope = active; rebuild() end))
+    end
     local bindings = cc.byClass[class]
     if ccScope ~= "class" then
         local own = cc.bySpec[ccScope]
@@ -3338,7 +3395,7 @@ local function BuildAbout(p)
     body:SetWidth(c:GetWidth() - 2 * N.CARD_PAD)
     body:SetJustifyH("LEFT")
     body:SetJustifyV("TOP")
-    body:SetText(L["ABOUT_BODY"])
+    body:SetText(L["ABOUT_BODY"] .. "\n\n" .. L["ABOUT_TRANSLATION"])
     body:SetHeight(body:GetStringHeight() + 4)
     local author = N.FontString(c, 12)
     author:SetPoint("TOPLEFT", body, "BOTTOMLEFT", 0, -12)
@@ -3693,7 +3750,7 @@ local function HasSub(tab, id)
     for _, s in ipairs(tab.subs) do if s.id == id and not s.action then return true end end
 end
 
--- Frames are never freed: built pages are kept per profile (cacheStash) and reused while its tables are the same.
+-- Frames are never freed: built pages are cached per profile (cacheStash).
 local cacheStash, cachedProfile, cachedGen = {}, nil, nil
 local function noteCacheOwner()
     if not cachedProfile then
@@ -3786,8 +3843,7 @@ local function SelectSub(tabId, subId)
     if scroll.SetOffset then scroll.SetOffset(0) end
 end
 
--- Type glyphs of the custom indicators: lists of {x, y, w, h, alpha} in screen pixels on a 20x20 grid (y from the
--- top), so every edge sits on a whole pixel.
+-- Type glyphs: {x, y, w, h, alpha} in screen pixels on a 20x20 grid, y from the top.
 local GLYPHS = {
     icon    = { {2,2,16,2}, {2,16,16,2}, {2,4,2,12}, {16,4,2,12}, {7,7,6,6} },
     icons   = { {0,7,6,6}, {7,7,6,6}, {14,7,6,6} },
@@ -4678,13 +4734,13 @@ local function BuildSearch(header)
         box:ClearFocus()
     end)
     window:EnableKeyboard(true)
-    window:SetPropagateKeyboardInput(true)
+    N.Propagate(window, true)
     window:SetScript("OnKeyDown", function(self, key)
         if key == "F" and IsControlKeyDown() then
-            self:SetPropagateKeyboardInput(false)
+            N.Propagate(self, false)
             box:SetFocus()
         else
-            self:SetPropagateKeyboardInput(true)
+            N.Propagate(self, true)
         end
     end)
 end

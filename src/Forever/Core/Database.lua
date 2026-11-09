@@ -116,10 +116,10 @@ N:On("ADDON_LOADED", function(_, name)
     end
 end)
 
-N.GROUP_KEYS = { party = true, raid = true, ownPet = true, groupPets = true, npc = true, spotlight = true }
+N.GROUP_KEYS = { party = true, raid = true, ownPet = true, groupPets = true, npc = true, partyTargets = true, spotlight = true }
 N.SPOTLIGHT_MAX = 10 -- most frames the spotlight group can show
-N.PET_KEYS = { ownPet = true, groupPets = true, npc = true }
-N.PET_ORDER = { "ownPet", "groupPets", "npc" }
+N.PET_KEYS = { ownPet = true, groupPets = true, npc = true, partyTargets = true }
+N.PET_ORDER = { "ownPet", "groupPets", "npc", "partyTargets" }
 
 function N:Mode()
     return self.db and self.db.editMode or "party"

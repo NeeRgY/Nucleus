@@ -654,7 +654,9 @@ local function powerBarRGB(b, o)
     local mode = o and o.barColorMode or "power"
     if mode == "class" then return N.ClassRGB(b.class) end
     if mode == "custom" then
-        local c = o.barColor or { 0.2, 0.4, 1 }
+        local tok = b.ppType
+        local own = o.barColors and type(tok) == "string" and not N.IsSecret(tok) and o.barColors[tok]
+        local c = own or o.barColor or { 0.2, 0.4, 1 }
         return c[1], c[2], c[3]
     end
     return powerRGB(b)
@@ -977,7 +979,7 @@ local function checkGuids()
     forEachButton(function(b)
         if b.unit and b:IsShown() then
             local guid = UnitGUID(b.unit)
-            if N.IsSecret(guid) or guid ~= b._drawnGuid then
+            if N.IsSecret(guid) or N.IsSecret(b._drawnGuid) or guid ~= b._drawnGuid then
                 b._drawnGuid = guid
                 fullUpdate(b)
             end

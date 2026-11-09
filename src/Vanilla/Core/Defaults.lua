@@ -85,7 +85,7 @@ local function groupDefaults(overrides)
                            text = false, textFormat = "percent", customFormat = "{p}%",
                            textSize = 9, textPosition = "bottom", textX = 0, textY = 0,
                            textColorMode = "power", textColor = { 1, 1, 1 },
-                           barColorMode = "power", barColor = { 0.2, 0.4, 1 },
+                           barColorMode = "power", barColor = { 0.2, 0.4, 1 }, barColors = { _list = true }, -- barColors[token] = color
                            position = "bottom" },
             -- Status: a pill naming the unit's state; anchor / align place it, `show` switches single states.
             status     = { enabled = true, size = 11, outline = "thin", anchor = "bottom", align = "center", y = 2,
@@ -295,6 +295,7 @@ N.Defaults = {
     moverMode = "always", -- how the move handle is dragged: always | alt
     moverSize = 100,
     moverStyle = "label", -- label (name tab) | bar
+    moverHover = false, -- handle visible only under the mouse
     moverBarWidth = 100,
     moverX = 0,
     moverY = 0,
@@ -302,7 +303,6 @@ N.Defaults = {
     debugMode = false, -- Debug console: log internal messages
     bindingPresets = { _list = true }, -- Click-Casting presets: [class][name] = bindings, shared by all profiles
     welcomeMessage = true, -- the "Nucleus loaded - version X" line in the chat at login / reload
-    firstRunShown = false, -- the one-time welcome window has been shown
     showWhatsNew = true,   -- show the "What's new" window once after an update
     whatsNewSeen = "",     -- the version whose "What's new" window was shown last
     blizzFilterOff = false, -- one-time migration: Blizzard-classification fallback switched off

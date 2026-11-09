@@ -8,7 +8,7 @@ N.ClickCasting = CC
 
 local BUTTON_INDEX = { LeftButton = 1, RightButton = 2, MiddleButton = 3, Button4 = 4, Button5 = 5 }
 
--- Wheel and keys have no button number: an override binding makes a named click ("ctrlSCROLLUP"); keys are "KEY:Q".
+-- Wheel and keys have no button: an override binding clicks "ctrlSCROLLUP" / "KEY:Q".
 local WHEEL = { ScrollUp = "SCROLLUP", ScrollDown = "SCROLLDOWN" }
 local WHEEL_KEY = { ScrollUp = "MOUSEWHEELUP", ScrollDown = "MOUSEWHEELDOWN" }
 
@@ -91,7 +91,7 @@ end
 -- Attributes a binding needs, or nil. Macro text starts with "/" or "#", else it is a macro name.
 local PLAIN_ACTIONS = { target = "target", focus = "focus", menu = "togglemenu", assist = "assist" }
 
--- Smart resurrection: the binding becomes a macro: resurrect a dead unit, else the bound spell. The name casts the highest rank.
+-- Smart res: a macro that resurrects a dead unit, else casts the bound spell.
 local RES_SPELLS = {
     PRIEST = { normal = 2006 }, PALADIN = { normal = 7328, combat = 391054 }, DRUID = { normal = 50769, combat = 20484 },
     SHAMAN = { normal = 2008 }, MONK = { normal = 115178 }, EVOKER = { normal = 361227 },
@@ -249,7 +249,7 @@ function CC.ClearAll(button)
     end
 end
 
--- Wheel bindings need the mouse-over override binding, set by a secure handler from wrapped scripts (works in combat).
+-- Wheel bindings use an override binding set from a secure handler (works in combat).
 local wheelHandler = CreateFrame("Frame", "NucleusWheelHandler", UIParent, "SecureHandlerBaseTemplate")
 local wheelWrapped = setmetatable({}, { __mode = "k" })
 
@@ -369,7 +369,7 @@ N:On("NUCLEUS_SETTING_CHANGED", function(_, section)
     end
 end)
 
--- The self-cast key (Alt by default) casts on yourself, so bindings on it never reach the frame. Asked once per set of bindings.
+-- A binding on the self-cast key never reaches the frame. Asked once per binding set.
 local function selfCastTokens()
     local key = GetModifiedClick and GetModifiedClick("SELFCAST")
     if type(key) ~= "string" or key == "" or key == "NONE" then return nil end

@@ -137,6 +137,10 @@ end
 
 local NPC_SLOTS = 4
 
+-- Party targets: one button per member.
+local TARGET_OWNERS = { "party1", "party2", "party3", "party4", "player" }
+local TARGET_UNITS = { "party1target", "party2target", "party3target", "party4target", "playertarget" }
+
 -- A party member that is an NPC companion (Brann in Delves, follower dungeons).
 local function isNpcUnit(unit)
     return UnitExists(unit) and UnitInPartyIsAI and UnitInPartyIsAI(unit) and true or false
@@ -497,6 +501,40 @@ local function layoutAttachedPets(c)
     styleChildren(c)
 end
 
+-- Unassigned members count as damage dealers.
+local function targetRoleWanted(unit, roles)
+    local role = UnitGroupRolesAssigned(unit)
+    if N.IsSecret(role) then return true end
+    if role ~= "TANK" and role ~= "HEALER" then role = "DAMAGER" end
+    return roles[role] == true
+end
+
+-- Out of combat: attach each button to its owner and set its visibility.
+local function layoutPartyTargets(c)
+    if InCombatLockdown() then
+        N.RunWhenSafe(function() layoutPartyTargets(c) end, "partytargets-layout")
+        return
+    end
+    local cfg = N.db.partyTargets
+    local on = (cfg.enabled and not N.profileHidden and not IsInRaid()) and true or false
+    c:SetShown(on)
+    local roles = type(cfg.roles) == "table" and cfg.roles or {}
+    for i, b in ipairs(c.buttons) do
+        local ownerUnit = TARGET_OWNERS[i]
+        local owner = on and UnitExists(ownerUnit) and findOwnerButton(ownerUnit) or nil
+        local driver = "hide"
+        if owner and targetRoleWanted(ownerUnit, roles) then
+            driver = "[@" .. TARGET_UNITS[i] .. ",exists] show; hide"
+            attachTo(b, owner, cfg)
+        end
+        if b._driver ~= driver then
+            b._driver = driver
+            RegisterStateDriver(b, "visibility", driver)
+        end
+    end
+    styleChildren(c)
+end
+
 local function applyGroupPetsMode()
     local cfg = N.db.groupPets
     local header, att = N.headers.groupPets, N.headers.groupPetsAttached
@@ -519,6 +557,10 @@ end
 local function configurePetContainer(container)
     local key = container.groupKey
     local cfg = N.db[key]
+    if key == "partyTargets" then
+        layoutPartyTargets(container)
+        return
+    end
     local count, order = 1, container.buttons
     if key == "npc" then
         local units = {}
@@ -605,7 +647,7 @@ local function configureInner(header)
     local cfg = N.db[key]
     local group = headerInfo[header] and headerInfo[header].group
     local grid = key == "raid" and RG.Active()
-    if key == "ownPet" or key == "npc" or key == "spotlight" then
+    if key == "ownPet" or key == "npc" or key == "spotlight" or key == "partyTargets" then
         configurePetContainer(header)
         return
     end
@@ -740,13 +782,13 @@ local function configureInner(header)
     if key == "raid" and not group then syncGroupHeaders() end
 end
 
--- _ignore holds the per-attribute updates; one nucRefresh bump runs the game's update (calling it ourselves taints).
+-- _ignore holds attribute updates, one nucRefresh bump runs the update (calling it directly taints).
 local function configure(header)
     local info = headerInfo[header]
     if info then header:SetAttribute("_ignore", "attributeChanges") end
     local ok, err = pcall(configureInner, header)
     if info then
-        -- The header never clears old anchors: after a direction change a child sits diagonal. The update below re-sets them.
+        -- The header keeps old anchors (diagonal frames): clear them, the update sets them again.
         if ok and not InCombatLockdown() then
             forChildren(header, function(child) child:ClearAllPoints() end)
         end
@@ -787,6 +829,7 @@ function HG.RefreshAttach()
         if N.headers.ownPet and N.db.ownPet.attachEnabled then
             configurePetContainer(N.headers.ownPet)
         end
+        if N.headers.partyTargets then layoutPartyTargets(N.headers.partyTargets) end
     end, "pet-attach")
 end
 
@@ -794,18 +837,19 @@ local applyVisibility
 
 local function createHeader(key)
     local name = "NucleusHeader" .. (key:gsub("^%l", string.upper))
-    if key == "ownPet" or key == "npc" or key == "spotlight" then
+    if key == "ownPet" or key == "npc" or key == "spotlight" or key == "partyTargets" then
         local c = CreateFrame("Frame", name, UIParent)
         c.groupKey = key
         c:SetMovable(true)
         c:SetClampedToScreen(true)
         c.buttons = {}
-        local slots = (key == "npc" and NPC_SLOTS) or (key == "spotlight" and N.SPOTLIGHT_MAX) or 1
+        local slots = (key == "npc" and NPC_SLOTS) or (key == "spotlight" and N.SPOTLIGHT_MAX) or (key == "partyTargets" and #TARGET_UNITS) or 1
         for i = 1, slots do
             local b = CreateFrame("Button", name .. "UnitButton" .. i, c, "SecureUnitButtonTemplate")
             b:SetAttribute("*type1", "target")
             b:SetAttribute("*type2", "togglemenu")
             if key == "ownPet" then b:SetAttribute("unit", "pet") end
+            if key == "partyTargets" then b:SetAttribute("unit", TARGET_UNITS[i]) end
             b:Hide()
             c.buttons[i] = b
         end
@@ -823,7 +867,7 @@ local function createHeader(key)
         N.headers[key] = c
         configurePetContainer(c)
         applyVisibility(c)
-        if N.Layout_MakeAnchor then N.Layout_MakeAnchor(key) end
+        if key ~= "partyTargets" and N.Layout_MakeAnchor then N.Layout_MakeAnchor(key) end
         C_Timer.After(0, function() if N.ClickCasting then N.ClickCasting.ApplyToAll() end end)
         return c
     end
@@ -861,7 +905,7 @@ applyVisibility = function(header)
             RegisterStateDriver(header.buttons[1], "visibility", "hide")
         elseif N.HeaderKey(header) == "groupPets" then
             applyGroupPetsMode()
-        elseif N.HeaderKey(header) == "npc" or N.HeaderKey(header) == "spotlight" then
+        elseif N.HeaderKey(header) == "npc" or N.HeaderKey(header) == "spotlight" or N.HeaderKey(header) == "partyTargets" then
             header:Hide()
         else
             RegisterStateDriver(N.HeaderHolder(header) or header, "visibility", "hide")
@@ -872,6 +916,9 @@ applyVisibility = function(header)
     if key == "ownPet" then
         header:Show()
         RegisterStateDriver(header.buttons[1], "visibility", "[@pet,exists] show; hide")
+        return
+    elseif key == "partyTargets" then
+        layoutPartyTargets(header)
         return
     elseif key == "npc" or key == "spotlight" then
         header:Show()
@@ -891,7 +938,7 @@ applyVisibility = function(header)
 end
 
 function HG.Init()
-    for _, key in ipairs({ "party", "raid", "ownPet", "groupPets", "npc", "spotlight" }) do
+    for _, key in ipairs({ "party", "raid", "ownPet", "groupPets", "npc", "partyTargets", "spotlight" }) do
         if N.db[key].enabled then
             -- A login or /reload in combat: secure headers are only made once the combat is over.
             N.RunWhenSafe(function()

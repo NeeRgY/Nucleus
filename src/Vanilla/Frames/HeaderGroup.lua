@@ -739,13 +739,13 @@ local function configureInner(header)
     if key == "raid" and not group then syncGroupHeaders() end
 end
 
--- _ignore holds the per-attribute updates; one nucRefresh bump runs the game's update (calling it ourselves taints).
+-- _ignore holds attribute updates, one nucRefresh bump runs the update (calling it directly taints).
 local function configure(header)
     local info = headerInfo[header]
     if info then header:SetAttribute("_ignore", "attributeChanges") end
     local ok, err = pcall(configureInner, header)
     if info then
-        -- The header never clears old anchors: after a direction change a child sits diagonal. The update below re-sets them.
+        -- The header keeps old anchors (diagonal frames): clear them, the update sets them again.
         if ok and not InCombatLockdown() then
             forChildren(header, function(child) child:ClearAllPoints() end)
         end

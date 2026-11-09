@@ -8,7 +8,7 @@ N.Profiles = P
 local LibSerialize = LibStub and LibStub:GetLibrary("LibSerialize", true)
 local LibDeflate = LibStub and LibStub:GetLibrary("LibDeflate", true)
 
-P.KEYS = { "party", "raid", "tooltip", "core", "ping", "clickCasting", "targetedSpellBars", "actions", "tools", "ownPet", "groupPets", "npc", "spotlight" }
+P.KEYS = { "party", "raid", "tooltip", "core", "ping", "clickCasting", "targetedSpellBars", "actions", "tools", "ownPet", "groupPets", "npc", "partyTargets", "spotlight" }
 local KEYSET = {}
 for _, k in ipairs(P.KEYS) do KEYSET[k] = true end
 P.KEYSET = KEYSET
@@ -203,7 +203,7 @@ P.BumpGeneration = bumpGeneration
 
 -- Replays settings events so every module re-reads the active profile.
 local function reapply()
-    for _, sec in ipairs({ "party", "raid", "ownPet", "groupPets", "npc", "spotlight" }) do
+    for _, sec in ipairs({ "party", "raid", "ownPet", "groupPets", "npc", "partyTargets", "spotlight" }) do
         N:Fire("NUCLEUS_SETTING_CHANGED", sec, sec .. ".enabled", N.db[sec].enabled)
         N:Fire("NUCLEUS_SETTING_CHANGED", sec, sec .. ".width", N.db[sec].width)
         N:Fire("NUCLEUS_SETTING_CHANGED", sec, sec .. ".hideBlizzard", N.db[sec].hideBlizzard)
@@ -316,7 +316,7 @@ local SYNC_FIELDS = {
 }
 local SYNC_TABLES = { appearance = "appearance", indicators = "indicators", auras = "auras", custom = "customIndicators" }
 P.SYNC_GROUP_PARTS = { "size", "layout", "position", "appearance", "indicators", "auras", "custom" }
-P.SYNC_WHOLE = { "ownPet", "groupPets", "npc", "spotlight", "tooltip", "clickCasting", "targetedSpellBars",
+P.SYNC_WHOLE = { "ownPet", "groupPets", "npc", "partyTargets", "spotlight", "tooltip", "clickCasting", "targetedSpellBars",
                  "actions", "tools", "ping" }
 
 function P.SyncConfig() return raw and raw.profileSync end

@@ -54,6 +54,11 @@ local function fill()
             any = true
         end
     end
+    local thanks = N.About and N.About.thanks
+    if thanks and #thanks > 0 then
+        y = addTier(child, y, { name = L["Special thanks"], color = { 0.95, 0.55, 0.75 }, names = thanks })
+        any = true
+    end
     local testers = N.About and N.About.testers
     if testers and #testers > 0 then
         y = addTier(child, y, { name = L["Testers"], color = { 0.45, 0.85, 0.55 }, names = testers })

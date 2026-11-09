@@ -135,7 +135,7 @@ local function open(spec)
     end
     for i = #list + 1, #f.buttons do f.buttons[i]:Hide() end
 
-    -- A secureMacro button gets a transparent secure button on top (addons can't call ReloadUI, a macro can /reload).
+    -- Transparent secure button on top: only a macro can /reload.
     local holder = f.secureHolder
     if not holder then
         holder = CreateFrame("Frame", nil, f.box)
@@ -197,13 +197,13 @@ local function open(spec)
 
     f:SetScript("OnKeyDown", function(self, key)
         if key == "ESCAPE" then
-            self:SetPropagateKeyboardInput(false)
+            N.Propagate(self, false)
             press(spec, #list > 1 and self.buttons[1] or self.buttons[#list])
         elseif key == "ENTER" and not spec.input and not (list[#list] and list[#list].secureMacro) then
-            self:SetPropagateKeyboardInput(false)
+            N.Propagate(self, false)
             press(spec, self.buttons[#list])
         else
-            self:SetPropagateKeyboardInput(true)
+            N.Propagate(self, true)
         end
     end)
 

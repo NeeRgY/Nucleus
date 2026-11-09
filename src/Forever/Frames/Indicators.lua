@@ -520,7 +520,10 @@ Indicators.Register("raidMarker", {
     update = function(b, icon)
         local idx
         if b._mock then idx = b._mock.raidMarker else idx = b.unit and GetRaidTargetIndex(b.unit) end
-        if type(idx) == "number" and not IsSecret(idx) and idx >= 1 and idx <= 8 then
+        if IsSecret(idx) then
+            -- Secret index: the game's setter still draws it.
+            icon:SetShown(pcall(SetRaidTargetIconTexture, icon, idx))
+        elseif type(idx) == "number" and idx >= 1 and idx <= 8 then
             SetRaidTargetIconTexture(icon, idx)
             icon:Show()
         else

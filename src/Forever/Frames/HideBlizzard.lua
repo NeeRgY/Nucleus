@@ -43,7 +43,7 @@ local function shrink(frame, hide)
     end
 end
 
--- Alpha only, for frames moved out of their container; Blizzard resets member alpha, so it is restored in a timer.
+-- Alpha only: Blizzard resets member alpha, so a timer restores it.
 local alphaHidden = setmetatable({}, { __mode = "k" })
 local alphaHooked = setmetatable({}, { __mode = "k" })
 local alphaQueue, alphaQueued = {}, false

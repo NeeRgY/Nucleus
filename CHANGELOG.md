@@ -1,5 +1,22 @@
 # Nucleus Changelog
 
+## 1.0.9 (2026-11-09)
+
+### New
+
+- New Party Target Frames (Forever, off by default): the target of each party member shows next to that member's frame. Pick which roles get one with the Tank, Healer and Damage dealer ticks. Only in a party, not in a raid. You find it under Editing > Pets / NPCs > Party targets.
+- New Power Bar colors by resource (Indicators > Power Bar > Colors by resource): with Bar color set to Custom color, each resource can have its own color. Retail lists all its resources, the Classic versions Mana, Rage, Energy and Focus. A resource you do not change keeps the single custom color.
+- New Move handles can show only under the mouse (Move handles > Show only on mouseover). The handle is invisible and appears when the pointer is over its spot.
+
+### Fixes
+
+- Fixed an "[ADDON_ACTION_BLOCKED] ... SetPropagateKeyboardInput()" message when keys are pressed with the options window open during combat.
+- Click-Casting: the Bindings for list now opens on the specialization in use when it has its own bindings, and a hint with a button appears when edits under All specializations would not apply to it. (Retail, Forever)
+- Removed the welcome window shown on the first start, and the /nucwelcome command with it.
+- The spacing and row spacing of the aura rows (Buffs, Debuffs and the others) and of custom icon indicators can now be set up to 200 instead of 40, so icons can sit far apart.
+- Fixed the Raid Marker indicator not showing on the frames when the game hides the marker value, for example your own marker staying invisible on your frame. (Retail, Forever)
+- Fixed a Lua error "attempt to compare field '_drawnGuid' (a secret string value)" on Spotlight frames after targeting units whose identity is hidden, repeated on every update.
+
 ## 1.0.8 (2026-11-07)
 
 ### New

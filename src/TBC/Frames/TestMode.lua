@@ -471,7 +471,7 @@ function TM.Init()
         end
     end)
     N:On("NUCLEUS_SETTING_CHANGED", function(_, _, path)
-        if path == "locked" or path == "moverMode" or path == "moverSize" or path == "moverStyle"
+        if path == "locked" or path == "moverMode" or path == "moverSize" or path == "moverStyle" or path == "moverHover"
             or path == "moverBarWidth" or path == "moverX" or path == "moverY" then
             syncHandles()
         end

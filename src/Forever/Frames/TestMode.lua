@@ -129,7 +129,7 @@ local function count(key)
     local cfg = N.db[key]
     if key == "party" then return cfg.showPlayer and 5 or 4 end
     if key == "ownPet" or key == "npc" then return 1 end
-    if key == "groupPets" then return 4 end
+    if key == "groupPets" or key == "partyTargets" then return 4 end
     if key == "spotlight" then return 3 end
     if key == "raid" then
         local groups = 0
@@ -228,7 +228,8 @@ local function makeHandle(container, key)
     label:SetPoint("CENTER")
     label:SetTextColor(M.color.accentBright[1], M.color.accentBright[2], M.color.accentBright[3])
     local title = N.L[({ party = "Party Frames", raid = "Raid Frames", ownPet = "Own Pet Frame",
-        groupPets = "Group Pet Frames", npc = "NPC Companion Frames", spotlight = "Spotlight Frame" })[key]]
+        groupPets = "Group Pet Frames", npc = "NPC Companion Frames", partyTargets = "Party Target Frames",
+        spotlight = "Spotlight Frame" })[key]]
     N.StyleMover(a, label, title, container)
     a._restyle = function() N.StyleMover(a, label, title, container) end
     a:RegisterForDrag("LeftButton")
@@ -311,7 +312,8 @@ local function testOrder(key, n)
     return order
 end
 
-local PET_NAMES = { ownPet = { "Fenrir" }, groupPets = { "Spirit Wolf", "Imp", "Ghoul", "Water Elemental" }, npc = { "Brann" } }
+local PET_NAMES = { ownPet = { "Fenrir" }, groupPets = { "Spirit Wolf", "Imp", "Ghoul", "Water Elemental" }, npc = { "Brann" },
+    partyTargets = { "Defias Thug", "Kobold", "Murloc", "Boar" } }
 
 local function buildKey(key, force)
     if not force and not N.db[key].enabled and not N.PET_KEYS[key] and key ~= "spotlight" then return end
@@ -370,7 +372,7 @@ local function attachPreview(key)
     local pool, owners = pools[key], pools.party
     if not (c and pool and owners) then return end
     local cfg = N.db[key]
-    local which = (key == "ownPet") and { 1 } or { 3, 5 }
+    local which = (key == "ownPet") and { 1 } or (key == "partyTargets") and { 1, 2, 3, 4 } or { 3, 5 }
     for i = 1, #pool do pool[i]:Hide() end
     for i, oi in ipairs(which) do
         local b, ob = pool[i], owners[oi]
@@ -386,14 +388,14 @@ local NPC_SIDES = {
     RIGHT = { "TOPLEFT", "TOPRIGHT" }, LEFT = { "TOPRIGHT", "TOPLEFT" },
     TOP = { "BOTTOMLEFT", "TOPLEFT" }, BOTTOM = { "TOPLEFT", "BOTTOMLEFT" },
 }
-local SECTION_KEYS = { "party", "raid", "ownPet", "groupPets", "npc", "spotlight" }
+local SECTION_KEYS = { "party", "raid", "ownPet", "groupPets", "npc", "partyTargets", "spotlight" }
 local function rebuild()
     if not active then return end
     local edited = N:Mode()
     local extra = N.db.testSections or {}
     for _, key in ipairs(SECTION_KEYS) do
         if key == edited or extra[key] == true then
-            local attached = (key == "ownPet" or key == "groupPets") and N.db[key].attachEnabled
+            local attached = (key == "ownPet" or key == "groupPets" or key == "partyTargets") and N.db[key].attachEnabled
             if attached then
                 buildKey("party", true)
                 if containers.party then containers.party:Show() end
@@ -473,7 +475,7 @@ function TM.Init()
         end
     end)
     N:On("NUCLEUS_SETTING_CHANGED", function(_, _, path)
-        if path == "locked" or path == "moverMode" or path == "moverSize" or path == "moverStyle"
+        if path == "locked" or path == "moverMode" or path == "moverSize" or path == "moverStyle" or path == "moverHover"
             or path == "moverBarWidth" or path == "moverX" or path == "moverY" then
             syncHandles()
         end

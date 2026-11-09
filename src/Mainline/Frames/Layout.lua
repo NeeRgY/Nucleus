@@ -32,6 +32,14 @@ function N.StyleMover(a, label, text, target)
         a:SetSize(math.max(24, math.floor(label:GetStringWidth() + 14 * scale)), math.floor(15 * scale + 0.5))
         if a._nucFill then a._nucFill:SetColorTexture(0.10, 0.10, 0.10, 0.95) end
     end
+    -- moverHover: alpha 0 still catches the mouse.
+    if not a._hoverHooked then
+        a._hoverHooked = true
+        a:HookScript("OnEnter", function() if N.db.moverHover then a:SetAlpha(1) end end)
+        a:HookScript("OnLeave", function() if N.db.moverHover and not a._moving then a:SetAlpha(0) end end)
+        a:HookScript("OnDragStop", function() if N.db.moverHover and not a:IsMouseOver() then a:SetAlpha(0) end end)
+    end
+    a:SetAlpha((N.db and N.db.moverHover and not a:IsMouseOver()) and 0 or 1)
 end
 
 function N.MoverWanted(key)
@@ -141,7 +149,7 @@ function N.Layout_Init()
 end
 
 N:On("NUCLEUS_SETTING_CHANGED", function(_, _, path)
-    if path == "locked" or path == "moverMode" or path == "moverSize" or path == "moverStyle"
+    if path == "locked" or path == "moverMode" or path == "moverSize" or path == "moverStyle" or path == "moverHover"
         or path == "moverBarWidth" or path == "moverX" or path == "moverY" then
         N.RefreshLock()
     end

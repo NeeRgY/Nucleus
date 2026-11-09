@@ -91,7 +91,7 @@ local function groupDefaults(overrides)
                            text = false, textFormat = "percent", customFormat = "{p}%",
                            textSize = 9, textPosition = "bottom", textX = 0, textY = 0,
                            textColorMode = "power", textColor = { 1, 1, 1 },
-                           barColorMode = "power", barColor = { 0.2, 0.4, 1 },
+                           barColorMode = "power", barColor = { 0.2, 0.4, 1 }, barColors = { _list = true }, -- barColors[token] = color
                            position = "bottom" },
             -- Status: a pill naming the unit's state; anchor / align place it, `show` switches single states.
             status     = { enabled = true, size = 11, outline = "thin", anchor = "bottom", align = "center", y = 2,
@@ -305,7 +305,7 @@ N.Defaults = {
             ["party.appearance"] = true, ["party.indicators"] = true, ["party.auras"] = true, ["party.custom"] = true,
             ["raid.size"] = false, ["raid.layout"] = false, ["raid.position"] = false,
             ["raid.appearance"] = true, ["raid.indicators"] = true, ["raid.auras"] = true, ["raid.custom"] = true,
-            ownPet = false, groupPets = false, npc = false, spotlight = false, tooltip = false,
+            ownPet = false, groupPets = false, npc = false, partyTargets = false, spotlight = false, tooltip = false,
             clickCasting = false, targetedSpellBars = false, actions = false, tools = false, ping = false,
         },
     },
@@ -318,6 +318,7 @@ N.Defaults = {
     moverMode = "always", -- how the move handle is dragged: always | alt
     moverSize = 100,
     moverStyle = "label", -- label (name tab) | bar
+    moverHover = false, -- handle visible only under the mouse
     moverBarWidth = 100,
     moverX = 0,
     moverY = 0,
@@ -325,7 +326,6 @@ N.Defaults = {
     debugMode = false, -- Debug console: log internal messages
     bindingPresets = { _list = true }, -- Click-Casting presets: [class][name] = bindings, shared by all profiles
     welcomeMessage = true, -- the "Nucleus loaded - version X" line in the chat at login / reload
-    firstRunShown = false, -- the one-time welcome window has been shown
     showWhatsNew = true,   -- show the "What's new" window once after an update
     whatsNewSeen = "",     -- the version whose "What's new" window was shown last
     blizzFilterOff = false, -- one-time migration: Blizzard-classification fallback switched off
@@ -393,6 +393,13 @@ N.Defaults = {
         moveCompanions = false, -- take party NPC companions out of the group frames and show them here
         width = 80, height = 30, spacing = 2, x = 24, y = -540,
         appearance = { healthCustomColor = { 0.40, 0.60, 1.00 } },
+    })),
+
+    -- Party targets (roles = whose target shows).
+    partyTargets = groupDefaults(petDefaults({
+        width = 66, height = 22, x = 24, y = -500,
+        roles = { TANK = true, HEALER = false, DAMAGER = false },
+        appearance = { healthCustomColor = { 0.80, 0.30, 0.30 } },
     })),
 
     -- Spotlight `units`: { type = "target"|"targettarget"|"focus" | "role" | "name", value }.
@@ -524,7 +531,7 @@ N.Defaults = {
 -- The spell lists, raid buffs, potions and the class-only icon come from Core/Classic.lua.
 do
     local C = N.Classic
-    for _, key in ipairs({ "party", "raid", "ownPet", "groupPets", "npc", "spotlight" }) do
+    for _, key in ipairs({ "party", "raid", "ownPet", "groupPets", "npc", "partyTargets", "spotlight" }) do
         local g = N.Defaults[key]
         g.auras.defensives.list = C.LIST.defensives
         g.auras.externals.list = C.LIST.externals
@@ -536,6 +543,13 @@ do
         for _, buff in ipairs(C.BUFFS) do mb.buffs[buff.key] = C.BUFF_DEFAULT[buff.key] == true end
         for _, sub in ipairs(C.BLESSINGS) do mb.buffs[sub.key] = C.BUFF_DEFAULT[sub.key] ~= false end
         g.indicators.classSpec.mode = "class" -- Forever has one specialization per class
+    end
+    -- Party targets: only name and health text, no aura rows.
+    for k, o in pairs(N.Defaults.partyTargets.indicators) do
+        if type(o) == "table" and k ~= "name" and k ~= "healthText" then o.enabled = false end
+    end
+    for _, o in pairs(N.Defaults.partyTargets.auras) do
+        if type(o) == "table" then o.enabled = false end
     end
     N.Defaults.actions.list = C.ACTIONS
 end

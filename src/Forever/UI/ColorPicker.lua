@@ -304,7 +304,7 @@ local function build()
     end)
     close:SetScript("OnClick", function() cancel:Click() end)
     frame:SetScript("OnKeyDown", function(_, key) if key == "ESCAPE" then cancel:Click() end end)
-    frame:SetScript("OnShow", function(self) self:SetPropagateKeyboardInput(false) end)
+    frame:SetScript("OnShow", function(self) N.Propagate(self, false) end)
     frame:EnableKeyboard(true)
 
     return frame

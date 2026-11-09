@@ -583,7 +583,7 @@ local PART_LABEL = {
     indicators = "Indicators", auras = "Auras", custom = "Custom indicators (all of them)",
 }
 local WHOLE_LABEL = {
-    ownPet = "MODE_ownPet", groupPets = "MODE_groupPets", npc = "MODE_npc", spotlight = "MODE_spotlight",
+    ownPet = "MODE_ownPet", groupPets = "MODE_groupPets", npc = "MODE_npc", partyTargets = "MODE_partyTargets", spotlight = "MODE_spotlight",
     tooltip = "Tooltip", clickCasting = "Click-Casting", targetedSpellBars = "Targeted Spell Bars",
     actions = "Actions", tools = "Utilities", ping = "Ping",
 }

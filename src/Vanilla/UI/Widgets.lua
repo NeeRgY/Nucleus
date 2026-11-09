@@ -622,16 +622,16 @@ local function getGrabber()
     }
     grabber:SetScript("OnKeyDown", function(self, key)
         if key == "ESCAPE" then
-            self:SetPropagateKeyboardInput(false)
+            N.Propagate(self, false)
             local cancel = self.onCancel
             self.onDone, self.onCancel = nil, nil
             self:Hide()
             if cancel then cancel() end
         elseif MODIFIER_KEYS[key] or key:find("^BUTTON") then
             -- a modifier is held for the combo; mouse buttons arrive through OnClick
-            self:SetPropagateKeyboardInput(false)
+            N.Propagate(self, false)
         else
-            self:SetPropagateKeyboardInput(false)
+            N.Propagate(self, false)
             local done = self.onDone
             self.onDone, self.onCancel = nil, nil
             self:Hide()
