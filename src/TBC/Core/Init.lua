@@ -4,7 +4,7 @@ local addonName, ns = ...
 ns.CLIENT = "TBC"
 ns.ADDON = addonName
 local getMeta = (C_AddOns and C_AddOns.GetAddOnMetadata) or _G.GetAddOnMetadata
-ns.VERSION = getMeta and getMeta(addonName, "Version") or "1.1.0"
+ns.VERSION = getMeta and getMeta(addonName, "Version") or "1.1.1"
 
 local N = {}
 ns.N = N

@@ -219,7 +219,7 @@ function N.Abbreviate(n)
 end
 
 -- Forever characters have a surname (second UnitName return).
-local fullNames = {}
+local fullNames, fullCount = {}, 0
 local function surnameSeparator()
     local consts = _G.Constants and Constants.CharacterNameSeparatorConsts
     return (consts and consts.CHARACTERNAME_SURNAME_SEPARATOR) or " "
@@ -243,7 +243,9 @@ function N.WithSurname(name, surname)
         local tail = surnameSeparator() .. surname
         -- some units already carry the surname in their name
         full = (name:sub(-#tail) == tail) and name or (name .. tail)
+        if fullCount >= 256 then wipe(fullNames); fullCount = 0 end
         fullNames[key] = full
+        fullCount = fullCount + 1
     end
     return full
 end

@@ -1,5 +1,12 @@
 # Nucleus Changelog
 
+## 1.1.1 (2026-11-12)
+
+### Fixes
+
+- Fixed the Appearance page going blank when the Enabled tick under Layout was clicked. It is now rebuilt right away.
+- The cache of full character names (name and surname) is now limited in size, so it no longer keeps growing during long sessions. (Forever)
+
 ## 1.1.0 (2026-11-12)
 
 ### New

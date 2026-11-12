@@ -4010,8 +4010,10 @@ end
 
 -- Drops the built pages whose cache key starts with prefix (they are rebuilt when visited again).
 function N.OptionsDropPanels(prefix)
+    local droppedShown
     for key, p in pairs(panelCache) do
         if key:sub(1, #prefix) == prefix then
+            if p:IsShown() then droppedShown = true end
             if p.previewHost then p.previewHost:Hide(); p.previewHost:SetParent(nil) end
             p:Hide()
             p:SetParent(nil)
@@ -4022,6 +4024,8 @@ function N.OptionsDropPanels(prefix)
         if key:sub(1, #prefix) == prefix then searchIndex[key] = nil end
     end
     indexedMode = nil
+    -- A dropped page that is on screen is rebuilt at once, otherwise the window stays empty.
+    if droppedShown and window and window:IsShown() and activeTab then SelectTab(activeTab) end
 end
 
 -- Pages keep the tables they were built from; replaced tables (new generation) drop the set.

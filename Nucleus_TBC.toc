@@ -13,7 +13,7 @@
 ## Notes-zhTW: 現代化的團隊和隊伍框架。
 ## Author: NeRgY
 ## IconTexture: Interface\AddOns\Nucleus\Media\Textures\Logo
-## Version: 1.1.0
+## Version: 1.1.1
 ## OptionalDeps: LibSharedMedia-3.0
 ## SavedVariables: NucleusDB_TBC
 ## X-Category: Unit Frames
