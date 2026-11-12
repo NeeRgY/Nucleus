@@ -96,8 +96,8 @@ local RES_SPELLS = {
     PRIEST = { normal = { 2006, 2010, 10880, 10881, 20770, 25435 } },
     PALADIN = { normal = { 7328, 10322, 10324, 20772, 20773, 48949 }, combat = { 391054 } },
     SHAMAN = { normal = { 2008, 20609, 20610, 20776, 20777, 25590 } },
-    DRUID = { normal = { 50769, 50768, 50767, 50766, 50765, 50764, 50763 },
-              combat = { 20484, 20739, 20742, 20747, 20748, 26994 } },
+    DRUID = { normal = { 437138, 1237948, 1237949, 1237950, 1237951 },
+              combat = { 20484, 20739, 20742, 20747, 20748 } },
     MONK = { normal = { 115178 } }, DEATHKNIGHT = { combat = { 61999 } },
 }
 
@@ -111,6 +111,11 @@ local function knownSpellName(ids)
             end
             if name and name ~= "" then return name end
         end
+    end
+    -- A rank with another ID than listed: the name still resolves through the spellbook.
+    for _, id in ipairs(ids or {}) do
+        local name = C_Spell.GetSpellName and C_Spell.GetSpellName(id)
+        if name and name ~= "" and C_Spell.GetSpellInfo(name) then return name end
     end
     return nil
 end

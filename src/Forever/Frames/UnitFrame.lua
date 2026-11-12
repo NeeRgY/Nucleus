@@ -109,6 +109,21 @@ function UF.CreateVisual(b, key)
 
     b.healPredict = overlayBar()
 
+    -- Overheal: the same bar again, clipped to a strip right of the frame, so only the overflow shows.
+    local overClip = CreateFrame("Frame", nil, b)
+    overClip:SetClipsChildren(true)
+    overClip:SetFrameLevel(b:GetFrameLevel() + 5)
+    overClip:SetPoint("TOPLEFT", b, "TOPRIGHT", 0, 0)
+    overClip:SetPoint("BOTTOMLEFT", b, "BOTTOMRIGHT", 0, 0)
+    overClip:SetWidth(40)
+    overClip:Hide()
+    b.overhealClip = overClip
+    local overheal = CreateFrame("StatusBar", nil, overClip)
+    overheal:SetStatusBarTexture(M.flat)
+    overheal:SetPoint("TOPLEFT", fillTex, "TOPRIGHT", 0, 0)
+    overheal:SetPoint("BOTTOMLEFT", fillTex, "BOTTOMRIGHT", 0, 0)
+    b.overheal = overheal
+
     -- Shield: the raw absorb amount is fine, overlayClip cuts off whatever passes the bar's right edge.
     b.absorb = overlayBar()
 
@@ -220,13 +235,24 @@ local function pOn(b, name, enabled)
     return enabled or b._previewOnly == name or (b._previewOnly == "actions" and name == "name")
 end
 
-local OUTLINES = { thin = "OUTLINE", thick = "THICKOUTLINE", none = "" }
+local OUTLINES = { thin = "OUTLINE", thick = "THICKOUTLINE", none = "", shadow = "" }
 function UF.Outline(o)
     return OUTLINES[o and o.outline or "thin"] or "OUTLINE"
 end
 
+-- "shadow": a drop shadow instead of an outline.
+function UF.Shadow(fs, o)
+    if o and o.outline == "shadow" then
+        fs:SetShadowColor(0, 0, 0, 1)
+        fs:SetShadowOffset(1, -1)
+    else
+        fs:SetShadowOffset(0, 0)
+    end
+end
+
 local function styleText(fs, o, dim)
     fs:SetFont(M.font, o.size or 11, UF.Outline(o))
+    UF.Shadow(fs, o)
     local c = (dim and M.color.textDim) or o.color or M.color.text
     fs:SetTextColor(c[1], c[2], c[3])
 end
@@ -248,6 +274,7 @@ local function setNameFont(b, o, text)
         b._nameGlyph = false
         fs:SetFont(M.font, o.size or 11, UF.Outline(o))
     end
+    UF.Shadow(fs, o)
 end
 
 -- 9-point text placement: { point, justifyH, justifyV, inset x, inset y }.
@@ -272,6 +299,14 @@ local function placeText(fs, host, o, dy)
     fs:SetPoint(a[1], host, a[1], a[4] + (o.x or 0), a[5] + (o.y or 0) + (dy or 0))
     fs:SetJustifyH(a[2])
     fs:SetJustifyV(a[3])
+    -- A new justification only shows once the text is laid out again, and an unchanged text is not.
+    local just = a[2] .. a[3]
+    if fs._nucJust ~= just then
+        fs._nucJust = just
+        local ok, text = pcall(fs.GetText, fs)
+        fs:SetText("")
+        if ok and text ~= nil then pcall(fs.SetText, fs, text) end
+    end
 end
 
 UF.PlaceText = placeText
@@ -401,6 +436,9 @@ function UF.LayoutBars(b)
     applyFrameBorder(b, appearance.frameBorder)
     applyShieldStyle(b.healPredict, { style = "flat", color = appearance.healPredict.color,
         opacity = appearance.healPredict.opacity })
+    local oh = appearance.healPredict.overheal or {}
+    applyShieldStyle(b.overheal, { style = "flat", color = oh.color or { 0.30, 1.00, 0.55 }, opacity = oh.opacity or 0.70 })
+    b.overhealClip:SetWidth(oh.mode == "edge" and (oh.edgeWidth or 3) or (oh.length or 40))
 
     b.power:SetShown(pOn(b, "powerBar", pb.enabled) and b._powerShown and pShow(b, "powerBar"))
     -- The bar sits along one edge; left and right make it vertical. Health gives up the strip it takes.
@@ -454,6 +492,7 @@ function UF.LayoutBars(b)
     -- Overlay bars need an explicit pixel width: only one edge is anchored to health's fill texture.
     local hw = b.health:GetWidth() or 0
     b.healPredict:SetWidth(hw)
+    b.overheal:SetWidth(hw)
     b.absorb:SetWidth(hw)
     b.absorbOver:SetWidth(hw)
     b.healAbsorb:SetWidth(hw)
@@ -805,6 +844,7 @@ end
 local function renderShields(b, appearance)
     if b._previewOnly or not b.connected then
         b.healPredict:Hide()
+        b.overhealClip:Hide()
         b.absorb:Hide()
         b.absorbOver:Hide()
         b.healAbsorb:Hide()
@@ -837,6 +877,13 @@ local function renderShields(b, appearance)
 
         b.healPredict:SetValue(b.incHeal or 0)
         b.healPredict:SetShown(appearance.healPredict.enabled ~= false)
+        local oh = appearance.healPredict.overheal
+        local overheal = oh and oh.enabled == true
+        if overheal then
+            b.overheal:SetMinMaxValues(0, b.hpMax)
+            b.overheal:SetValue(b.incHeal or 0)
+        end
+        b.overhealClip:SetShown(overheal and true or false)
         b.absorb:SetValue(absorbAmt or 0)
         b.absorb:SetShown(absorbShown)
         b.absorbOver:SetValue(absorbAmt or 0)

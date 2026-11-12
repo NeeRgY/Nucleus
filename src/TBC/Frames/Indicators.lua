@@ -1001,6 +1001,8 @@ Indicators.Register("status", {
         local outline = N.UnitFrame.Outline(o)
         f.text:SetFont(M.font, size, outline)
         f.timer:SetFont(M.font, size, outline)
+        N.UnitFrame.Shadow(f.text, o)
+        N.UnitFrame.Shadow(f.timer, o)
         local label
         for _, s in ipairs(Indicators.statusStates) do
             if s.key == state then label = s.label; break end

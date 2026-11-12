@@ -68,7 +68,10 @@ local function groupDefaults(overrides)
             absorb     = { enabled = true, style = "striped", opacity = 0.35, color = { 1.00, 1.00, 1.00 }, invertFill = false },
             overshieldColor = { 0.75, 0.90, 1.00 },
             healAbsorb = { enabled = true, style = "flat", opacity = 0.75, color = { 0.55, 0.20, 0.75 } },
-            healPredict = { enabled = true, opacity = 0.30, color = { 1.00, 1.00, 1.00 } },
+            healPredict = { enabled = true, opacity = 0.30, color = { 1.00, 1.00, 1.00 },
+                           -- Overheal: the part of an incoming heal beyond full health, outside the frame.
+                           overheal = { enabled = false, mode = "extend", length = 40, edgeWidth = 3,
+                                        opacity = 0.70, color = { 0.30, 1.00, 0.55 } } },
             targetBorder = { color = { 0.42, 0.70, 1.00 }, thickness = 1 },
             hoverBorder  = { color = { 1.00, 1.00, 1.00 }, thickness = 1 },
             -- Aura time text: turns `color` below `seconds`, counts in tenths below `decimals` (0 = never).

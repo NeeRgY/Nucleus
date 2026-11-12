@@ -129,12 +129,24 @@ local MODE_TITLES = {
     spotlight = "Spotlight Frame",
 }
 
+-- The Enabled ticks of the pet frames sit on several pages: drop the cached ones so they read the new value.
+local function DropPages(modes)
+    for _, m in ipairs(modes) do
+        N.OptionsDropPanels("general/flow/" .. m)
+        N.OptionsDropPanels("appearance/flow/" .. m)
+    end
+end
+
 local function BuildGeneralOverview(p, key)
     if N.PET_KEYS[key] or key == "spotlight" then
         local pc = N.MakeCard(p, L[MODE_TITLES[key]])
         pc:AddRow(N.MakeCheckbox(pc, L["Enabled"],
             function() return N.db[key].enabled end,
-            function(v) N:Set(key .. ".enabled", v) end))
+            function(v)
+                N:Set(key .. ".enabled", v)
+                DropPages({ "party", "raid" })
+                N.OptionsDropPanels("appearance/flow/" .. key)
+            end))
         if key == "npc" then
             local mv = N.MakeCheckbox(pc, L["NPC_MOVE_COMPANIONS"],
                 function() return N.db.npc.moveCompanions end,
@@ -160,6 +172,25 @@ local function BuildGeneralOverview(p, key)
         function() return N.db[key].showSolo end,
         function(v) N:Set(key .. ".showSolo", v) end))
     if not (N.PET_KEYS[key] or key == "spotlight") then p:AddCard(frames) end
+
+    if key == "party" or key == "raid" then
+        local pets = N.MakeCard(p, L["Pet frames"])
+        pets:AddRow(N.MakeCheckbox(pets, L["Show own pet frame"],
+            function() return N.db.ownPet.enabled end,
+            function(v) N:Set("ownPet.enabled", v); DropPages(N.PET_ORDER) end))
+        pets:AddRow(N.MakeCheckbox(pets, L["Show group pet frames"],
+            function() return N.db.groupPets.enabled end,
+            function(v) N:Set("groupPets.enabled", v); DropPages(N.PET_ORDER) end))
+        local ph = N.FontString(pets, 11)
+        ph:SetPoint("TOPLEFT", pets, "TOPLEFT", N.CARD_PAD, pets._y)
+        ph:SetWidth(pets:GetWidth() - 2 * N.CARD_PAD)
+        ph:SetJustifyH("LEFT")
+        ph:SetTextColor(uc(M.color.textDim))
+        ph:SetText(L["PET_FRAMES_HINT"]:format(L["Pets / NPCs"]))
+        ph:SetHeight(ph:GetStringHeight() + 4)
+        pets:SetHeight(-pets._y + ph:GetHeight() + N.CARD_PAD)
+        p:AddCard(pets)
+    end
 end
 
 local function BuildInterface(p)
@@ -417,7 +448,11 @@ local function BuildLayout(p, key)
     local layout = N.MakeCard(p, L["Layout"])
     layout:AddRow(N.MakeCheckbox(layout, L["Enabled"],
         function() return N.db[key].enabled end,
-        function(v) N:Set(key .. ".enabled", v) end))
+        function(v)
+            N:Set(key .. ".enabled", v)
+            DropPages({ "party", "raid" })
+            N.OptionsDropPanels("general/flow/" .. key)
+        end))
     if key ~= "ownPet" and key ~= "partyTargets" then
         layout:AddRow(N.MakeDropdown(layout, L["Orientation"], {
             { value = "vertical", text = L["Vertical"] },
@@ -1010,6 +1045,42 @@ local function BuildColor(p, key)
         function() return a.healPredict.color end, function(v) N:Set(ap .. "healPredict.color", v) end))
     p:AddCard(healPredict)
 
+    local function oh() return a.healPredict.overheal end
+    local overheal = N.MakeCard(p, L["Overheal"])
+    local lengthRow, edgeRow
+    local function ohDim()
+        local edge = oh().mode == "edge"
+        lengthRow:SetAlpha(edge and 0.45 or 1)
+        edgeRow:SetAlpha(edge and 1 or 0.45)
+    end
+    overheal:AddRow(N.MakeCheckbox(overheal, L["Show overheal beyond the frame"],
+        function() return oh().enabled end, function(v) N:Set(ap .. "healPredict.overheal.enabled", v) end))
+    overheal:AddRow(N.MakeDropdown(overheal, L["Overheal style"], {
+        { value = "extend", text = L["Extend beyond the frame"] },
+        { value = "edge", text = L["Thin bar at the edge"] },
+    }, function() return oh().mode end,
+       function(v) N:Set(ap .. "healPredict.overheal.mode", v); ohDim() end))
+    lengthRow = N.MakeSlider(overheal, L["Overheal length"], 10, 120, 1,
+        function() return oh().length end, function(v) N:Set(ap .. "healPredict.overheal.length", N.Round(v)) end)
+    overheal:AddRow(lengthRow)
+    edgeRow = N.MakeSlider(overheal, L["Overheal bar width"], 1, 8, 1,
+        function() return oh().edgeWidth end, function(v) N:Set(ap .. "healPredict.overheal.edgeWidth", N.Round(v)) end)
+    overheal:AddRow(edgeRow)
+    overheal:AddRow(N.MakeSlider(overheal, L["Opacity"], 0.1, 1, 0.05,
+        function() return oh().opacity end, function(v) N:Set(ap .. "healPredict.overheal.opacity", v) end))
+    overheal:AddRow(N.MakeColorPicker(overheal, L["Color"],
+        function() return oh().color end, function(v) N:Set(ap .. "healPredict.overheal.color", v) end))
+    local ohHint = N.FontString(overheal, 11)
+    ohHint:SetPoint("TOPLEFT", overheal, "TOPLEFT", N.CARD_PAD, overheal._y)
+    ohHint:SetWidth(overheal:GetWidth() - 2 * N.CARD_PAD)
+    ohHint:SetJustifyH("LEFT")
+    ohHint:SetTextColor(uc(M.color.textDim))
+    ohHint:SetText(L["OVERHEAL_HINT"])
+    ohHint:SetHeight(ohHint:GetStringHeight() + 4)
+    overheal:SetHeight(-overheal._y + ohHint:GetHeight() + N.CARD_PAD)
+    p:AddCard(overheal)
+    ohDim()
+
     local tcc = N.MakeCard(p, L["Time text"])
     tcc:AddRow(N.MakeCheckbox(tcc, L["Change the colour when time is running out"],
         function() return a.timeColor.enabled end,
@@ -1425,6 +1496,7 @@ local function BuildIndicator(p, key, meta)
         c:AddRow(N.MakeDropdown(c, L["Font outline"], {
             { value = "thin", text = L["Thin outline"] },
             { value = "thick", text = L["Thick outline"] },
+            { value = "shadow", text = L["Shadow"] },
             { value = "none", text = L["None"] },
         }, function() return o.outline or "thin" end, function(v) N:Set(pth("outline"), v) end))
         c:AddRow(N.MakeSlider(c, L["Y offset"], -40, 40, 1,
@@ -1470,6 +1542,7 @@ local function BuildIndicator(p, key, meta)
             c:AddRow(N.MakeDropdown(c, L["Font outline"], {
                 { value = "thin", text = L["Thin outline"] },
                 { value = "thick", text = L["Thick outline"] },
+                { value = "shadow", text = L["Shadow"] },
                 { value = "none", text = L["None"] },
             }, function() return o.outline or "thin" end, function(v) N:Set(pth("outline"), v) end))
         end
@@ -4569,6 +4642,36 @@ local function entryMatches(e, words)
     return true
 end
 
+-- Pet-side frames are always found, whichever group is being edited.
+local MODE_HITS = {
+    { mode = "ownPet", title = "Own Pet Frame" },
+    { mode = "groupPets", title = "Group Pet Frames" },
+    { mode = "npc", title = "NPC Companion Frames" },
+    { mode = "partyTargets", title = "Party Target Frames" },
+}
+local modeHitList
+local function modeHits()
+    if modeHitList then return modeHitList end
+    modeHitList = {}
+    for _, h in ipairs(MODE_HITS) do
+        local label = L[h.title]
+        local en = N.EnglishOf and N.EnglishOf(label) or h.title
+        local e = {
+            label = label, kind = "mode",
+            hay = foldText(label) .. "\n" .. foldText(en) .. "\n" .. foldText(L["Pets / NPCs"]) .. "\npet pets npc",
+        }
+        modeHitList[#modeHitList + 1] = {
+            e = e, ctx = { key = "mode/" .. h.mode, tab = "general", sub = "overview" }, path = L["Pets / NPCs"],
+            go = function()
+                N:SetMode(h.mode)
+                RefreshMode()
+                SelectTab("general")
+            end,
+        }
+    end
+    return modeHitList
+end
+
 local function searchResults(text)
     local words = {}
     for w in foldText(text):gmatch("%S+") do words[#words + 1] = w end
@@ -4585,6 +4688,12 @@ local function searchResults(text)
                     end
                 end
             end
+        end
+    end
+    for _, hit in ipairs(modeHits()) do
+        if entryMatches(hit.e, words) then
+            out[#out + 1] = { e = hit.e, ctx = hit.ctx, path = hit.path, go = hit.go,
+                prefix = hit.e.hay:sub(1, #words[1]) == words[1] }
         end
     end
     table.sort(out, function(a, b)
@@ -4675,6 +4784,7 @@ local function scrollToWidget(w)
 end
 
 local function goToResult(item)
+    if item.go then item.go() return end
     local ctx, e = item.ctx, item.e
     local tab = FindTab(ctx.tab)
     if not tab then return end
@@ -4768,7 +4878,7 @@ local function BuildSearch(header)
             local item = current[i]
             r.item = item
             r.text:SetText(item.e.label)
-            r.path:SetText(pathOf(item.ctx.tab, item.ctx.sub))
+            r.path:SetText(item.path or pathOf(item.ctx.tab, item.ctx.sub))
             r:Show()
         end
         if n == 0 then

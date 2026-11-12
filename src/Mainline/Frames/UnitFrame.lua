@@ -220,13 +220,24 @@ local function pOn(b, name, enabled)
     return enabled or b._previewOnly == name or (b._previewOnly == "actions" and name == "name")
 end
 
-local OUTLINES = { thin = "OUTLINE", thick = "THICKOUTLINE", none = "" }
+local OUTLINES = { thin = "OUTLINE", thick = "THICKOUTLINE", none = "", shadow = "" }
 function UF.Outline(o)
     return OUTLINES[o and o.outline or "thin"] or "OUTLINE"
 end
 
+-- "shadow": a drop shadow instead of an outline.
+function UF.Shadow(fs, o)
+    if o and o.outline == "shadow" then
+        fs:SetShadowColor(0, 0, 0, 1)
+        fs:SetShadowOffset(1, -1)
+    else
+        fs:SetShadowOffset(0, 0)
+    end
+end
+
 local function styleText(fs, o, dim)
     fs:SetFont(M.font, o.size or 11, UF.Outline(o))
+    UF.Shadow(fs, o)
     local c = (dim and M.color.textDim) or o.color or M.color.text
     fs:SetTextColor(c[1], c[2], c[3])
 end
@@ -248,6 +259,7 @@ local function setNameFont(b, o, text)
         b._nameGlyph = false
         fs:SetFont(M.font, o.size or 11, UF.Outline(o))
     end
+    UF.Shadow(fs, o)
 end
 
 -- 9-point text placement: { point, justifyH, justifyV, inset x, inset y }.
@@ -272,6 +284,14 @@ local function placeText(fs, host, o, dy)
     fs:SetPoint(a[1], host, a[1], a[4] + (o.x or 0), a[5] + (o.y or 0) + (dy or 0))
     fs:SetJustifyH(a[2])
     fs:SetJustifyV(a[3])
+    -- A new justification only shows once the text is laid out again, and an unchanged text is not.
+    local just = a[2] .. a[3]
+    if fs._nucJust ~= just then
+        fs._nucJust = just
+        local ok, text = pcall(fs.GetText, fs)
+        fs:SetText("")
+        if ok and text ~= nil then pcall(fs.SetText, fs, text) end
+    end
 end
 
 UF.PlaceText = placeText
@@ -354,6 +374,14 @@ function UF.PowerAllowed(b)
     local role
     if b._mock then role = b._mock.role
     elseif b.unit then role = UnitGroupRolesAssigned(b.unit) end
+    -- No role assigned (solo, or none picked): your own role comes from the specialization.
+    if b.unit and not b._mock and (role == nil or (not N.IsSecret(role) and role == "NONE")) then
+        local me = UnitIsUnit(b.unit, "player")
+        if me ~= nil and not N.IsSecret(me) and me then
+            local _, specRole = N.Profiles.GetSpec()
+            if specRole then role = specRole end
+        end
+    end
     if role == nil or N.IsSecret(role) then return true end
     local class = b.class
     if class == nil or N.IsSecret(class) then return true end

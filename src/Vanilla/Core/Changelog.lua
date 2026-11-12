@@ -3,6 +3,21 @@ local N = ns.N
 
 N.Changelog = {
     {
+        version = "1.1.0",
+        date = "2026-11-12",
+        notes = {
+            "## New",
+            "Pet frames are easier to find: the group and raid overview has ticks for the own pet and the group pet frames, and the search finds the pet and NPC frames from any group.",
+            "New Font outline has a Shadow choice (name, health text and the Status pill): a soft drop shadow instead of an outline.",
+            "## Fixes",
+            "Fixed a Lua error when the game hides a character's surname (a secret value), for example in instances: the surname is now checked for that before it is compared. (Forever)",
+            "Fixed the Enabled tick of the pet frames showing the old state on another page after it was switched in a different place (for example Pet frames in General and Enabled under Appearance).",
+            "Fixed the text position of Name, Health Text and the other texts: after changing it in the options the text of the frames stayed aligned the old way (for example left instead of centered) until a /reload.",
+            "Fixed Smart resurrection for Druids in Forever: Revive was not recognized because the game uses another spell ID for it, so the combat resurrection Rebirth was also cast out of combat. Resurrection spells are now also found by their name. (Forever)",
+            "Fixed the power bar still showing on your own frame for a role that is switched off in Power bar by role (for example Damage dealer on a Retribution Paladin), because without a group the game assigns no role. Your specialization's role is used now. (Retail)",
+        },
+    },
+    {
         version = "1.0.9",
         date = "2026-11-09",
         notes = {

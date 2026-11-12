@@ -234,8 +234,8 @@ local function ownSurnameHidden(name, surname)
 end
 
 function N.WithSurname(name, surname)
-    if type(name) ~= "string" or type(surname) ~= "string" or surname == "" then return name end
     if N.IsSecret(name) or N.IsSecret(surname) then return name end
+    if type(name) ~= "string" or type(surname) ~= "string" or surname == "" then return name end
     if ownSurnameHidden(name, surname) then return name end
     local key = name .. "\31" .. surname
     local full = fullNames[key]
