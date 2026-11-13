@@ -70,7 +70,7 @@ function Indicators.DefaultPosition(name)
     return "center"
 end
 
-local function runUpdate(button, def)
+local function runUpdate(button, def, event, ...)
     if not button._mock and (not button.unit or not UnitExists(button.unit)) then return end
     local obj = button.indicators[def.name]
     if button._previewOnly and button._previewOnly ~= def.name then
@@ -83,7 +83,7 @@ local function runUpdate(button, def)
         return
     end
     styleIcon(obj, def, o)
-    def.update(button, obj)
+    def.update(button, obj, event, ...)
 end
 
 function Indicators.UpdateOne(button, name)
@@ -100,7 +100,7 @@ function Indicators.UpdateAll(button)
     end
 end
 
-local function dispatch(event, unit)
+local function dispatch(event, unit, ...)
     local defs = byEvent[event]
     if not defs then return end
     local UF = N.UnitFrame
@@ -109,7 +109,7 @@ local function dispatch(event, unit)
         if not set then return end
         for b in pairs(set) do
             if b:IsShown() then
-                for i = 1, #defs do runUpdate(b, defs[i]) end
+                for i = 1, #defs do runUpdate(b, defs[i], event, ...) end
             end
         end
     elseif event == "PLAYER_REGEN_ENABLED" then
@@ -118,7 +118,7 @@ local function dispatch(event, unit)
         for n = 1, #all do snap[n] = all[n] end
         N.RunSliced(snap, function(b)
             if b:IsShown() then
-                for i = 1, #defs do runUpdate(b, defs[i]) end
+                for i = 1, #defs do runUpdate(b, defs[i], event) end
             end
         end, 5)
     else
@@ -126,7 +126,7 @@ local function dispatch(event, unit)
         for n = 1, #all do
             local b = all[n]
             if b:IsShown() then
-                for i = 1, #defs do runUpdate(b, defs[i]) end
+                for i = 1, #defs do runUpdate(b, defs[i], event) end
             end
         end
     end
@@ -141,11 +141,11 @@ local BROADCAST = {
 
 local evFrame = CreateFrame("Frame")
 local UNIT_ARG = {} -- events whose first argument is a unit
-evFrame:SetScript("OnEvent", function(_, event, arg1)
+evFrame:SetScript("OnEvent", function(_, event, arg1, ...)
     if UNIT_ARG[event] then
         -- Only reached without per-unit registration: units without a frame fire most of these.
         if type(arg1) ~= "string" or not N.UnitFrame.ButtonsOfUnit(arg1) then return end
-        dispatch(event, not BROADCAST[event] and arg1 or nil)
+        dispatch(event, not BROADCAST[event] and arg1 or nil, ...)
         return
     end
     local unit
@@ -157,8 +157,8 @@ end)
 
 -- Unit events are per unit and only for units with a frame; unitless events stay on evFrame.
 local unitFrames, unitEventList = {}, {}
-local function unitOnEvent(_, event, unit)
-    dispatch(event, not BROADCAST[event] and unit or nil)
+local function unitOnEvent(_, event, unit, ...)
+    dispatch(event, not BROADCAST[event] and unit or nil, ...)
 end
 
 local function watchUnit(unit)
@@ -215,6 +215,7 @@ Indicators.builtins = {
     { name = "targetCounter", label = "Target Counter", text = true },
     { name = "absorbText", label = "Absorb Text", text = true, positioned = true, absorbFormat = true },
     { name = "shieldBar", label = "Shield Bar", shield = true },
+    { name = "castBar", label = "Cast Bar", cast = true },
     { name = "healthThresholds", label = "Health Thresholds", thresholds = true },
     { name = "aggroBorder", label = "Aggro Border", aggro = true },
     { name = "threatIcon", label = "Threat Icon", icon = true, iconPosition = true, threat = true },

@@ -151,6 +151,16 @@ local function groupDefaults(overrides)
             -- Shield Bar: thin bar on the bottom / top edge, growFrom "left" | "right".
             shieldBar     = { enabled = false, height = 4, position = "bottom", growFrom = "left", x = 0, y = 0,
                               color = { 1.00, 1.00, 1.00 }, alpha = 0.8, onlyOvershield = false },
+            -- Cast Bar: position = bottom | top | below | above, timeFormat = remaining | both
+            castBar       = { enabled = false, height = 10, position = "bottom", x = 0, y = 0, width = 0,
+                              texture = "same", borderSize = 0, borderColor = { 0.00, 0.00, 0.00 }, bgAlpha = 0.6,
+                              showIcon = false, iconSide = "left", showSpark = false,
+                              color = { 1.00, 0.80, 0.20 }, channelColor = { 0.35, 0.65, 1.00 },
+                              empowerColor = { 0.65, 0.45, 1.00 }, classColor = false,
+                              showInterrupt = true, interruptColor = { 1.00, 0.20, 0.20 },
+                              markUninterruptible = false, uninterruptColor = { 0.60, 0.60, 0.60 },
+                              showName = true, showTarget = false, showTime = true, timeFormat = "remaining",
+                              textSize = 9 },
             -- Health Thresholds: marks at chosen health percentages, a list of { pct, color }.
             healthThresholds = { enabled = false, thickness = 1,
                                  thresholds = { { pct = 90, color = { 1.00, 0.00, 0.00 } } } },
@@ -317,7 +327,7 @@ N.Defaults = {
             ["raid.size"] = false, ["raid.layout"] = false, ["raid.position"] = false,
             ["raid.appearance"] = true, ["raid.indicators"] = true, ["raid.auras"] = true, ["raid.custom"] = true,
             ownPet = false, groupPets = false, npc = false, spotlight = false, tooltip = false,
-            clickCasting = false, targetedSpellBars = false, actions = false, tools = false, ping = false,
+            clickCasting = false, targetedSpellBars = false, actions = false, auraSounds = false, tools = false, ping = false,
         },
     },
     profileScope = { tooltip = "profile", clickCasting = "profile", utilities = "profile", spotlight = "profile" },
@@ -428,6 +438,13 @@ N.Defaults = {
             { spell = 1234768, anim = "sweep", color = { 1.00, 0.10, 0.10 } }, -- Silvermoon Health Potion
             { spell = 1236616, anim = "rise",  color = { 1.00, 1.00, 0.00 } }, -- Light's Potential
         },
+    },
+
+    -- Aura sounds: list of { spell, sound, trigger = added | removed | stacks, who = all | me }
+    auraSounds = {
+        enabled = false,
+        list = { _list = true }, -- _list keeps the entries on load, an empty default would drop them
+        custom = { _list = true }, -- { name, file }, file relative to Interface\AddOns
     },
 
     -- Utilities: movable displays; positions are offsets from the screen centre.

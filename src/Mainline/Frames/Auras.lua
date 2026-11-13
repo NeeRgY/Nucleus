@@ -333,6 +333,10 @@ local function debuffPasses(unit, d, cfg)
     local sid = d.spellId
     if sid ~= nil and not IsSecret(sid) and hiddenFor(cfg)[sid] then return false end
     local by = debuffCastBy(cfg)
+    if (by == "all" or by == "me") and cfg.hideSelf ~= false and UnitIsUnit(unit, "player") then
+        local mine = d.isFromPlayerOrPlayerPet
+        if mine ~= nil and not IsSecret(mine) and mine == true then return false end
+    end
     if by == "npc" then
         if not DEBUFF_FILTERS[1].test(unit, d) then return false end
     elseif by == "me" then
@@ -1032,14 +1036,23 @@ end
 
 local DISPEL_ORDER = { "Magic", "Curse", "Disease", "Poison", "Bleed" }
 
-local function debuffGroups(cfg, exclude)
-    local groups = debuffGroupsRaw(cfg, exclude)
+local function debuffGroups(cfg, exclude, hideSelf)
     local by = debuffCastBy(cfg)
-    local token = (by == "me" and "PLAYER") or (by == "others" and "!PLAYER") or nil
+    -- On your own frame with Cast by: Me every debuff is yours, so the row stays empty.
+    if hideSelf and by == "me" then return {} end
+    local groups = debuffGroupsRaw(cfg, exclude)
+    local token = (by == "me" and "PLAYER") or (by == "others" and "!PLAYER")
+        or (hideSelf and by == "all" and "!PLAYER") or nil
     if token then
         for _, g in ipairs(groups) do g.filter = g.filter .. "|" .. token end
     end
     return groups
+end
+
+local function isSelfFrame(b)
+    if not b.unit then return false end
+    local same = UnitIsUnit(b.unit, "player")
+    return not IsSecret(same) and same == true
 end
 
 local function rowSpec(b, row, cfg)
@@ -1071,7 +1084,7 @@ local function rowSpec(b, row, cfg)
         spec.groups[1] = { key = "buff", filter = filter, candidate = cand, max = cfg.max }
     elseif row.kind == "debuff" then
         spec.dispelBorder = cfg.dispelBorder ~= false
-        spec.groups = debuffGroups(cfg, hiddenFor(cfg))
+        spec.groups = debuffGroups(cfg, hiddenFor(cfg), cfg.hideSelf ~= false and isSelfFrame(b))
     elseif row.kind == "crowd" then
         spec.dispelBorder = false
         spec.groups[1] = { key = "cc", filter = "HARMFUL|CROWD_CONTROL", max = cfg.max, border = CROWD }
@@ -1157,6 +1170,7 @@ local function syncEngine(b)
     end
     b._engineSynced = true
     b._engineLive = live and true or false
+    b._engineSelf = isSelfFrame(b)
 end
 
 local function placeSlot(b, cfg, ic, i, n)
@@ -1199,7 +1213,7 @@ function A.Update(b)
     if not b._nucAuras then return end
     if engineOn(b) then
         local live = (b.unit and UnitExists(b.unit)) and true or false
-        if not b._engineSynced or b._engineLive ~= live then syncEngine(b) else N.AuraEngine.Rebind(b) end
+        if not b._engineSynced or b._engineLive ~= live or b._engineSelf ~= isSelfFrame(b) then syncEngine(b) else N.AuraEngine.Rebind(b) end
         return
     end
     local live = b._mock or (b.unit and UnitExists(b.unit))
@@ -1458,11 +1472,30 @@ SlashCmdList.NUCLEUSAURAS = function(msg)
         if IsSecret(v) then return "secret" end
         return tostring(v)
     end
+    -- The secrecy level decides whether an aura filter can match the ID at all.
+    local function secrecy(id)
+        if id == nil or IsSecret(id) or not (C_Secrets and C_Secrets.GetSpellAuraSecrecy) then return "-" end
+        local ok, level = pcall(C_Secrets.GetSpellAuraSecrecy, id)
+        if not ok then return "?" end
+        for name, value in pairs(Enum.SecrecyLevel or {}) do
+            if value == level then return name end
+        end
+        return tostring(level)
+    end
+    local function flag(d, token)
+        return passesFilter(unit, d, token) and "yes" or "no"
+    end
     N:Print("auras on", unit)
     for _, base in ipairs({ "HELPFUL", "HARMFUL" }) do
         for _, d in ipairs(AC.Each(unit, base)) do
             N:Print(base:sub(1, 1), show(d.name), "id", show(d.spellId), "from", show(d.sourceUnit),
-                "mine", show(d.isFromPlayerOrPlayerPet))
+                "mine", show(d.isFromPlayerOrPlayerPet), "secrecy", secrecy(d.spellId))
+            if base == "HARMFUL" then
+                N:Print("   raid", flag(d, "HARMFUL|RAID"), "raidCombat", flag(d, "HARMFUL|RAID_IN_COMBAT"),
+                    "dispellable", flag(d, "HARMFUL|RAID_PLAYER_DISPELLABLE"), "cc", flag(d, "HARMFUL|CROWD_CONTROL"),
+                    "type", show(d.dispelName), "boss", show(d.isBossAura), "priority", show(d.isPriorityAura),
+                    "role", show(d.isRoleAura))
+            end
         end
     end
 end

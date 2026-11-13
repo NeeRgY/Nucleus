@@ -143,6 +143,16 @@ local function groupDefaults(overrides)
             -- Shield Bar: thin bar on the bottom / top edge, growFrom "left" | "right".
             shieldBar     = { enabled = false, height = 4, position = "bottom", growFrom = "left", x = 0, y = 0,
                               color = { 1.00, 1.00, 1.00 }, alpha = 0.8, onlyOvershield = false },
+            -- Cast Bar: position = bottom | top | below | above, timeFormat = remaining | both
+            castBar       = { enabled = false, height = 10, position = "bottom", x = 0, y = 0, width = 0,
+                              texture = "same", borderSize = 0, borderColor = { 0.00, 0.00, 0.00 }, bgAlpha = 0.6,
+                              showIcon = false, iconSide = "left", showSpark = false,
+                              color = { 1.00, 0.80, 0.20 }, channelColor = { 0.35, 0.65, 1.00 },
+                              empowerColor = { 0.65, 0.45, 1.00 }, classColor = false,
+                              showInterrupt = true, interruptColor = { 1.00, 0.20, 0.20 },
+                              markUninterruptible = false, uninterruptColor = { 0.60, 0.60, 0.60 },
+                              showName = true, showTarget = false, showTime = true, timeFormat = "remaining",
+                              textSize = 9 },
             -- Health Thresholds: marks at chosen health percentages, a list of { pct, color }.
             healthThresholds = { enabled = false, thickness = 1,
                                  thresholds = { { pct = 90, color = { 1.00, 0.00, 0.00 } } } },
@@ -167,7 +177,7 @@ local function groupDefaults(overrides)
                 showStacks = true, showCooldown = true, cdStyle = "spiral", showTime = true, timeSize = 10, timeX = 0, timeY = 0, stackSize = 10, stackX = 1, stackY = -1, stackPoint = "BOTTOMRIGHT", stackColor = { 1, 1, 1 }, timePoint = "CENTER", timeBaseColor = { 1, 1, 1 }, onlyMine = true,
                 -- useList: only spells in `list` (the options show your class); off = every buff.
                 useList = true, pickAll = false, -- pickAll: show the spells of every class in the picker
-                list = "1278914,33763,419207,1227806,8936,419287,774,419204,155777,474754,474750,48438,419344,355941,355936,382614,376788,364343,373267,366155,367364,409895,450769,450521,450711,450526,450531,1292922,124682,119611,115175,1260617,198533,156910,53563,200025,1244893,431381,156322,461432,432502,469703,194384,77489,17,1246768,1254306,1300008,41635,139,1253593,1300009,383648,974,444490,61295,360827,395152,395296,410089",
+                list = "1278914,33763,419207,1227806,8936,419287,774,419204,155777,474754,474750,48438,419344,355941,355936,382614,376788,364343,373267,366155,367364,409895,450769,450521,450711,450526,450531,1292922,124682,119611,115175,1260617,198533,156910,53563,200025,1244893,431381,156322,461432,432502,469703,194384,77489,17,1246768,1254306,1300008,41635,401877,1240848,1240849,139,1253593,1300009,383648,974,444490,61295,360827,395152,395296,410089",
             },
             debuffs = {
                 enabled = true, max = 3, size = 18, spacing = 2, perRow = 8, lineSpacing = 2,
@@ -309,7 +319,7 @@ N.Defaults = {
             ["raid.size"] = false, ["raid.layout"] = false, ["raid.position"] = false,
             ["raid.appearance"] = true, ["raid.indicators"] = true, ["raid.auras"] = true, ["raid.custom"] = true,
             ownPet = false, groupPets = false, npc = false, partyTargets = false, spotlight = false, tooltip = false,
-            clickCasting = false, targetedSpellBars = false, actions = false, tools = false, ping = false,
+            clickCasting = false, targetedSpellBars = false, actions = false, auraSounds = false, tools = false, ping = false,
         },
     },
     profileScope = { tooltip = "profile", clickCasting = "profile", utilities = "profile", spotlight = "profile" },
@@ -425,6 +435,13 @@ N.Defaults = {
             { spell = 1234768, anim = "sweep", color = { 1.00, 0.10, 0.10 } }, -- Silvermoon Health Potion
             { spell = 1236616, anim = "rise",  color = { 1.00, 1.00, 0.00 } }, -- Light's Potential
         },
+    },
+
+    -- Aura sounds: list of { spell, sound, trigger = added | removed | stacks, who = all | me }
+    auraSounds = {
+        enabled = false,
+        list = { _list = true }, -- _list keeps the entries on load, an empty default would drop them
+        custom = { _list = true }, -- { name, file }, file relative to Interface\AddOns
     },
 
     -- Utilities: movable displays; positions are offsets from the screen centre.

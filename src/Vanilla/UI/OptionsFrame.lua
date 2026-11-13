@@ -1605,7 +1605,7 @@ local function BuildIndicator(p, key, meta)
 end
 
 local AURA_TITLES = {
-    buffs = "Buffs", debuffs = "Debuffs", debuffs2 = "Debuffs 2", debuffs3 = "Debuffs 3", debuffs4 = "Debuffs 4",
+    buffs = "Buffs / Healers", debuffs = "Debuffs", debuffs2 = "Debuffs 2", debuffs3 = "Debuffs 3", debuffs4 = "Debuffs 4",
     dispels = "Dispellable Debuffs", defensives = "Defensive Cooldowns",
     externals = "External Cooldowns", offensives = "Offensive Cooldowns", defext = "Defensives & Externals",
     crowdControls = "Crowd Controls",
@@ -2762,8 +2762,9 @@ local RES_SPELLS = {
     [20707] = true, [20762] = true, [20763] = true, [20764] = true, [20765] = true, [27239] = true,
 }
 
--- Dual spells (Penance) count as harmful to the game but belong in the list.
-local DUAL_IDS = { 1240720, 1240721, 1240723, 1240724, 1240727, 1240730, 1316991, 1316993, 1316995, 402284, 402289, 47540, 53005, 53006, 53007, 47757, 47758 }
+-- Spells that heal friends and hurt enemies (Penance, Holy Shock, Holy Prism) read as harmful but belong in the list.
+local DUAL_IDS = { 1240720, 1240721, 1240723, 1240724, 1240727, 1240730, 1316991, 1316993, 1316995, 402284, 402289, 47540, 53005, 53006, 53007, 47757, 47758,
+    20473, 20929, 20930, 27174, 33072, 48824, 48825, 114165 }
 local dualNames
 local function isDualSpell(name)
     if not dualNames then
@@ -4024,7 +4025,7 @@ function N.OptionsDropPanels(prefix)
         if key:sub(1, #prefix) == prefix then searchIndex[key] = nil end
     end
     indexedMode = nil
-    -- A dropped page that is on screen is rebuilt at once, otherwise the window stays empty.
+    -- If the open page was dropped, rebuild it right away or the window goes blank.
     if droppedShown and window and window:IsShown() and activeTab then SelectTab(activeTab) end
 end
 

@@ -17,7 +17,8 @@ local extra = {
                 27681, 32999,                                 -- Prayer of Spirit
                 976, 10957, 10958,                            -- Shadow Protection
                 27683, 39374,                                 -- Prayer of Shadow Protection
-                6346, 10060 },                                -- Fear Ward, Power Infusion
+                6346, 10060,                                  -- Fear Ward, Power Infusion
+                401877, 1240848, 1240849 },                   -- Prayer of Mending (ranks 1 to 3)
     PALADIN = { 20217, 25898,                                 -- Blessing of Kings (Greater)
                 19740, 19834, 19835, 19836, 19837, 19838, 25291, -- Blessing of Might
                 25782, 25916,                                 -- Greater Blessing of Might

@@ -1,5 +1,19 @@
 # Nucleus Changelog
 
+## 1.1.2 (2026-11-13)
+
+### New
+
+- New Aura sounds (Retail and Forever, Indicators > Aura sounds, off by default): plays a sound when an aura with a chosen spell ID appears, disappears or gains a stack on a group member. The game plays the sound itself, so it also works in combat. Thirteen sounds are included, and your own .ogg or .mp3 files can be added to the list.
+- New Cast Bar indicator (Retail and Forever, Indicators > Cast Bar, off by default): shows the spell a group member is casting as a bar on their frame, with an optional icon, spell name, spell target and time. It flashes when someone interrupts a cast, can color casts, channels and non-interruptible spells and can sit inside or outside the frame.
+- New option Hide own debuffs on my frame (Retail and Forever, Debuffs rows, on by default): hides debuffs that come from yourself on your own frame, such as the rested bonus. It applies when Cast by is set to Anyone or Me.
+- The Buffs indicator is now called Buffs / Healers.
+
+### Fixes
+
+- Prayer of Mending (all three ranks) now shows up in the Buffs spell list (Forever). Tick it under Priest, new profiles have it on by default.
+- Holy Shock and Holy Prism are now listed when choosing a spell for click-casting. The game counts them as harmful spells, so they had been left out.
+
 ## 1.1.1 (2026-11-12)
 
 ### Fixes

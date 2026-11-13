@@ -370,6 +370,7 @@ function N.MakeTextInput(parent, label, get, set)
     edit:SetScript("OnEditFocusLost", function(s) N.SetPanelBorder(box, M.color.line); set(s:GetText()) end)
 
     f.Refresh = function() if not edit:HasFocus() then edit:SetText(get() or "") end end
+    f.edit = edit
     return f
 end
 

@@ -1411,6 +1411,62 @@ local function BuildIndicator(p, key, meta)
             function() return o.alpha end, function(v) N:Set(pth("alpha"), v) end))
         c:AddRow(N.MakeCheckbox(c, L["Only show overshields"],
             function() return o.onlyOvershield end, function(v) N:Set(pth("onlyOvershield"), v) end))
+    elseif meta.cast then
+        c:AddRow(N.MakeSlider(c, L["Height"], 3, 30, 1,
+            function() return o.height end, function(v) N:Set(pth("height"), N.Round(v)) end))
+        c:AddRow(N.MakeDropdown(c, L["Position"], {
+            { value = "bottom", text = L["Bottom"] },
+            { value = "top", text = L["Top"] },
+            { value = "below", text = L["Below the frame"] },
+            { value = "above", text = L["Above the frame"] },
+        }, function() return o.position end, function(v) N:Set(pth("position"), v) end))
+        c:AddRow(N.MakeSlider(c, L["Width (0 = frame width)"], 0, 300, 1,
+            function() return o.width end, function(v) N:Set(pth("width"), N.Round(v)) end))
+        c:AddRow(N.MakeSlider(c, L["X offset"], -100, 100, 1,
+            function() return o.x end, function(v) N:Set(pth("x"), N.Round(v)) end))
+        c:AddRow(N.MakeSlider(c, L["Y offset"], -100, 100, 1,
+            function() return o.y end, function(v) N:Set(pth("y"), N.Round(v)) end))
+        local builtIn = {
+            { value = "nucleus", text = "Nucleus" },
+            { value = "nucleus2", text = "Nucleus 2" },
+            { value = "nucleus3", text = "Nucleus Gloss" },
+            { value = "flat", text = L["Flat"] },
+            { value = "gradient", text = L["Gradient"] },
+            { value = "modern", text = L["Modern"] },
+        }
+        local function textureOptions()
+            local out = { { value = "same", text = L["Same as health bar"] } }
+            for _, t in ipairs(builtIn) do
+                out[#out + 1] = { value = t.value, text = t.text, icon = M.barTextures[t.value] }
+            end
+            for _, t in ipairs(M.SharedList("statusbar")) do
+                out[#out + 1] = { value = t.value, text = t.text, icon = t.path }
+            end
+            return out
+        end
+        c:AddRow(N.MakeLabeledPicker(c, L["Bar texture"], textureOptions,
+            function() return o.texture or "same" end,
+            function(v) N:Set(pth("texture"), v) end,
+            function(v)
+                for _, t in ipairs(textureOptions()) do
+                    if t.value == v then return t.text, t.icon end
+                end
+                return M.SharedName(v) or v, M.BarTexturePath(v)
+            end))
+        c:AddRow(N.MakeSlider(c, L["Border size"], 0, 4, 1,
+            function() return o.borderSize end, function(v) N:Set(pth("borderSize"), N.Round(v)) end))
+        c:AddRow(N.MakeColorPicker(c, L["Border color"],
+            function() return o.borderColor end, function(v) N:Set(pth("borderColor"), v) end))
+        c:AddRow(N.MakeSlider(c, L["Background opacity"], 0, 1, 0.05,
+            function() return o.bgAlpha end, function(v) N:Set(pth("bgAlpha"), v) end))
+        c:AddRow(N.MakeCheckbox(c, L["Show icon"],
+            function() return o.showIcon end, function(v) N:Set(pth("showIcon"), v) end))
+        c:AddRow(N.MakeDropdown(c, L["Icon side"], {
+            { value = "left", text = L["Left"] },
+            { value = "right", text = L["Right"] },
+        }, function() return o.iconSide or "left" end, function(v) N:Set(pth("iconSide"), v) end))
+        c:AddRow(N.MakeCheckbox(c, L["Show spark"],
+            function() return o.showSpark end, function(v) N:Set(pth("showSpark"), v) end))
     elseif meta.missing then
         c:AddRow(N.MakeSlider(c, L["Icon size"], 8, 32, 1,
             function() return o.size end, function(v) N:Set(pth("size"), N.Round(v)) end))
@@ -1556,6 +1612,43 @@ local function BuildIndicator(p, key, meta)
             function() return o.y end, function(v) N:Set(pth("y"), N.Round(v)) end))
     end
     p:AddCard(c)
+
+    if meta.cast then
+        local cc = N.MakeCard(p, L["Colors"])
+        cc:AddRow(N.MakeColorPicker(cc, L["Cast color"],
+            function() return o.color end, function(v) N:Set(pth("color"), v) end))
+        cc:AddRow(N.MakeColorPicker(cc, L["Channel color"],
+            function() return o.channelColor end, function(v) N:Set(pth("channelColor"), v) end))
+        cc:AddRow(N.MakeColorPicker(cc, L["Empower color"],
+            function() return o.empowerColor end, function(v) N:Set(pth("empowerColor"), v) end))
+        cc:AddRow(N.MakeCheckbox(cc, L["Class color"],
+            function() return o.classColor end, function(v) N:Set(pth("classColor"), v) end))
+        cc:AddRow(N.MakeCheckbox(cc, L["Show interrupted casts"],
+            function() return o.showInterrupt ~= false end, function(v) N:Set(pth("showInterrupt"), v) end))
+        cc:AddRow(N.MakeColorPicker(cc, L["Interrupted color"],
+            function() return o.interruptColor end, function(v) N:Set(pth("interruptColor"), v) end))
+        cc:AddRow(N.MakeCheckbox(cc, L["Mark non-interruptible casts"],
+            function() return o.markUninterruptible end, function(v) N:Set(pth("markUninterruptible"), v) end))
+        cc:AddRow(N.MakeColorPicker(cc, L["Non-interruptible color"],
+            function() return o.uninterruptColor end, function(v) N:Set(pth("uninterruptColor"), v) end))
+        p:AddCard(cc)
+
+        local tc = N.MakeCard(p, L["Text"])
+        tc:AddRow(N.MakeCheckbox(tc, L["Show spell name"],
+            function() return o.showName ~= false end, function(v) N:Set(pth("showName"), v) end))
+        tc:AddRow(N.MakeCheckbox(tc, L["Show spell target"],
+            function() return o.showTarget end, function(v) N:Set(pth("showTarget"), v) end))
+        tc:AddRow(N.MakeCheckbox(tc, L["Show timer"],
+            function() return o.showTime ~= false end, function(v) N:Set(pth("showTime"), v) end))
+        tc:AddRow(N.MakeDropdown(tc, L["Time format"], {
+            { value = "remaining", text = L["Remaining"] },
+            { value = "both", text = L["Remaining / total"] },
+        }, function() return o.timeFormat or "remaining" end, function(v) N:Set(pth("timeFormat"), v) end))
+        tc:AddRow(N.MakeSlider(tc, L["Text size"], 6, 16, 1,
+            function() return o.textSize end, function(v) N:Set(pth("textSize"), N.Round(v)) end))
+        p:AddCard(tc)
+
+    end
 
     if meta.private then
         local cd = N.MakeCard(p, L["Countdown"])
@@ -1744,7 +1837,7 @@ local function BuildIndicator(p, key, meta)
 end
 
 local AURA_TITLES = {
-    buffs = "Buffs", debuffs = "Debuffs", debuffs2 = "Debuffs 2", debuffs3 = "Debuffs 3", debuffs4 = "Debuffs 4",
+    buffs = "Buffs / Healers", debuffs = "Debuffs", debuffs2 = "Debuffs 2", debuffs3 = "Debuffs 3", debuffs4 = "Debuffs 4",
     dispels = "Dispellable Debuffs", defensives = "Defensive Cooldowns",
     externals = "External Cooldowns", offensives = "Offensive Cooldowns", defext = "Defensives & Externals",
     crowdControls = "Crowd Controls",
@@ -1826,6 +1919,10 @@ local function BuildAuras(p, key, kind)
            function(v) N:Set(pth("castBy"), v) end)
         N.SetTip(by, L["Cast by"], L["CAST_NPC_TIP"])
         c:AddRow(by)
+        local hideSelf = N.MakeCheckbox(c, L["Hide own debuffs on my frame"],
+            function() return o.hideSelf ~= false end, function(v) N:Set(pth("hideSelf"), v) end)
+        N.SetTip(hideSelf, L["Hide own debuffs on my frame"], L["HIDESELF_TIP"])
+        c:AddRow(hideSelf)
         c:AddRow(N.MakeCheckbox(c, L["Show Bloodlust exhaustion"],
             function() return o.showSated end, function(v) N:Set(pth("showSated"), v) end))
     elseif kind == "crowdControls" then
@@ -2356,6 +2453,311 @@ local function BuildActions(p)
     end
     list:AddRow(ActionButton(list, "+  " .. L["Add action"], function()
         table.insert(cfg.list, { spell = 6262, anim = "sweep", color = { 1, 1, 1 } })
+        touch()
+        rebuild()
+    end))
+    p:AddCard(list)
+end
+
+local function BuildAuraSounds(p)
+    for _, child in ipairs({ p:GetChildren() }) do
+        child:Hide()
+        child:SetParent(nil)
+    end
+    p._y = -4
+
+    local cfg = N.db.auraSounds
+    local function touch()
+        N:Fire("NUCLEUS_SETTING_CHANGED", "auraSounds", "auraSounds.list")
+    end
+    local function rebuild()
+        BuildAuraSounds(p)
+        if scrollChild then scrollChild:SetHeight(math.max(p:GetHeight(), 10) + 8) end
+    end
+
+    local c = N.MakeCard(p, L["Aura sounds"])
+    c:AddRow(N.MakeCheckbox(c, L["Enabled"],
+        function() return cfg.enabled end,
+        function(v) N:Set("auraSounds.enabled", v) end))
+    local hint = N.FontString(c, 11)
+    hint:SetPoint("TOPLEFT", c, "TOPLEFT", N.CARD_PAD, c._y)
+    hint:SetWidth(c:GetWidth() - 2 * N.CARD_PAD)
+    hint:SetJustifyH("LEFT")
+    hint:SetTextColor(uc(M.color.textDim))
+    local hintText = L["AURASOUND_HINT"]
+    if not (N.AuraSounds and N.AuraSounds.Available()) then
+        hintText = hintText .. "\n\n|cffffaa33" .. L["AURASOUND_UNAVAILABLE"] .. "|r"
+    end
+    hint:SetText(hintText)
+    hint:SetHeight(hint:GetStringHeight() + 4)
+    c:SetHeight(-c._y + hint:GetHeight() + N.CARD_PAD)
+    p:AddCard(c)
+
+    local function soundOptions()
+        local out = { { value = "none", text = L["None"] } }
+        for _, b in ipairs(N.AuraSounds.BUILTIN) do out[#out + 1] = { value = b.key, text = L[b.name] } end
+        for _, s in ipairs(cfg.custom) do
+            if N.AuraSounds.CustomPath(s.file) then
+                out[#out + 1] = { value = "file:" .. s.file, text = (s.name and s.name ~= "") and s.name or s.file }
+            end
+        end
+        for _, o in ipairs(M.SharedList("sound")) do
+            if o.text ~= "None" then out[#out + 1] = { value = o.value, text = o.text } end
+        end
+        return out
+    end
+    local function soundText(v)
+        for _, o in ipairs(soundOptions()) do
+            if o.value == v then return o.text end
+        end
+        if type(v) == "string" and v:sub(1, 5) == "file:" then return v:sub(6) end
+        return M.SharedName(v) or L["None"]
+    end
+    local triggerOpts = {
+        { value = "added", text = L["Aura added"] },
+        { value = "removed", text = L["Aura removed"] },
+        { value = "stacks", text = L["Stacks increased"] },
+    }
+    local whoOpts = {
+        { value = "all", text = L["Everyone in the group"] },
+        { value = "me", text = L["Only me"] },
+    }
+
+    cfg.custom = cfg.custom or {}
+    local own = N.MakeCard(p, L["Your own sounds"])
+    local ownHead
+    if #cfg.custom > 0 then
+        ownHead = CreateFrame("Frame", nil, own)
+        ownHead._rowHeight = 18
+        local h1 = N.FontString(ownHead, 11)
+        h1:SetPoint("TOPLEFT", ownHead, "TOPLEFT", 0, 0)
+        h1:SetTextColor(uc(M.color.textDim))
+        h1:SetText(L["Name"])
+        local h2 = N.FontString(ownHead, 11)
+        h2:SetPoint("TOPLEFT", ownHead, "TOPLEFT", 126, 0)
+        h2:SetTextColor(uc(M.color.textDim))
+        h2:SetText(L["File name or path"])
+        own:AddRow(ownHead)
+    end
+    for i, s in ipairs(cfg.custom) do
+        local row = CreateFrame("Frame", nil, own)
+        row._rowHeight = 30
+
+        local nameBox = N.MakeTextInput(row, nil,
+            function() return s.name or "" end,
+            function(v) s.name = strtrim(v or ""); touch() end)
+        nameBox:SetParent(row)
+        nameBox:ClearAllPoints()
+        nameBox:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -2)
+        nameBox:SetSize(120, 24)
+
+        local fileBox = N.MakeTextInput(row, nil,
+            function() return s.file or "" end,
+            function(v) s.file = strtrim(v or ""); touch() end)
+        fileBox:SetParent(row)
+        fileBox:ClearAllPoints()
+        fileBox:SetPoint("LEFT", nameBox, "RIGHT", 6, 0)
+        fileBox:SetSize(200, 24)
+
+        local test = CreateFrame("Button", nil, row)
+        test:SetSize(46, 22)
+        test:SetPoint("LEFT", fileBox, "RIGHT", 6, 0)
+        N.SkinButton(test)
+        local tfs = N.FontString(test, 11)
+        tfs:SetPoint("CENTER")
+        tfs:SetText(L["Test"])
+        test:SetScript("OnClick", function()
+            -- The box only saves when it loses focus, so read what is typed right now.
+            local typed = fileBox.edit and strtrim(fileBox.edit:GetText() or "") or s.file
+            if typed ~= s.file then
+                s.file = typed
+                touch()
+            end
+            N.AuraSounds.Test({ sound = "file:" .. (typed or "") })
+        end)
+
+        local del = CreateFrame("Button", nil, row)
+        del:SetSize(24, 22)
+        del:SetPoint("TOPRIGHT", row, "TOPRIGHT", 0, -2)
+        N.SkinRound(del, M.color.base, M.color.line, true)
+        local tint = N.MakeCross(del, 9, 2)
+        tint(uc(M.color.textDim))
+        del:SetScript("OnEnter", function()
+            del._nucFill:SetColorTexture(0.80, 0.22, 0.22, 1)
+            tint(1, 1, 1, 1)
+        end)
+        del:SetScript("OnLeave", function()
+            del._nucFill:SetColorTexture(uc(M.color.base))
+            tint(uc(M.color.textDim))
+        end)
+        del:SetScript("OnClick", function()
+            table.remove(cfg.custom, i)
+            touch()
+            rebuild()
+        end)
+
+        own:AddRow(row)
+    end
+    own:AddRow(ActionButton(own, "+  " .. L["Add sound"], function()
+        table.insert(cfg.custom, { name = "", file = "" })
+        touch()
+        rebuild()
+    end))
+    local ownHint = N.FontString(own, 11)
+    ownHint:SetPoint("TOPLEFT", own, "TOPLEFT", N.CARD_PAD, own._y)
+    ownHint:SetWidth(own:GetWidth() - 2 * N.CARD_PAD)
+    ownHint:SetJustifyH("LEFT")
+    ownHint:SetTextColor(uc(M.color.textDim))
+    ownHint:SetText(L["AURASOUND_OWN_HINT"])
+    ownHint:SetHeight(ownHint:GetStringHeight() + 4)
+    own:SetHeight(-own._y + ownHint:GetHeight() + N.CARD_PAD)
+    p:AddCard(own)
+
+    local function spellOptions()
+        local byName, order, seenID = {}, {}, {}
+        local playerClass = select(2, UnitClass("player"))
+        local function add(id)
+            if seenID[id] then return end
+            local cls = N.SpellClass and N.SpellClass[id]
+            if cls and cls ~= playerClass then return end
+            local name = C_Spell and C_Spell.GetSpellName and C_Spell.GetSpellName(id)
+            local tex = C_Spell and C_Spell.GetSpellTexture and C_Spell.GetSpellTexture(id)
+            if not name or not tex or tex == 134400 then return end
+            seenID[id] = true
+            local e = byName[name]
+            if not e then
+                e = { name = name, icon = tex, ids = {} }
+                byName[name] = e
+                order[#order + 1] = e
+            end
+            e.ids[#e.ids + 1] = id
+        end
+        for _, id in ipairs(N.CustomIndicators.Suggestions("buff")) do add(id) end
+        for _, id in ipairs(N.CustomIndicators.Suggestions("debuff")) do add(id) end
+        local out = {}
+        for _, e in ipairs(order) do
+            -- Use the highest rank you know, otherwise the highest listed.
+            local best, bestKnown
+            for _, id in ipairs(e.ids) do
+                if not best or id > best then best = id end
+                if IsPlayerSpell and IsPlayerSpell(id) and (not bestKnown or id > bestKnown) then bestKnown = id end
+            end
+            out[#out + 1] = { value = tostring(bestKnown or best), text = e.name, icon = e.icon }
+        end
+        table.sort(out, function(x, y) return x.text < y.text end)
+        return out
+    end
+    local function spellText(v)
+        local id = tonumber(v)
+        local name = id and C_Spell and C_Spell.GetSpellName and C_Spell.GetSpellName(id)
+        local tex = id and C_Spell and C_Spell.GetSpellTexture and C_Spell.GetSpellTexture(id)
+        return name or L["Unknown spell"], tex
+    end
+
+    local list = N.MakeCard(p, L["Spells"])
+    if #cfg.list > 0 then
+        local head = CreateFrame("Frame", nil, list)
+        head._rowHeight = 18
+        local h1 = N.FontString(head, 11)
+        h1:SetPoint("TOPLEFT", head, "TOPLEFT", 0, 0)
+        h1:SetTextColor(uc(M.color.textDim))
+        h1:SetText(L["Spell"])
+        local h2 = N.FontString(head, 11)
+        h2:SetPoint("TOPLEFT", head, "TOPLEFT", 234, 0)
+        h2:SetTextColor(uc(M.color.textDim))
+        h2:SetText(L["Spell ID"])
+        list:AddRow(head)
+    end
+    for i, entry in ipairs(cfg.list) do
+        local row = CreateFrame("Frame", nil, list)
+        row._rowHeight = 92
+
+        local spellPicker = N.MakeIconPicker(row, spellOptions,
+            function() return entry.spell and tostring(entry.spell) or nil end,
+            function(v)
+                entry.spell = tonumber(v)
+                touch()
+                rebuild()
+            end,
+            spellText)
+        spellPicker:SetParent(row)
+        spellPicker:ClearAllPoints()
+        spellPicker:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -2)
+        spellPicker:SetSize(228, 24)
+
+        local idBox = N.MakeTextInput(row, nil,
+            function() return entry.spell and tostring(entry.spell) or "" end,
+            function(v)
+                local n = tonumber(v)
+                if n and n > 0 and n ~= entry.spell then
+                    entry.spell = math.floor(n)
+                    touch()
+                    rebuild()
+                end
+            end)
+        idBox:SetParent(row)
+        idBox:ClearAllPoints()
+        idBox:SetPoint("LEFT", spellPicker, "RIGHT", 6, 0)
+        idBox:SetSize(84, 24)
+
+        local picker = N.MakeIconPicker(row, soundOptions,
+            function() return entry.sound or "none" end,
+            function(v) entry.sound = v; touch() end,
+            soundText, true)
+        picker:SetParent(row)
+        picker:ClearAllPoints()
+        picker:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -32)
+        picker:SetSize(228, 24)
+
+        local test = CreateFrame("Button", nil, row)
+        test:SetSize(46, 22)
+        test:SetPoint("LEFT", picker, "RIGHT", 6, 0)
+        N.SkinButton(test)
+        local tfs = N.FontString(test, 11)
+        tfs:SetPoint("CENTER")
+        tfs:SetText(L["Test"])
+        test:SetScript("OnClick", function() N.AuraSounds.Test(entry) end)
+
+        local del = CreateFrame("Button", nil, row)
+        del:SetSize(24, 22)
+        del:SetPoint("TOPRIGHT", row, "TOPRIGHT", 0, -2)
+        N.SkinRound(del, M.color.base, M.color.line, true)
+        local tint = N.MakeCross(del, 9, 2)
+        tint(uc(M.color.textDim))
+        del:SetScript("OnEnter", function()
+            del._nucFill:SetColorTexture(0.80, 0.22, 0.22, 1)
+            tint(1, 1, 1, 1)
+        end)
+        del:SetScript("OnLeave", function()
+            del._nucFill:SetColorTexture(uc(M.color.base))
+            tint(uc(M.color.textDim))
+        end)
+        del:SetScript("OnClick", function()
+            table.remove(cfg.list, i)
+            touch()
+            rebuild()
+        end)
+
+        local trigger = N.MakeDropdown(row, nil, triggerOpts,
+            function() return entry.trigger or "added" end,
+            function(v) entry.trigger = v; touch() end)
+        trigger:SetParent(row)
+        trigger:ClearAllPoints()
+        trigger:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -62)
+        trigger:SetSize(150, 24)
+
+        local who = N.MakeDropdown(row, nil, whoOpts,
+            function() return entry.who or "all" end,
+            function(v) entry.who = v; touch() end)
+        who:SetParent(row)
+        who:ClearAllPoints()
+        who:SetPoint("LEFT", trigger, "RIGHT", 6, 0)
+        who:SetSize(170, 24)
+
+        list:AddRow(row)
+    end
+    list:AddRow(ActionButton(list, "+  " .. L["Add aura sound"], function()
+        table.insert(cfg.list, { sound = "game:raidwarning", trigger = "added", who = "all" })
         touch()
         rebuild()
     end))
@@ -3002,8 +3404,9 @@ local RES_SPELLS = {
     [20707] = true, [20762] = true, [20763] = true, [20764] = true, [20765] = true, [27239] = true,
 }
 
--- Dual spells (Penance) count as harmful to the game but belong in the list.
-local DUAL_IDS = { 1240720, 1240721, 1240723, 1240724, 1240727, 1240730, 1316991, 1316993, 1316995, 402284, 402289, 47540, 53005, 53006, 53007, 47757, 47758 }
+-- Spells that heal friends and hurt enemies (Penance, Holy Shock, Holy Prism) read as harmful but belong in the list.
+local DUAL_IDS = { 1240720, 1240721, 1240723, 1240724, 1240727, 1240730, 1316991, 1316993, 1316995, 402284, 402289, 47540, 53005, 53006, 53007, 47757, 47758,
+    20473, 20929, 20930, 27174, 33072, 48824, 48825, 114165 }
 local dualNames
 local function isDualSpell(name)
     if not dualNames then
@@ -3794,6 +4197,11 @@ local function BuildTabModel()
         build = function(p) BuildActions(p) end,
         enabledCheck = function() return N.db.actions.enabled end,
     }
+    indicatorSubs[#indicatorSubs + 1] = {
+        id = "auraSounds", label = L["Aura sounds"],
+        build = function(p) BuildAuraSounds(p) end,
+        enabledCheck = function() return N.db.auraSounds.enabled end,
+    }
 
     local function stub(name)
         return { { id = "overview", label = L["Overview"],
@@ -4188,7 +4596,7 @@ local function RefreshSubNavDim()
     end
 end
 N:On("NUCLEUS_SETTING_CHANGED", function(_, _, path)
-    if path and (path:find("%.indicators%.") or path:find("%.auras%.") or path:find("%.customIndicators") or path:find("^targetedSpellBars%.enabled") or path:find("^actions%.enabled")) then
+    if path and (path:find("%.indicators%.") or path:find("%.auras%.") or path:find("%.customIndicators") or path:find("^targetedSpellBars%.enabled") or path:find("^actions%.enabled") or path:find("^auraSounds%.enabled")) then
         RefreshSubNavDim()
     end
 end)
@@ -4285,7 +4693,7 @@ function N.OptionsDropPanels(prefix)
         if key:sub(1, #prefix) == prefix then searchIndex[key] = nil end
     end
     indexedMode = nil
-    -- A dropped page that is on screen is rebuilt at once, otherwise the window stays empty.
+    -- If the open page was dropped, rebuild it right away or the window goes blank.
     if droppedShown and window and window:IsShown() and activeTab then SelectTab(activeTab) end
 end
 

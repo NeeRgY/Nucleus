@@ -8,7 +8,7 @@ N.Profiles = P
 local LibSerialize = LibStub and LibStub:GetLibrary("LibSerialize", true)
 local LibDeflate = LibStub and LibStub:GetLibrary("LibDeflate", true)
 
-P.KEYS = { "party", "raid", "tooltip", "core", "ping", "clickCasting", "targetedSpellBars", "actions", "tools", "ownPet", "groupPets", "npc", "spotlight" }
+P.KEYS = { "party", "raid", "tooltip", "core", "ping", "clickCasting", "targetedSpellBars", "actions", "auraSounds", "tools", "ownPet", "groupPets", "npc", "spotlight" }
 local KEYSET = {}
 for _, k in ipairs(P.KEYS) do KEYSET[k] = true end
 P.KEYSET = KEYSET
@@ -17,7 +17,7 @@ P.KEYSET = KEYSET
 P.SCOPE_AREAS = {
     { id = "tooltip",      keys = { "tooltip" } },
     { id = "clickCasting", keys = { "clickCasting" } },
-    { id = "utilities",    keys = { "tools", "actions" } },
+    { id = "utilities",    keys = { "tools", "actions", "auraSounds" } },
     { id = "spotlight",    keys = { "spotlight" } },
 }
 local SCOPE_OF = {} -- profile key -> area id
@@ -214,6 +214,7 @@ local function reapply()
     N:Fire("NUCLEUS_SETTING_CHANGED", "clickCasting", "clickCasting.bindings")
     N:Fire("NUCLEUS_SETTING_CHANGED", "targetedSpellBars", "targetedSpellBars.enabled")
     N:Fire("NUCLEUS_SETTING_CHANGED", "actions", "actions.enabled")
+    N:Fire("NUCLEUS_SETTING_CHANGED", "auraSounds", "auraSounds.enabled")
     N:Fire("NUCLEUS_SETTING_CHANGED", "tools", "tools.readyPull.enabled")
     N:Fire("NUCLEUS_SETTING_CHANGED", "ping", "ping.enabled", N.db.ping.enabled)
     N:Fire("NUCLEUS_SETTING_CHANGED", "tooltip", "tooltip.enabled")
@@ -317,7 +318,7 @@ local SYNC_FIELDS = {
 local SYNC_TABLES = { appearance = "appearance", indicators = "indicators", auras = "auras", custom = "customIndicators" }
 P.SYNC_GROUP_PARTS = { "size", "layout", "position", "appearance", "indicators", "auras", "custom" }
 P.SYNC_WHOLE = { "ownPet", "groupPets", "npc", "spotlight", "tooltip", "clickCasting", "targetedSpellBars",
-                 "actions", "tools", "ping" }
+                 "actions", "auraSounds", "tools", "ping" }
 
 function P.SyncConfig() return raw and raw.profileSync end
 

@@ -13,7 +13,7 @@
 ## Notes-zhTW: 現代化的團隊和隊伍框架。
 ## Author: NeRgY
 ## IconTexture: Interface\AddOns\Nucleus\Media\Textures\Logo
-## Version: 1.1.1
+## Version: 1.1.2
 ## OptionalDeps: LibSharedMedia-3.0
 ## SavedVariables: NucleusDB_Mainline
 ## X-Category: Unit Frames
@@ -80,6 +80,8 @@ src\Mainline\Frames\Indicators.lua
 src\Mainline\Frames\TargetedSpellBars.lua
 src\Mainline\Frames\MissingBuffs.lua
 src\Mainline\Frames\Actions.lua
+src\Mainline\Frames\AuraSounds.lua
+src\Mainline\Frames\CastBar.lua
 src\Mainline\Frames\GroupSpec.lua
 src\Mainline\Frames\GroupLabels.lua
 src\Mainline\Frames\Tools.lua

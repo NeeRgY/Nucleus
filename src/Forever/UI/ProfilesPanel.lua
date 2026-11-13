@@ -585,7 +585,7 @@ local PART_LABEL = {
 local WHOLE_LABEL = {
     ownPet = "MODE_ownPet", groupPets = "MODE_groupPets", npc = "MODE_npc", partyTargets = "MODE_partyTargets", spotlight = "MODE_spotlight",
     tooltip = "Tooltip", clickCasting = "Click-Casting", targetedSpellBars = "Targeted Spell Bars",
-    actions = "Actions", tools = "Utilities", ping = "Ping",
+    actions = "Actions", auraSounds = "Aura sounds", tools = "Utilities", ping = "Ping",
 }
 
 local function BuildSync(p)
