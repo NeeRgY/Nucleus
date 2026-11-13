@@ -21,7 +21,7 @@ For help, feel free to join the Discord server.
 
 ---
 
-**Current version:** `1.1.0`
+**Current version:** `1.1.2`
 
 </div>
 
@@ -35,6 +35,7 @@ https://github.com/NeeRgY/Cell
 
 ### Frames
 - Party and raid frames, plus frames for your pet, group pets and NPC companions
+- Party target frames: the target of each party member, optionally only for tanks, healers or damage dealers
 - Spotlight group: pin tanks, healers, a player by name, your target, focus or target's target
 - Raid groups: choose which groups and how many are shown, with optional group labels
 - Sorting by role, class or raid group, with your own order and pinned names
@@ -42,30 +43,37 @@ https://github.com/NeeRgY/Cell
 
 ### Indicators
 - Name, health text, power bar, level, status, role, leader, ready check, raid marker, combat icon
+- Power bar colors by resource or by role, with a custom color per bar
 - Absorb text and shield bar, health thresholds, aggro border, target counter, private auras
+- Overheal display for the heal prediction (WoW Forever)
+- Cast bar: the spell a group member is casting, with icon, name, target and time, interrupt flash, colors per cast type and your choice of position
 - Missing raid buffs, class and specialization icon
 - Custom indicators: icons, text, bars, borders, overlays and glows for the auras you choose
 
 ### Auras
 - Rows for buffs, debuffs, dispellable debuffs, defensive, external and offensive cooldowns, and crowd control
 - Built on the game's own aura engine, so auras keep showing in combat on current Retail
+- Aura sounds: a sound when an aura appears, disappears or gains a stack, with included sounds and your own files
 - Colored time text, dispel type colors, health bar highlights
 
 ### More
-- Click-casting per class and per specialization
+- Click-casting per class and per specialization, with a smart resurrection that picks the normal or the combat spell
 - Profiles with automatic switching by situation, specialization or role
 - Profile export and import as text, backups, and an importer for Cell profiles
 - Targeted spell bars, actions (potion and Healthstone animations), ready and pull timer, battle resurrection tracker, marker bar
 - Ping mirror on your frames
+- Font outline styles including Shadow, fonts and bar textures from LibSharedMedia, 11 languages
 
 ## Supported clients
 
-| Client                 | TOC                    | SavedVariables        | State        |
-|------------------------|------------------------|-----------------------|--------------|
-| Retail                 | `Nucleus_Mainline.toc` | `NucleusDB_Mainline`  | Early        |
-| WoW Forever (Classic)  | `Nucleus_Camelot.toc`  | `NucleusDB_Forever`   | Early        |
-| Vanilla                | `Nucleus_Vanilla.toc`  | `NucleusDB_Vanilla`   | Early        |
-| TBC                    | `Nucleus_TBC.toc`      | `NucleusDB_TBC`       | Early        |
+| Client                 | Game version           | TOC                    | SavedVariables        | State        |
+|------------------------|------------------------|------------------------|-----------------------|--------------|
+| Retail                 | 12.1, 12.1.5, 12.1.7   | `Nucleus_Mainline.toc` | `NucleusDB_Mainline`  | Early        |
+| WoW Forever (Classic)  | 1.60.1                 | `Nucleus_Camelot.toc`  | `NucleusDB_Forever`   | Early        |
+| Vanilla                | 1.15.8, 1.15.9         | `Nucleus_Vanilla.toc`  | `NucleusDB_Vanilla`   | Early        |
+| TBC                    | 2.5.6                  | `Nucleus_TBC.toc`      | `NucleusDB_TBC`       | Early        |
+
+Aura sounds and the cast bar are available on Retail and WoW Forever.
 
 ## Installation
 
@@ -77,9 +85,16 @@ The folder must be named `Nucleus`.
 
 ## Usage
 
-- `/nucleus` or `/nuc` opens the options window
-- `/nuctest` toggles test mode
-- `/nucanchor` shows the frame anchors so you can move the frames
+Open the options with `/nuc` or a click on the minimap button. Press Ctrl+F in the options window to search every setting.
+
+| Command | What it does |
+|---------|--------------|
+| `/nucleus` or `/nuc` | Opens or closes the options window |
+| `/nuctest` | Toggles test mode |
+| `/nucanchor` | Shows the frame anchors so you can move the frames |
+| `/nucnews` | Opens the "What's new" window |
+
+For bug reports there are a few more: `/nucdebug`, `/nucauras [unit]`, `/nucorder`, `/nucsize`, `/nucnpc`, `/nucblizz`, `/nuctaint` and `/nuctaintlog`. Some exist only on certain clients.
 
 ## Project layout
 
@@ -108,7 +123,7 @@ Bootstrap.lua   brings the modules up on login
 
 ## Support
 
-- Discord: https://discord.gg/YjfyDKckCS
+- Discord: https://discord.gg/HTgSf7Bjy8
 - Issues: https://github.com/NeeRgY/Nucleus/issues
 - Ko-fi: https://ko-fi.com/neergy
 
