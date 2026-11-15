@@ -76,6 +76,37 @@ local function snap(frame, v)
     return v
 end
 
+-- Health fill direction: right (default), up or down.
+local function fillMode(b)
+    local g = b.groupKey and N.db[b.groupKey]
+    local m = g and g.appearance and g.appearance.healthFill
+    if m == "up" or m == "down" then return m end
+    return "right"
+end
+UF.FillMode = fillMode
+
+-- Anchors a texture over the filled part of the health bar, or over the empty part with loss = true.
+function UF.AnchorFill(tex, b, loss)
+    local hb = b.health
+    local ft = hb:GetStatusBarTexture()
+    tex:ClearAllPoints()
+    if not loss then
+        tex:SetAllPoints(ft)
+        return
+    end
+    local m = fillMode(b)
+    if m == "up" then
+        tex:SetPoint("TOPLEFT", hb, "TOPLEFT")
+        tex:SetPoint("BOTTOMRIGHT", ft, "TOPRIGHT")
+    elseif m == "down" then
+        tex:SetPoint("TOPLEFT", ft, "BOTTOMLEFT")
+        tex:SetPoint("BOTTOMRIGHT", hb, "BOTTOMRIGHT")
+    else
+        tex:SetPoint("TOPLEFT", ft, "TOPRIGHT")
+        tex:SetPoint("BOTTOMRIGHT", hb, "BOTTOMRIGHT")
+    end
+end
+
 function UF.CreateVisual(b, key)
     if b._nucVisual then return end
     b._nucVisual = true
@@ -135,6 +166,11 @@ function UF.CreateVisual(b, key)
     hpText:SetJustifyH("CENTER")
     hpText:SetTextColor(0.85, 0.85, 0.87)
     b.hpText = hpText
+
+    local deadText = N.FontString(overlay, 10)
+    deadText:SetJustifyH("CENTER")
+    deadText:Hide()
+    b.deadText = deadText
 
     local powerText = N.FontString(overlay, 9)
     powerText:SetJustifyH("CENTER")
@@ -242,7 +278,8 @@ local function applyOutlineStyle(edges, cfg)
     local top, bottom, left, right = edges[1], edges[2], edges[3], edges[4]
     local reach = MARGIN + th
 
-    for i = 1, 4 do edges[i]:SetColorTexture(c[1], c[2], c[3], 1) end
+    local alpha = cfg.enabled == false and 0 or (cfg.opacity or 1)
+    for i = 1, 4 do edges[i]:SetColorTexture(c[1], c[2], c[3], alpha) end
 
     top:ClearAllPoints()
     top:SetPoint("TOPLEFT", top:GetParent(), "TOPLEFT", -reach, reach)
@@ -326,6 +363,12 @@ local function syncPowerEvents(b)
     end
 end
 
+local function layoutFill(b)
+    local mode = fillMode(b)
+    b.health:SetOrientation(mode == "right" and "HORIZONTAL" or "VERTICAL")
+    b.health:SetReverseFill(mode == "down")
+end
+
 function UF.LayoutBars(b)
     local ind = N.db[b.groupKey].indicators
     local appearance = N.db[b.groupKey].appearance
@@ -336,8 +379,12 @@ function UF.LayoutBars(b)
     -- Changing the texture resets the tint, so SetStatusBarColor is re-applied by the next render().
     N.SetBarTexture(b.health, appearance.barTexture)
     N.SetBarTexture(b.power, appearance.barTexture)
-    N.SetBarLossColor(b.health, appearance.healthLossColor)
-    N.SetBarLossColor(b.power, appearance.healthLossColor)
+    -- Background opacity: empty part of the bars and the frame fill.
+    local bgOpacity = appearance.backgroundOpacity or 1
+    N.SetBarLossColor(b.health, appearance.healthLossColor, bgOpacity)
+    N.SetBarLossColor(b.power, appearance.healthLossColor, bgOpacity)
+    local fc = M.color.frameBg
+    b._nucFill:SetColorTexture(fc[1], fc[2], fc[3], (fc[4] or 1) * bgOpacity)
 
     applyOutlineStyle(b.targetEdges, appearance.targetBorder)
     applyOutlineStyle(b.hoverEdges, appearance.hoverBorder)
@@ -372,6 +419,8 @@ function UF.LayoutBars(b)
     b.health:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT",
         snap(b, pos == "right" and -(1 + gap) or -1), snap(b, pos == "bottom" and 1 + gap or 1))
 
+    layoutFill(b)
+
     -- Explicit width from the frame width so long names truncate; one anchor lets X / Y move the text.
     local textW = N.db[b.groupKey].width - 6
     local name, hp = ind.name, ind.healthText
@@ -379,6 +428,7 @@ function UF.LayoutBars(b)
     b._nameGlyph = nil
     setNameFont(b, name, b.nameText:GetText())
     styleText(b.hpText, hp)
+    styleText(b.deadText, hp, true)
     b.nameText:SetWidth(textW)
     b.hpText:SetWidth(textW)
     local stacked = pOn(b, "name", name.enabled) and pOn(b, "healthText", hp.enabled)
@@ -687,7 +737,8 @@ local function renderPower(b, ind)
         -- A unit that does not exist (Spotlight target without a target) reports no power at all.
         b.power:SetMinMaxValues(0, type(b.ppMax) == "number" and b.ppMax or 1)
         if b.connected and type(b.pp) == "number" then b.power:SetValue(b.pp) else b.power:SetValue(0) end
-        b.power:SetStatusBarColor(powerBarRGB(b, ind.powerBar))
+        local pr, pg, pbl = powerBarRGB(b, ind.powerBar)
+        b.power:SetStatusBarColor(pr, pg, pbl, N.db[b.groupKey].appearance.barOpacity or 1)
     end
 
     if b.powerText:IsShown() then
@@ -700,8 +751,16 @@ local function render(b)
 
     b.hpMax = b.hpMax or 1; b.hp = b.hp or 0
     b.health:SetMinMaxValues(0, b.hpMax)
-    if b.connected then b.health:SetValue(b.hp) else b.health:SetValue(0) end
-    b.health:SetStatusBarColor(healthColor(b, appearance))
+    -- Dead color: fill the bar fully so the color shows.
+    if b.connected and b.dead and appearance.deadColorEnabled and appearance.deadColor then
+        b.health:SetValue(b.hpMax)
+    elseif b.connected then
+        b.health:SetValue(b.hp)
+    else
+        b.health:SetValue(0)
+    end
+    local hr, hg, hbl = healthColor(b, appearance)
+    b.health:SetStatusBarColor(hr, hg, hbl, appearance.barOpacity or 1)
 
     local ind = N.db[b.groupKey].indicators
 
@@ -727,7 +786,21 @@ local function render(b)
         end
     end
 
-    b.hpText:SetShown(pOn(b, "healthText", ind.healthText.enabled) and not statusMsg and pShow(b, "healthText"))
+    -- Gray "Dead" text replaces the health text.
+    local deadShown = b.connected and b.dead and appearance.deadText ~= false
+        and (not b._previewOnly or b._previewOnly == "appearance")
+    if deadShown then
+        local nm = ind.name
+        local nameUp = pOn(b, "name", nm.enabled) and (nm.position or "center") == "center"
+        placeText(b.deadText, b.health, { position = "center" }, nameUp and -6 or 0)
+        b.deadText:SetText(L["Dead"])
+        b.deadText:Show()
+    else
+        b.deadText:Hide()
+    end
+
+    b.hpText:SetShown(pOn(b, "healthText", ind.healthText.enabled) and not statusMsg and not deadShown
+        and pShow(b, "healthText"))
     if pOn(b, "healthText", ind.healthText.enabled) and not statusMsg then
         setHealthText(b, b.hpText, ind.healthText)
         b.hpText:SetTextColor(textRGB(b, ind.healthText, { 0.85, 0.85, 0.87 }))

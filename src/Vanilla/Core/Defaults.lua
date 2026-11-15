@@ -58,13 +58,17 @@ local function groupDefaults(overrides)
             cdStyleMode = "row",           -- "row" (each indicator decides) | "global"
             cdStyleGlobal = "spiral",       -- "spiral" | "vertical"
             barTexture = "nucleus",          -- "flat" | "gradient" | "modern" | "nucleus"
+            healthFill = "right",            -- "right" | "up" | "down"
             healthColorMode = "class",       -- "class" | "custom" | "gradient"
             healthCustomColor = { 0.20, 0.55, 0.95 },
             healthLossColor = { 0.065, 0.068, 0.075 },
+            barOpacity = 1,                  -- the filled part of the health and power bars
+            backgroundOpacity = 1,           -- empty part of the bars and the frame background
             deadColorEnabled = false,        -- dead / ghost units get deadColor on the health bar
             deadColor = { 0.30, 0.30, 0.30 },
-            targetBorder = { color = { 0.42, 0.70, 1.00 }, thickness = 1 },
-            hoverBorder  = { color = { 1.00, 1.00, 1.00 }, thickness = 1 },
+            deadText = true,                 -- gray "Dead" in the middle of a dead unit's frame
+            targetBorder = { color = { 0.42, 0.70, 1.00 }, thickness = 1, enabled = true, opacity = 1 },
+            hoverBorder  = { color = { 1.00, 1.00, 1.00 }, thickness = 1, enabled = true, opacity = 1 },
             -- Aura time text: turns `color` below `seconds`, counts in tenths below `decimals` (0 = never).
             timeColor    = { enabled = true, seconds = 3, color = { 1.00, 0.15, 0.15 }, decimals = 0 },
             frameBorder  = { enabled = true, color = { 0.00, 0.00, 0.00 }, thickness = 1 },
@@ -139,7 +143,7 @@ local function groupDefaults(overrides)
                               lowColor = { 1.00, 0.90, 0.10 }, warnColor = { 1.00, 0.60, 0.00 },
                               tankColor = { 1.00, 0.00, 0.00 } },
             -- Level Text: format = "full" (Level 80) | "short" (Lvl 80) | "number" (80)
-            levelText     = { enabled = false, size = 10, x = 0, y = -16, color = { 0.85, 0.85, 0.87 }, format = "full" },
+            levelText     = { enabled = false, size = 10, x = 0, y = -16, color = { 0.85, 0.85, 0.87 }, format = "full", classColor = false },
             -- Missing Buffs: an icon per missing raid buff; `buffs` switches each one.
             missingBuffs  = { enabled = false, size = 13, spacing = 1, position = "bottomright",
                               growth = "LEFT", x = 0, y = 4, hideInCombat = true,

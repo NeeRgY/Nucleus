@@ -877,8 +877,7 @@ local function updateFX(b, cfg, list, unit)
     elseif ht == "fill" or ht == "full" then
         fx.hl:ClearAllPoints()
         if ht == "fill" then
-            fx.hl:SetPoint("TOPLEFT", health, "TOPLEFT")
-            fx.hl:SetPoint("BOTTOMRIGHT", health:GetStatusBarTexture() or health, "BOTTOMRIGHT")
+            N.UnitFrame.AnchorFill(fx.hl, b)
         else
             fx.hl:SetAllPoints(b)
             op = math.max(op, 0.1)
@@ -1087,7 +1086,7 @@ local function rowSpec(b, row, cfg)
         spec.groups = debuffGroups(cfg, hiddenFor(cfg), cfg.hideSelf ~= false and isSelfFrame(b))
     elseif row.kind == "crowd" then
         spec.dispelBorder = false
-        spec.groups[1] = { key = "cc", filter = "HARMFUL|CROWD_CONTROL", max = cfg.max, border = CROWD }
+        spec.groups[1] = { key = "cc", filter = "HARMFUL|CROWD_CONTROL", candidate = { excludeSpellIDs = HIDDEN_ALWAYS }, max = cfg.max, border = CROWD }
     elseif row.kind == "dispel" then
         spec.shape = "dispel"
         local showIcons = cfg.showIcons ~= false and cfg.showIcons == true
@@ -1158,6 +1157,19 @@ local function engineOn(b)
     return N.AuraEngine.Supported()
 end
 
+-- Type icons get their own row when shown together with spell icons.
+local function typeIconSpec(spec, cfg)
+    local t = {}
+    for k, v in pairs(spec) do t[k] = v end
+    t.dispel = { highlight = "none", opacity = 0, frameBorder = false, frameBorderThickness = 2,
+        showIcons = false, typeIcons = true, typeIconSize = cfg.typeIconSize or 12 }
+    t.size, t.spacing = cfg.typeIconSize or 12, 1
+    t.point, t.x, t.y = cfg.typeIconPoint or "BOTTOMRIGHT", cfg.typeIconX or 0, cfg.typeIconY or 4
+    t.growth = cfg.typeIconGrowth or "LEFT"
+    t.perRow, t.lineSpacing = nil, nil
+    return t
+end
+
 local function syncEngine(b)
     local E = N.AuraEngine
     local live = b.unit and UnitExists(b.unit)
@@ -1165,7 +1177,13 @@ local function syncEngine(b)
         local cfg = N.db[b.groupKey].auras[row.cfg]
         local spec
         if live and not (b._previewOnly and b._previewOnly ~= row.cfg) then spec = rowSpec(b, row, cfg) end
+        local typeRow
+        if spec and row.kind == "dispel" and spec.dispel.showIcons and spec.dispel.typeIcons then
+            typeRow = typeIconSpec(spec, cfg)
+            spec.dispel.typeIcons = false
+        end
         E.Apply(b, "row:" .. row.cfg, spec)
+        if row.kind == "dispel" then E.Apply(b, "row:" .. row.cfg .. "#type", typeRow) end
         E.Apply(b, "row:" .. row.cfg .. "#glow", (spec and cfg.glow == "frame") and frameGlowSpec(spec, cfg) or nil)
     end
     b._engineSynced = true

@@ -832,8 +832,7 @@ local function updateFX(b, cfg, list, unit)
     elseif ht == "fill" or ht == "full" then
         fx.hl:ClearAllPoints()
         if ht == "fill" then
-            fx.hl:SetPoint("TOPLEFT", health, "TOPLEFT")
-            fx.hl:SetPoint("BOTTOMRIGHT", health:GetStatusBarTexture() or health, "BOTTOMRIGHT")
+            N.UnitFrame.AnchorFill(fx.hl, b)
         else
             fx.hl:SetAllPoints(b)
             op = math.max(op, 0.1)

@@ -78,6 +78,37 @@ local function snap(frame, v)
     return v
 end
 
+-- Health fill direction: right (default), up or down.
+local function fillMode(b)
+    local g = b.groupKey and N.db[b.groupKey]
+    local m = g and g.appearance and g.appearance.healthFill
+    if m == "up" or m == "down" then return m end
+    return "right"
+end
+UF.FillMode = fillMode
+
+-- Anchors a texture over the filled part of the health bar, or over the empty part with loss = true.
+function UF.AnchorFill(tex, b, loss)
+    local hb = b.health
+    local ft = hb:GetStatusBarTexture()
+    tex:ClearAllPoints()
+    if not loss then
+        tex:SetAllPoints(ft)
+        return
+    end
+    local m = fillMode(b)
+    if m == "up" then
+        tex:SetPoint("TOPLEFT", hb, "TOPLEFT")
+        tex:SetPoint("BOTTOMRIGHT", ft, "TOPRIGHT")
+    elseif m == "down" then
+        tex:SetPoint("TOPLEFT", ft, "BOTTOMLEFT")
+        tex:SetPoint("BOTTOMRIGHT", hb, "BOTTOMRIGHT")
+    else
+        tex:SetPoint("TOPLEFT", ft, "TOPRIGHT")
+        tex:SetPoint("BOTTOMRIGHT", hb, "BOTTOMRIGHT")
+    end
+end
+
 function UF.CreateVisual(b, key)
     if b._nucVisual then return end
     b._nucVisual = true
@@ -198,6 +229,11 @@ function UF.CreateVisual(b, key)
     hpText:SetTextColor(0.85, 0.85, 0.87)
     b.hpText = hpText
 
+    local deadText = N.FontString(overlay, 10)
+    deadText:SetJustifyH("CENTER")
+    deadText:Hide()
+    b.deadText = deadText
+
     local powerText = N.FontString(overlay, 9)
     powerText:SetJustifyH("CENTER")
     powerText:Hide()
@@ -316,7 +352,8 @@ local function applyOutlineStyle(edges, cfg)
     local top, bottom, left, right = edges[1], edges[2], edges[3], edges[4]
     local reach = MARGIN + th
 
-    for i = 1, 4 do edges[i]:SetColorTexture(c[1], c[2], c[3], 1) end
+    local alpha = cfg.enabled == false and 0 or (cfg.opacity or 1)
+    for i = 1, 4 do edges[i]:SetColorTexture(c[1], c[2], c[3], alpha) end
 
     top:ClearAllPoints()
     top:SetPoint("TOPLEFT", top:GetParent(), "TOPLEFT", -reach, reach)
@@ -411,6 +448,117 @@ local function syncPowerEvents(b)
     end
 end
 
+-- Orients the health bar and re-anchors every overlay bar to the edge of its fill.
+local function layoutFill(b, appearance)
+    local hb = b.health
+    local mode = fillMode(b)
+    local vert, rev = mode ~= "right", mode == "down"
+    local orient = vert and "VERTICAL" or "HORIZONTAL"
+    hb:SetOrientation(orient)
+    hb:SetReverseFill(rev)
+
+    local ft = hb:GetStatusBarTexture()
+    local hw, hh = hb:GetWidth() or 0, hb:GetHeight() or 0
+
+    -- Only one edge is anchored to the fill, so the length along the fill needs an explicit size.
+    local function prepare(bar)
+        bar:ClearAllPoints()
+        bar:SetOrientation(orient)
+        if vert then
+            bar:SetWidth(0)
+            bar:SetHeight(hh)
+        else
+            bar:SetHeight(0)
+            bar:SetWidth(hw)
+        end
+    end
+    -- Continues the fill past its leading edge.
+    local function forward(bar)
+        prepare(bar)
+        bar:SetReverseFill(rev)
+        if not vert then
+            bar:SetPoint("TOPLEFT", ft, "TOPRIGHT", 0, 0)
+            bar:SetPoint("BOTTOMLEFT", ft, "BOTTOMRIGHT", 0, 0)
+        elseif rev then
+            bar:SetPoint("TOPLEFT", ft, "BOTTOMLEFT", 0, 0)
+            bar:SetPoint("TOPRIGHT", ft, "BOTTOMRIGHT", 0, 0)
+        else
+            bar:SetPoint("BOTTOMLEFT", ft, "TOPLEFT", 0, 0)
+            bar:SetPoint("BOTTOMRIGHT", ft, "TOPRIGHT", 0, 0)
+        end
+    end
+    -- Grows back from the leading edge of `to` (the fill or the whole bar).
+    local function backward(bar, to)
+        prepare(bar)
+        bar:SetReverseFill(not rev)
+        if not vert then
+            bar:SetPoint("TOPRIGHT", to, "TOPRIGHT", 0, 0)
+            bar:SetPoint("BOTTOMRIGHT", to, "BOTTOMRIGHT", 0, 0)
+        elseif rev then
+            bar:SetPoint("BOTTOMLEFT", to, "BOTTOMLEFT", 0, 0)
+            bar:SetPoint("BOTTOMRIGHT", to, "BOTTOMRIGHT", 0, 0)
+        else
+            bar:SetPoint("TOPLEFT", to, "TOPLEFT", 0, 0)
+            bar:SetPoint("TOPRIGHT", to, "TOPRIGHT", 0, 0)
+        end
+    end
+
+    forward(b.healPredict)
+    if b.overheal then forward(b.overheal) end
+    if appearance.absorb.invertFill then backward(b.absorb, hb) else forward(b.absorb) end
+    backward(b.absorbOver, hb)
+    backward(b.healAbsorb, ft)
+
+    local clip = b.absorbFillClip
+    clip:ClearAllPoints()
+    if mode == "up" then
+        clip:SetPoint("BOTTOMLEFT", hb, "BOTTOMLEFT")
+        clip:SetPoint("TOPRIGHT", ft, "TOPRIGHT")
+    else
+        clip:SetPoint("TOPLEFT", hb, "TOPLEFT")
+        clip:SetPoint("BOTTOMRIGHT", ft, "BOTTOMRIGHT")
+    end
+
+    local spark = b.overAbsorb
+    spark:ClearAllPoints()
+    if vert then
+        spark:SetWidth(0)
+        spark:SetHeight(2)
+        local edge = rev and "BOTTOM" or "TOP"
+        spark:SetPoint(edge .. "LEFT", hb, edge .. "LEFT", 0, 0)
+        spark:SetPoint(edge .. "RIGHT", hb, edge .. "RIGHT", 0, 0)
+    else
+        spark:SetHeight(0)
+        spark:SetWidth(2)
+        spark:SetPoint("TOP", hb)
+        spark:SetPoint("BOTTOM", hb)
+        spark:SetPoint("RIGHT", hb, "RIGHT", 0, 0)
+    end
+
+    local strip = b.overhealClip
+    if strip then
+        local oh = appearance.healPredict.overheal or {}
+        local size = oh.mode == "edge" and (oh.edgeWidth or 3) or (oh.length or 40)
+        strip:ClearAllPoints()
+        if not vert then
+            strip:SetPoint("TOPLEFT", b, "TOPRIGHT", 0, 0)
+            strip:SetPoint("BOTTOMLEFT", b, "BOTTOMRIGHT", 0, 0)
+            strip:SetHeight(0)
+            strip:SetWidth(size)
+        elseif rev then
+            strip:SetPoint("TOPLEFT", b, "BOTTOMLEFT", 0, 0)
+            strip:SetPoint("TOPRIGHT", b, "BOTTOMRIGHT", 0, 0)
+            strip:SetWidth(0)
+            strip:SetHeight(size)
+        else
+            strip:SetPoint("BOTTOMLEFT", b, "TOPLEFT", 0, 0)
+            strip:SetPoint("BOTTOMRIGHT", b, "TOPRIGHT", 0, 0)
+            strip:SetWidth(0)
+            strip:SetHeight(size)
+        end
+    end
+end
+
 function UF.LayoutBars(b)
     local ind = N.db[b.groupKey].indicators
     local appearance = N.db[b.groupKey].appearance
@@ -421,8 +569,12 @@ function UF.LayoutBars(b)
     -- Changing the texture resets the tint, so SetStatusBarColor is re-applied by the next render().
     N.SetBarTexture(b.health, appearance.barTexture)
     N.SetBarTexture(b.power, appearance.barTexture)
-    N.SetBarLossColor(b.health, appearance.healthLossColor)
-    N.SetBarLossColor(b.power, appearance.healthLossColor)
+    -- Background opacity: empty part of the bars and the frame fill.
+    local bgOpacity = appearance.backgroundOpacity or 1
+    N.SetBarLossColor(b.health, appearance.healthLossColor, bgOpacity)
+    N.SetBarLossColor(b.power, appearance.healthLossColor, bgOpacity)
+    local fc = M.color.frameBg
+    b._nucFill:SetColorTexture(fc[1], fc[2], fc[3], (fc[4] or 1) * bgOpacity)
 
     applyShieldStyle(b.absorb, appearance.absorb)
     applyShieldStyle(b.absorbOver, appearance.absorb)
@@ -469,6 +621,7 @@ function UF.LayoutBars(b)
     b._nameGlyph = nil
     setNameFont(b, name, b.nameText:GetText())
     styleText(b.hpText, hp)
+    styleText(b.deadText, hp, true)
     b.nameText:SetWidth(textW)
     b.hpText:SetWidth(textW)
     local stacked = pOn(b, "name", name.enabled) and pOn(b, "healthText", hp.enabled)
@@ -482,24 +635,8 @@ function UF.LayoutBars(b)
     b.powerText:SetShown(pOn(b, "powerBar", pb.enabled) and b._powerShown and pb.text and pShow(b, "powerBar"))
     syncPowerEvents(b)
 
-    -- Overlay bars need an explicit pixel width: only one edge is anchored to health's fill texture.
-    local hw = b.health:GetWidth() or 0
-    b.healPredict:SetWidth(hw)
-    b.absorb:SetWidth(hw)
-    b.absorbOver:SetWidth(hw)
-    b.healAbsorb:SetWidth(hw)
+    layoutFill(b, appearance)
 
-    b.absorb:ClearAllPoints()
-    if appearance.absorb.invertFill then
-        b.absorb:SetReverseFill(true)
-        b.absorb:SetPoint("TOPRIGHT", b.health, "TOPRIGHT", 0, 0)
-        b.absorb:SetPoint("BOTTOMRIGHT", b.health, "BOTTOMRIGHT", 0, 0)
-    else
-        local fillTex = b.health:GetStatusBarTexture()
-        b.absorb:SetReverseFill(false)
-        b.absorb:SetPoint("TOPLEFT", fillTex, "TOPRIGHT", 0, 0)
-        b.absorb:SetPoint("BOTTOMLEFT", fillTex, "BOTTOMRIGHT", 0, 0)
-    end
     local oc = appearance.overshieldColor or { 0.75, 0.90, 1.00 }
     b.overAbsorb:SetColorTexture(oc[1], oc[2], oc[3], 0.9)
 
@@ -829,7 +966,8 @@ local function renderPower(b, ind)
         -- A unit that does not exist (Spotlight target without a target) reports no power at all.
         b.power:SetMinMaxValues(0, type(b.ppMax) == "number" and b.ppMax or 1)
         if b.connected and type(b.pp) == "number" then b.power:SetValue(b.pp) else b.power:SetValue(0) end
-        b.power:SetStatusBarColor(powerBarRGB(b, ind.powerBar))
+        local pr, pg, pbl = powerBarRGB(b, ind.powerBar)
+        b.power:SetStatusBarColor(pr, pg, pbl, N.db[b.groupKey].appearance.barOpacity or 1)
     end
 
     if b.powerText:IsShown() then
@@ -838,7 +976,7 @@ local function renderPower(b, ind)
 end
 
 local function renderShields(b, appearance)
-    if b._previewOnly or not b.connected then
+    if (b._previewOnly and b._previewOnly ~= "appearance") or not b.connected then
         b.healPredict:Hide()
         b.absorb:Hide()
         b.absorbOver:Hide()
@@ -889,8 +1027,16 @@ local function render(b)
 
     b.hpMax = b.hpMax or 1; b.hp = b.hp or 0
     b.health:SetMinMaxValues(0, b.hpMax)
-    if b.connected then b.health:SetValue(b.hp) else b.health:SetValue(0) end
-    b.health:SetStatusBarColor(healthColor(b, appearance))
+    -- Dead color: fill the bar fully so the color shows.
+    if b.connected and b.dead and appearance.deadColorEnabled and appearance.deadColor then
+        b.health:SetValue(b.hpMax)
+    elseif b.connected then
+        b.health:SetValue(b.hp)
+    else
+        b.health:SetValue(0)
+    end
+    local hr, hg, hbl = healthColor(b, appearance)
+    b.health:SetStatusBarColor(hr, hg, hbl, appearance.barOpacity or 1)
 
     local ind = N.db[b.groupKey].indicators
 
@@ -916,7 +1062,21 @@ local function render(b)
         end
     end
 
-    b.hpText:SetShown(pOn(b, "healthText", ind.healthText.enabled) and not statusMsg and pShow(b, "healthText"))
+    -- Gray "Dead" text replaces the health text.
+    local deadShown = b.connected and b.dead and appearance.deadText ~= false
+        and (not b._previewOnly or b._previewOnly == "appearance")
+    if deadShown then
+        local nm = ind.name
+        local nameUp = pOn(b, "name", nm.enabled) and (nm.position or "center") == "center"
+        placeText(b.deadText, b.health, { position = "center" }, nameUp and -6 or 0)
+        b.deadText:SetText(L["Dead"])
+        b.deadText:Show()
+    else
+        b.deadText:Hide()
+    end
+
+    b.hpText:SetShown(pOn(b, "healthText", ind.healthText.enabled) and not statusMsg and not deadShown
+        and pShow(b, "healthText"))
     if pOn(b, "healthText", ind.healthText.enabled) and not statusMsg then
         setHealthText(b, b.hpText, ind.healthText)
         b.hpText:SetTextColor(textRGB(b, ind.healthText, { 0.85, 0.85, 0.87 }))

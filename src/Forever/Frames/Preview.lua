@@ -13,6 +13,7 @@ local PAD = 12
 local TITLE_H = 20
 
 local instances = {}
+local sides = {}
 
 local ROTATING = {
     status = {
@@ -288,8 +289,115 @@ function P.EachActionsPreview(fn)
     end
 end
 
+-- Appearance tab: three fixed previews beside the window, at the real frame size.
+function P.CreateSide(parent)
+    local host = CreateFrame("Frame", nil, parent)
+    N.SkinPanel(host, M.color.frameBg)
+    host._nucFrameText = true
+
+    local titleFS = N.FontString(host, 12)
+    titleFS:SetPoint("TOPLEFT", 8, -6)
+    titleFS._nucForceUI = true
+    titleFS:SetText(L["Preview"])
+    titleFS:SetTextColor(M.color.textDim[1], M.color.textDim[2], M.color.textDim[3])
+
+    -- New frames are shown by default: hide so the first Show fires OnShow.
+    host:Hide()
+
+    local CYCLE = { 0, 25, 50, 75, 100 }
+    local cycleIdx = 1
+    local CAPTIONS = { L["Preview: 50% health with shield"], L["Preview: health from dead to 100%"], L["Out of range preview"] }
+    local CAP_H = 26
+    local items, captions = {}, {}
+    for i = 1, 3 do
+        local button = CreateFrame("Button", nil, host)
+        UF.CreateVisual(button, N:Mode())
+        items[i] = button
+        local cap = N.FontString(host, 10)
+        cap._nucForceUI = true
+        cap:SetJustifyH("LEFT")
+        cap:SetWordWrap(true)
+        cap:SetMaxLines(2)
+        cap:SetJustifyV("TOP")
+        cap:SetText(CAPTIONS[i])
+        cap:SetTextColor(M.color.textDim[1], M.color.textDim[2], M.color.textDim[3])
+        captions[i] = cap
+    end
+
+    local function paint()
+        if not host:IsShown() then return end
+        local key = N:Mode()
+        local w, h = frameSize()
+        -- The window can be scaled, the real frames are not.
+        local ps = parent:GetScale()
+        if ps and ps > 0 then host:SetScale(1 / ps) end
+        local hostW = math.max(w + PAD * 2, 190)
+        host:SetSize(hostW, TITLE_H + PAD / 2 + 3 * (CAP_H + h + PAD))
+        local alpha = N.db[key].appearance.outOfRangeAlpha or 0.45
+        for i, button in ipairs(items) do
+            local top = TITLE_H + PAD / 2 + (i - 1) * (CAP_H + h + PAD)
+            captions[i]:ClearAllPoints()
+            captions[i]:SetPoint("TOPLEFT", host, "TOPLEFT", 8, -top)
+            captions[i]:SetWidth(hostW - 16)
+            captions[i]:SetHeight(CAP_H - 2)
+            button.groupKey = key
+            button:SetSize(w, h)
+            button:ClearAllPoints()
+            button:SetPoint("TOP", host, "TOP", 0, -(top + CAP_H))
+            -- Only the frame itself: no texts, indicators or aura rows.
+            button._previewOnly = "appearance"
+            button._previewCustom = nil
+            UF.LayoutBars(button)
+            local m = freshMock(nil)
+            m.dead = false
+            m.incHeal, m.absorb, m.healAbsorb = 0, 0, 0
+            if i == 1 then
+                m.hp, m.incHeal, m.absorb = 50, 10, 20
+            elseif i == 2 then
+                m.hp = CYCLE[cycleIdx]
+                m.dead = m.hp == 0
+            else
+                m.hp = 75
+            end
+            UF.ApplyMock(button, m)
+            button:SetAlpha(i == 3 and alpha or 1)
+        end
+    end
+
+    -- Size changes reach the bars a frame late: lay out and draw again.
+    local function repaint()
+        paint()
+        C_Timer.After(0, function()
+            if not host:IsShown() then return end
+            for i, button in ipairs(items) do
+                UF.LayoutBars(button)
+                UF.Render(button)
+                if i == 3 then button:SetAlpha(N.db[N:Mode()].appearance.outOfRangeAlpha or 0.45) end
+            end
+        end)
+    end
+    sides[#sides + 1] = repaint
+
+    local ticker
+    host:SetScript("OnShow", function()
+        repaint()
+        if not ticker then
+            ticker = C_Timer.NewTicker(2, function()
+                if not host:IsShown() then return end
+                cycleIdx = (cycleIdx % #CYCLE) + 1
+                paint()
+            end)
+        end
+    end)
+    host:SetScript("OnHide", function()
+        if ticker then ticker:Cancel(); ticker = nil end
+    end)
+    return host
+end
+
 local function refreshAll()
     for _, inst in ipairs(instances) do inst.refresh() end
+    for _, repaint in ipairs(sides) do repaint() end
 end
 P.RefreshAll = refreshAll
 

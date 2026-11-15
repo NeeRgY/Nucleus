@@ -670,7 +670,7 @@ Indicators.Register("statusIcon", {
         "UNIT_AURA", "UNIT_HEALTH",
     },
     create = function(b)
-        local t = (b.overlay or b):CreateTexture(nil, "OVERLAY", nil, 3)
+        local t = (b.topOverlay or b.overlay or b):CreateTexture(nil, "OVERLAY", nil, 7)
         t:Hide()
         return t
     end,
@@ -951,7 +951,7 @@ local function formatElapsed(sec)
     return string.format("%d:%02d", m, sec % 60)
 end
 
-local TIMED = { offline = true, afk = true }
+local TIMED = { offline = true, afk = true, dead = true, ghost = true }
 
 local PILL_PAD = 6
 
@@ -992,8 +992,10 @@ Indicators.Register("status", {
         end
 
         if b._statusState ~= state then
+            -- Dead to Ghost keeps the death timer running.
+            local keep = b._statusState == "dead" and state == "ghost"
             b._statusState = state
-            b._statusSince = GetTime() - (b._mock and 125 or 0)
+            if not keep then b._statusSince = GetTime() - (b._mock and 125 or 0) end
         end
 
         local size = o.size or 11
@@ -1300,6 +1302,10 @@ Indicators.Register("levelText", {
         local o = N.db[b.groupKey].indicators.levelText
         fs:SetFont(M.font, o.size or 10, "OUTLINE")
         local c = o.color or { 0.85, 0.85, 0.87 }
+        if o.classColor and b.class and not N.IsSecret(b.class) then
+            local r, g, bl = N.ClassRGB(b.class)
+            c = { r, g, bl }
+        end
         fs:SetTextColor(c[1], c[2], c[3])
         fs:ClearAllPoints()
         fs:SetPoint("CENTER", b, "CENTER", o.x or 0, o.y or 0)

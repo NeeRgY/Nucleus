@@ -327,8 +327,15 @@ local function BuildTooltip(p)
         { value = "frame", text = L["TT_FRAME"] },
         { value = "cursor", text = L["TT_CURSOR"] },
         { value = "default", text = L["TT_DEFAULT"] },
+        { value = "icon", text = L["TT_ICON"] },
     }, function() return N.db.tooltip.anchor or "frame" end,
        function(v) N:Set("tooltip.anchor", v) end))
+    c:AddRow(N.MakeSlider(c, L["Aura tooltip offset X"], -300, 300, 1,
+        function() return N.db.tooltip.auraOffsetX or 0 end,
+        function(v) N:Set("tooltip.auraOffsetX", v) end))
+    c:AddRow(N.MakeSlider(c, L["Aura tooltip offset Y"], -300, 300, 1,
+        function() return N.db.tooltip.auraOffsetY or 0 end,
+        function(v) N:Set("tooltip.auraOffsetY", v) end))
     p:AddCard(c)
 end
 
@@ -961,6 +968,12 @@ local function BuildColor(p, key)
             end
             return M.SharedName(v) or v, M.BarTexturePath(v)
         end))
+    tex:AddRow(N.MakeDropdown(tex, L["Fill direction"], {
+        { value = "right", text = L["Left to right"] },
+        { value = "down", text = L["Bottom to top"] },
+        { value = "up", text = L["Top to bottom"] },
+    }, function() return a.healthFill or "right" end,
+       function(v) N:Set(key .. ".appearance.healthFill", v) end))
     p:AddCard(tex)
 
     local col = N.MakeCard(p, L["Health Bar Color"])
@@ -976,12 +989,21 @@ local function BuildColor(p, key)
     col:AddRow(N.MakeColorPicker(col, L["Health loss color"],
         function() return a.healthLossColor end,
         function(v) N:Set(key .. ".appearance.healthLossColor", v) end))
+    col:AddRow(N.MakeSlider(col, L["Bar opacity"], 0, 1, 0.05,
+        function() return a.barOpacity or 1 end,
+        function(v) N:Set(key .. ".appearance.barOpacity", v) end))
+    col:AddRow(N.MakeSlider(col, L["Background opacity"], 0, 1, 0.05,
+        function() return a.backgroundOpacity or 1 end,
+        function(v) N:Set(key .. ".appearance.backgroundOpacity", v) end))
     col:AddRow(N.MakeCheckbox(col, L["Dead color"],
         function() return a.deadColorEnabled end,
         function(v) N:Set(key .. ".appearance.deadColorEnabled", v) end))
     col:AddRow(N.MakeColorPicker(col, L["Color"],
         function() return a.deadColor end,
         function(v) N:Set(key .. ".appearance.deadColor", v) end))
+    col:AddRow(N.MakeCheckbox(col, L["Show Dead text"],
+        function() return a.deadText ~= false end,
+        function(v) N:Set(key .. ".appearance.deadText", v) end))
     p:AddCard(col)
 
     local STYLE_OPTS = {
@@ -1069,12 +1091,24 @@ local function BuildColor(p, key)
     border:AddRow(N.MakeSlider(border, L["Target Border Thickness"], 1, 4, 1,
         function() return a.targetBorder.thickness end,
         function(v) N:Set(key .. ".appearance.targetBorder.thickness", N.Round(v)) end))
+    border:AddRow(N.MakeSlider(border, L["Target Border Opacity"], 0, 1, 0.05,
+        function() return a.targetBorder.opacity or 1 end,
+        function(v) N:Set(key .. ".appearance.targetBorder.opacity", v) end))
+    border:AddRow(N.MakeCheckbox(border, L["Show target border"],
+        function() return a.targetBorder.enabled ~= false end,
+        function(v) N:Set(key .. ".appearance.targetBorder.enabled", v) end))
     border:AddRow(N.MakeColorPicker(border, L["Mouseover Border Color"],
         function() return a.hoverBorder.color end,
         function(v) N:Set(key .. ".appearance.hoverBorder.color", v) end))
     border:AddRow(N.MakeSlider(border, L["Mouseover Border Thickness"], 1, 4, 1,
         function() return a.hoverBorder.thickness end,
         function(v) N:Set(key .. ".appearance.hoverBorder.thickness", N.Round(v)) end))
+    border:AddRow(N.MakeSlider(border, L["Mouseover Border Opacity"], 0, 1, 0.05,
+        function() return a.hoverBorder.opacity or 1 end,
+        function(v) N:Set(key .. ".appearance.hoverBorder.opacity", v) end))
+    border:AddRow(N.MakeCheckbox(border, L["Show mouseover border"],
+        function() return a.hoverBorder.enabled ~= false end,
+        function(v) N:Set(key .. ".appearance.hoverBorder.enabled", v) end))
     p:AddCard(border)
 end
 
@@ -1333,6 +1367,8 @@ local function BuildIndicator(p, key, meta)
             { value = "short", text = L["Lvl 80"] },
             { value = "number", text = L["80"] },
         }, function() return o.format end, function(v) N:Set(pth("format"), v) end))
+        c:AddRow(N.MakeCheckbox(c, L["Class color"],
+            function() return o.classColor end, function(v) N:Set(pth("classColor"), v) end))
     end
 
     if meta.shield then
@@ -4258,10 +4294,31 @@ local function GetFlowPanel(tab)
 end
 
 
+local sideHost
+
+-- Appearance tab: example frames beside the window.
+local function ShowSidePreview(tabId)
+    if sideHost then sideHost:Hide() end
+    if tabId ~= "appearance" or not (N.Preview and N.Preview.CreateSide) then return end
+    sideHost = sideHost or N.Preview.CreateSide(window)
+    sideHost:ClearAllPoints()
+    sideHost:Show()
+    local wScale = window:GetScale() or 1
+    local right, uiRight = window:GetRight(), UIParent:GetRight()
+    local spare = right and uiRight and (uiRight * UIParent:GetEffectiveScale()
+        - right * window:GetEffectiveScale()) or 0
+    if spare < sideHost:GetWidth() * sideHost:GetEffectiveScale() + 12 then
+        sideHost:SetPoint("TOPRIGHT", window, "TOPLEFT", -6 * wScale, -BODY_TOP * wScale)
+    else
+        sideHost:SetPoint("TOPLEFT", window, "TOPRIGHT", 6 * wScale, -BODY_TOP * wScale)
+    end
+end
+
 local function HidePreviews()
     for _, p in pairs(panelCache) do
         if p.previewHost then p.previewHost:Hide() end
     end
+    if sideHost then sideHost:Hide() end
 end
 
 local function SelectSub(tabId, subId)
@@ -4508,6 +4565,7 @@ local function SelectTab(tabId)
     HidePreviews()
     if tabId ~= "about" and N.Supporters then N.Supporters.Hide() end
     activeTab = tabId
+    ShowSidePreview(tabId)
     for _, b in ipairs(topTabButtons) do
         b:SetActiveState(b.tabId == tabId)
     end
@@ -4989,14 +5047,20 @@ local function searchResults(text)
     for w in foldText(text):gmatch("%S+") do words[#words + 1] = w end
     if #words == 0 then return {} end
     local out, seen, mode = {}, {}, N:Mode()
-    for _, ctx in pairs(searchIndex) do
-        if not ctx.mode or ctx.mode == mode then
-            for _, e in ipairs(ctx.list) do
-                if entryMatches(e, words) then
-                    local id = ctx.tab .. "|" .. tostring(ctx.sub) .. "|" .. e.label
-                    if not seen[id] then
-                        seen[id] = true
-                        out[#out + 1] = { e = e, ctx = ctx, prefix = e.hay:sub(1, #words[1]) == words[1] }
+    for pass = 1, 2 do
+        for _, ctx in pairs(searchIndex) do
+            local mine = not ctx.mode or ctx.mode == mode
+            local theirs = ctx.mode and ctx.mode ~= mode and (ctx.mode == "party" or ctx.mode == "raid")
+                and (mode == "party" or mode == "raid")
+            if (pass == 1 and mine) or (pass == 2 and theirs) then
+                for _, e in ipairs(ctx.list) do
+                    if entryMatches(e, words) then
+                        local id = ctx.tab .. "|" .. tostring(ctx.sub) .. "|" .. e.label
+                        if not seen[id] then
+                            seen[id] = true
+                            out[#out + 1] = { e = e, ctx = ctx, other = pass == 2,
+                                prefix = e.hay:sub(1, #words[1]) == words[1] }
+                        end
                     end
                 end
             end
@@ -5009,6 +5073,7 @@ local function searchResults(text)
         end
     end
     table.sort(out, function(a, b)
+        if (a.other or false) ~= (b.other or false) then return not a.other end
         if a.prefix ~= b.prefix then return a.prefix end
         if a.e.label ~= b.e.label then return a.e.label < b.e.label end
         return a.ctx.key < b.ctx.key
@@ -5025,9 +5090,13 @@ local function runJob(job)
     local oldW, oldC = N.CONTENT_WIDTH, CONTENT_W
     N.CONTENT_WIDTH = railed and RAIL_CW or FLOW_CW
     CONTENT_W = N.CONTENT_WIDTH
+    -- Builds the other mode's pages by briefly switching the edited mode (no event).
+    local realMode = N.db.editMode
+    if job.mode then N.db.editMode = job.mode end
     pcall(function()
         if job.sub then GetPanel(tab.id, job.sub) else GetFlowPanel(tab) end
     end)
+    N.db.editMode = realMode
     N.CONTENT_WIDTH, CONTENT_W = oldW, oldC
 end
 
@@ -5044,6 +5113,25 @@ local function startIndex()
             else
                 for _, sub in ipairs(tab.subs) do
                     if not sub.action then indexJobs[#indexJobs + 1] = { tab = tab, sub = sub } end
+                end
+            end
+        end
+    end
+    -- Index the other mode too so its settings are found.
+    local other = (mode == "party" and "raid") or (mode == "raid" and "party") or nil
+    if other then
+        for _, tab in ipairs(TABS) do
+            if tab.id ~= "about" then
+                if tab.flow then
+                    local perMode
+                    for _, sub in ipairs(tab.subs) do if sub.perMode then perMode = true end end
+                    if perMode then indexJobs[#indexJobs + 1] = { tab = tab, mode = other } end
+                else
+                    for _, sub in ipairs(tab.subs) do
+                        if sub.perMode and not sub.action and not sub.custom then
+                            indexJobs[#indexJobs + 1] = { tab = tab, sub = sub, mode = other }
+                        end
+                    end
                 end
             end
         end
@@ -5100,6 +5188,10 @@ local function goToResult(item)
     local ctx, e = item.ctx, item.e
     local tab = FindTab(ctx.tab)
     if not tab then return end
+    if ctx.mode and ctx.mode ~= N:Mode() then
+        N:SetMode(ctx.mode)
+        RefreshMode()
+    end
     if not tab.flow and ctx.sub then lastSubOf[ctx.tab] = ctx.sub end
     SelectTab(ctx.tab)
     -- the page may have been rebuilt meanwhile: find the widget again by its label
@@ -5190,7 +5282,9 @@ local function BuildSearch(header)
             local item = current[i]
             r.item = item
             r.text:SetText(item.e.label)
-            r.path:SetText(item.path or pathOf(item.ctx.tab, item.ctx.sub))
+            local where = item.path or pathOf(item.ctx.tab, item.ctx.sub)
+            if item.other then where = where .. " (" .. L[item.ctx.mode == "raid" and "Raid" or "Party"] .. ")" end
+            r.path:SetText(where)
             r:Show()
         end
         if n == 0 then

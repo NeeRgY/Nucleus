@@ -296,13 +296,7 @@ function CI.AnchorArea(tex, b, area)
     if area == "health" and hb then
         tex:SetAllPoints(hb)
     elseif (area == "health-current" or area == "health-loss") and hb and hb.GetStatusBarTexture then
-        local ft = hb:GetStatusBarTexture()
-        if area == "health-current" then
-            tex:SetAllPoints(ft)
-        else
-            tex:SetPoint("TOPLEFT", ft, "TOPRIGHT")
-            tex:SetPoint("BOTTOMRIGHT", hb, "BOTTOMRIGHT")
-        end
+        N.UnitFrame.AnchorFill(tex, b, area == "health-loss")
     else
         tex:SetAllPoints(b)
     end

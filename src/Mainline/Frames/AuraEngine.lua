@@ -400,7 +400,10 @@ local function applyTip(button)
     if on then
         if button.SetHideTooltipInCombat then pcall(button.SetHideTooltipInCombat, button, tt.hideInCombat and true or false) end
         if button.SetTooltipAnchorPoint then
-            pcall(button.SetTooltipAnchorPoint, button, (tt.anchor == "cursor") and "ANCHOR_CURSOR" or "ANCHOR_BOTTOMLEFT")
+            local where = "ANCHOR_BOTTOMLEFT"
+            if tt.anchor == "cursor" then where = "ANCHOR_CURSOR"
+            elseif tt.anchor == "icon" then where = "ANCHOR_RIGHT" end
+            pcall(button.SetTooltipAnchorPoint, button, where, tt.auraOffsetX or 0, tt.auraOffsetY or 0)
         end
     end
     pcall(button.SetMouseClickEnabled, button, false)
@@ -437,8 +440,7 @@ local function initButton(h, group)
                     tex:SetTexture(WHITE)
                     local ht, op = d.highlight, (d.opacity or 50) / 100
                     if ht == "fill" then
-                        tex:SetPoint("TOPLEFT", health, "TOPLEFT")
-                        tex:SetPoint("BOTTOMRIGHT", health:GetStatusBarTexture() or health, "BOTTOMRIGHT")
+                        N.UnitFrame.AnchorFill(tex, b)
                         tex:SetVertexColor(col[1], col[2], col[3], op)
                     elseif ht == "full" then
                         tex:SetAllPoints(b)

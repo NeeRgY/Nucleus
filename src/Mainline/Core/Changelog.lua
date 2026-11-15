@@ -3,6 +3,26 @@ local N = ns.N
 
 N.Changelog = {
     {
+        version = "1.1.3",
+        date = "2026-11-15",
+        notes = {
+            "## New",
+            "New option Fill direction (Appearance > Color > Texture): the health bar can fill from left to right, bottom to top or top to bottom. Heal prediction, shields, overheal, the dispel highlight and the custom indicator health areas follow the fill.",
+            "The Appearance tab now shows three example frames beside the options window, at the real size of your frames: 50% health with a shield and heal prediction, health changing from dead to 100%, and a frame out of range.",
+            "Level Text has a new Class color option (Indicators > Level Text, off by default) that colors the level by the unit's class.",
+            "Dead units now show a gray Dead text in the middle of their frame (Appearance > Color > Show Dead text, on by default).",
+            "New options Bar opacity and Background opacity (Appearance > Color > Health Bar Color): make the filled part of the health and power bars, and the empty part with the frame background, see-through.",
+            "New aura tooltip position Beside the aura icon (Retail and Forever, Tooltip settings), plus Aura tooltip offset X and Y sliders to move aura tooltips (also with At the frame and At the mouse cursor).",
+            "New options to hide the Target and Mouseover borders or make them see-through (Appearance > Color > Border): Show target border, Show mouseover border and an opacity slider for each.",
+            "The Status indicator can now show the time since a unit died next to Dead and Ghost, like it does for AFK and Offline (Show timer).",
+            "The settings search now also finds settings that exist only for the other of Party and Raid, such as Raid groups, with the mode in brackets. Picking one switches to that mode.",
+            "## Fixes",
+            "I tried to hide the Improved Rested Bonus debuff in the Crowd Control row (Retail and Forever).",
+            "The Status Icon is now drawn above the name and the other texts instead of underneath them.",
+            "Show spell icons and the Dispel type icons of the Dispellable Debuffs row can now be shown at the same time (Retail and Forever). The type icons keep their own position settings.",
+        },
+    },
+    {
         version = "1.1.2",
         date = "2026-11-13",
         notes = {

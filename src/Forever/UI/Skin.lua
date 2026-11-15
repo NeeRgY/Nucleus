@@ -193,8 +193,10 @@ function N.SetBarTexture(bar, key)
     if tex then tex:SetDrawLayer("ARTWORK") end
 end
 
-function N.SetBarLossColor(bar, color)
-    if bar._nucLoss then bar._nucLoss:SetColorTexture(unpackColor(color or M.color.healthLoss)) end
+function N.SetBarLossColor(bar, color, opacity)
+    if not bar._nucLoss then return end
+    local r, g, bl, a = unpackColor(color or M.color.healthLoss)
+    bar._nucLoss:SetColorTexture(r, g, bl, a * (opacity or 1))
 end
 
 -- Fonts: _nucUI roots use the window font + scale, _nucFace the window font unscaled, else the frame font.

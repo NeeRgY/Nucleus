@@ -58,11 +58,15 @@ local function groupDefaults(overrides)
             cdStyleMode = "row",           -- "row" (each indicator decides) | "global"
             cdStyleGlobal = "spiral",       -- "spiral" | "vertical"
             barTexture = "nucleus",          -- "flat" | "gradient" | "modern" | "nucleus"
+            healthFill = "right",            -- "right" | "up" | "down"
             healthColorMode = "class",       -- "class" | "custom" | "gradient"
             healthCustomColor = { 0.20, 0.55, 0.95 },
             healthLossColor = { 0.065, 0.068, 0.075 },
+            barOpacity = 1,                  -- the filled part of the health and power bars
+            backgroundOpacity = 1,           -- empty part of the bars and the frame background
             deadColorEnabled = false,        -- dead / ghost units get deadColor on the health bar
             deadColor = { 0.30, 0.30, 0.30 },
+            deadText = true,                 -- gray "Dead" in the middle of a dead unit's frame
             -- Shield / heal-absorb / heal-prediction overlays (Appearance > Shield).
             showOvershield = true,
             absorb     = { enabled = true, style = "striped", opacity = 0.35, color = { 1.00, 1.00, 1.00 }, invertFill = false },
@@ -72,8 +76,8 @@ local function groupDefaults(overrides)
                            -- Overheal: the part of an incoming heal beyond full health, outside the frame.
                            overheal = { enabled = false, mode = "extend", length = 40, edgeWidth = 3,
                                         opacity = 0.70, color = { 0.30, 1.00, 0.55 } } },
-            targetBorder = { color = { 0.42, 0.70, 1.00 }, thickness = 1 },
-            hoverBorder  = { color = { 1.00, 1.00, 1.00 }, thickness = 1 },
+            targetBorder = { color = { 0.42, 0.70, 1.00 }, thickness = 1, enabled = true, opacity = 1 },
+            hoverBorder  = { color = { 1.00, 1.00, 1.00 }, thickness = 1, enabled = true, opacity = 1 },
             -- Aura time text: turns `color` below `seconds`, counts in tenths below `decimals` (0 = never).
             timeColor    = { enabled = true, seconds = 3, color = { 1.00, 0.15, 0.15 }, decimals = 0 },
             frameBorder  = { enabled = true, color = { 0.00, 0.00, 0.00 }, thickness = 1 },
@@ -163,7 +167,7 @@ local function groupDefaults(overrides)
                               lowColor = { 1.00, 0.90, 0.10 }, warnColor = { 1.00, 0.60, 0.00 },
                               tankColor = { 1.00, 0.00, 0.00 } },
             -- Level Text: format = "full" (Level 80) | "short" (Lvl 80) | "number" (80)
-            levelText     = { enabled = false, size = 10, x = 0, y = -16, color = { 0.85, 0.85, 0.87 }, format = "full" },
+            levelText     = { enabled = false, size = 10, x = 0, y = -16, color = { 0.85, 0.85, 0.87 }, format = "full", classColor = false },
             -- Missing Buffs: an icon per missing raid buff; `buffs` switches each one.
             missingBuffs  = { enabled = false, size = 13, spacing = 1, position = "bottomright",
                               growth = "LEFT", x = 0, y = 4, hideInCombat = true,
@@ -177,7 +181,7 @@ local function groupDefaults(overrides)
                 showStacks = true, showCooldown = true, cdStyle = "spiral", showTime = true, timeSize = 10, timeX = 0, timeY = 0, stackSize = 10, stackX = 1, stackY = -1, stackPoint = "BOTTOMRIGHT", stackColor = { 1, 1, 1 }, timePoint = "CENTER", timeBaseColor = { 1, 1, 1 }, onlyMine = true,
                 -- useList: only spells in `list` (the options show your class); off = every buff.
                 useList = true, pickAll = false, -- pickAll: show the spells of every class in the picker
-                list = "1278914,33763,419207,1227806,8936,419287,774,419204,155777,474754,474750,48438,419344,355941,355936,382614,376788,364343,373267,366155,367364,409895,450769,450521,450711,450526,450531,1292922,124682,119611,115175,1260617,198533,156910,53563,200025,1244893,431381,156322,461432,432502,469703,194384,77489,17,1246768,1254306,1300008,41635,401877,1240848,1240849,139,1253593,1300009,383648,974,444490,61295,360827,395152,395296,410089",
+                list = "1278914,33763,419207,1227806,8936,419287,774,419204,155777,474754,474750,48438,419344,355941,355936,382614,376788,364343,373267,366155,367364,409895,450769,450521,450711,450526,450531,1292922,124682,119611,115175,1260617,198533,156910,53563,200025,1244893,431381,156322,461432,432502,469703,194384,77489,17,1246768,1254306,1300008,41635,401877,1240848,1240849,408120,1238214,1238215,408124,408521,1239242,1239243,408514,431624,139,1253593,1300009,383648,974,444490,61295,360827,395152,395296,410089",
             },
             debuffs = {
                 enabled = true, max = 3, size = 18, spacing = 2, perRow = 8, lineSpacing = 2,
@@ -370,7 +374,8 @@ N.Defaults = {
         enabled = true,
         hideInCombat = false,
         auras = false, -- tooltips of single auras when hovering their icons
-        anchor = "frame", -- frame | cursor | default
+        anchor = "frame", -- frame | cursor | default | icon (aura tooltips only)
+        auraOffsetX = 0, auraOffsetY = 0, -- aura tooltip nudge from its anchor
     },
 
     minimap = {
