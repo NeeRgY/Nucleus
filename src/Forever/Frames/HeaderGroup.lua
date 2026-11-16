@@ -44,6 +44,13 @@ end
 function N.IsHosted(key)
     return hostFor(key, N.db and N.db[key]) ~= nil
 end
+-- Mirror one axis of an anchor point (TOP<->BOTTOM or LEFT<->RIGHT); middle points stay put.
+local function flipCorner(point, a, b)
+    if point:find(a) then return (point:gsub(a, b)) end
+    if point:find(b) then return (point:gsub(b, a)) end
+    return point
+end
+
 local function placeHeader(header, key, cfg, group)
     local pf = posFrames[key]
     if not pf then
@@ -64,7 +71,16 @@ local function placeHeader(header, key, cfg, group)
     pf:SetPoint(cfg.point, UIParent, cfg.point, cfg.x, cfg.y)
     local corner, ox, oy = cfg.point, 0, 0
     local grid = N.RaidGrid
-    if key == "raid" and grid and grid.Active() then corner, ox, oy = grid.Anchor(group or 1) end
+    if key == "raid" and grid and grid.Active() then
+        corner, ox, oy = grid.Anchor(group or 1)
+    elseif cfg.reverse then
+        -- Pin the block to the edge the frames grow away from (same idea as RG.Anchor for the
+        -- raid grid): with reversed growth the anchor point becomes the bottom (vertical) or
+        -- right (horizontal) edge, so a part-full group keeps its place as it grows.
+        corner = cfg.orientation == "horizontal"
+            and flipCorner(corner, "LEFT", "RIGHT")
+            or flipCorner(corner, "TOP", "BOTTOM")
+    end
     header:SetPoint(corner, pf, cfg.point, ox, oy)
 end
 

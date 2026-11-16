@@ -216,6 +216,20 @@ local function place(container, key, pool, n)
     end
 end
 
+-- Corner the container hangs from: flipped when growth is reversed, like the live header (placeHeader).
+-- The raid grid positions its own block, so it keeps the plain point.
+local function anchorCorner(cfg, key)
+    local corner = cfg.point
+    if cfg.reverse and not (key == "raid" and N.RaidGrid and N.RaidGrid.Active()) then
+        if cfg.orientation == "horizontal" then
+            corner = corner:find("LEFT") and (corner:gsub("LEFT", "RIGHT")) or (corner:gsub("RIGHT", "LEFT"))
+        else
+            corner = corner:find("TOP") and (corner:gsub("TOP", "BOTTOM")) or (corner:gsub("BOTTOM", "TOP"))
+        end
+    end
+    return corner
+end
+
 local function makeHandle(container, key)
     local M = N.Media
     container:SetMovable(true)
@@ -230,8 +244,13 @@ local function makeHandle(container, key)
     local title = N.L[({ party = "Party Frames", raid = "Raid Frames", ownPet = "Own Pet Frame",
         groupPets = "Group Pet Frames", npc = "NPC Companion Frames", partyTargets = "Party Target Frames",
         spotlight = "Spotlight Frame" })[key]]
-    N.StyleMover(a, label, title, container)
-    a._restyle = function() N.StyleMover(a, label, title, container) end
+    local function restyleHandle()
+        local cfg = N.db[key]
+        local flip = cfg.reverse and cfg.orientation ~= "horizontal" and true or false
+        N.StyleMover(a, label, title, container, flip)
+    end
+    restyleHandle()
+    a._restyle = restyleHandle
     a:RegisterForDrag("LeftButton")
     a:SetScript("OnDragStart", function()
         if N.MoverMayDrag() then container:StartMoving(); a._moving = true end
@@ -240,9 +259,10 @@ local function makeHandle(container, key)
         if not a._moving then return end
         a._moving = nil
         container:StopMovingOrSizing()
-        local point = N.db[key].point
-        local mx, my = N.PointXY(container, point)
-        local ux, uy = N.PointXY(UIParent, point)
+        -- Measure the corner the container actually hangs from, so dragging matches placement.
+        local corner = anchorCorner(N.db[key], key)
+        local mx, my = N.PointXY(container, corner)
+        local ux, uy = N.PointXY(UIParent, N.db[key].point)
         N:Set(key .. ".x", N.Round(mx - ux))
         N:Set(key .. ".y", N.Round(my - uy))
         N:Fire("NUCLEUS_FRAME_MOVED", key)
@@ -327,7 +347,7 @@ local function buildKey(key, force)
     end
     local cfg = N.db[key]
     container:ClearAllPoints()
-    container:SetPoint(cfg.point, UIParent, cfg.point, cfg.x, cfg.y)
+    container:SetPoint(anchorCorner(cfg, key), UIParent, cfg.point, cfg.x, cfg.y)
     container:SetSize(cfg.width, cfg.height)
 
     local pool = pools[key]
