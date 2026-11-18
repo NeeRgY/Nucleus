@@ -1319,7 +1319,15 @@ local function BuildIndicator(p, key, meta)
         c:AddRow(N.MakeSlider(c, L["Y offset"], -60, 60, 1,
             function() return o.y end, function(v) N:Set(pth("y"), N.Round(v)) end))
         c:AddRow(N.MakeCheckbox(c, L["Hide in combat"],
-            function() return o.hideInCombat end, function(v) N:Set(pth("hideInCombat"), v) end))
+            function() return o.hideInCombat end, function(v) N:Set(pth("hideInCombat"), v) end))        c:AddRow(N.MakeDropdown(c, L["Highlight"], {
+            { value = "none", text = L["None"] },
+            { value = "border", text = L["Border"] },
+            { value = "pixel", text = L["GLOW_pixel"] },
+            { value = "halo", text = L["GLOW_halo"] },
+            { value = "pulse", text = L["GLOW_pulse"] },
+        }, function() return o.highlight or "none" end, function(v) N:Set(pth("highlight"), v) end))
+        c:AddRow(N.MakeColorPicker(c, L["Color"],
+            function() return o.highlightColor end, function(v) N:Set(pth("highlightColor"), v) end))
     elseif meta.targeted then
         c:AddRow(N.MakeDropdown(c, L["TS_DISPLAY"], {
             { value = "both", text = L["TS_BOTH"] },
@@ -1376,16 +1384,27 @@ local function BuildIndicator(p, key, meta)
         colorRow(L["Orange"], L["AGGRO_ORANGE_INFO"], "warnColor")
         colorRow(L["Red"], L["AGGRO_RED_INFO"], "tankColor")
     elseif meta.status then
-        c:AddRow(N.MakeDropdown(c, L["Anchor"], {
-            { value = "top", text = L["Top"] },
-            { value = "center", text = L["Center"] },
-            { value = "bottom", text = L["Bottom"] },
-        }, function() return o.anchor end, function(v) N:Set(pth("anchor"), v) end))
-        c:AddRow(N.MakeDropdown(c, L["Alignment"], {
-            { value = "left", text = L["Left"] },
-            { value = "center", text = L["Center"] },
-            { value = "right", text = L["Right"] },
-        }, function() return o.align end, function(v) N:Set(pth("align"), v) end))
+        -- Nine spots map to the vertical anchor plus the horizontal alignment.
+        local SPOTS = {
+            topleft = { "top", "left" }, top = { "top", "center" }, topright = { "top", "right" },
+            left = { "center", "left" }, center = { "center", "center" }, right = { "center", "right" },
+            bottomleft = { "bottom", "left" }, bottom = { "bottom", "center" }, bottomright = { "bottom", "right" },
+        }
+        local spotOpts = {}
+        for _, key in ipairs(N.UnitFrame.TEXT_POSITIONS) do
+            spotOpts[#spotOpts + 1] = { value = key, text = L[TEXT_POSITION_LABELS[key]] }
+        end
+        c:AddRow(N.MakeDropdown(c, L["Position"], spotOpts, function()
+            local v, h = o.anchor or "bottom", o.align or "center"
+            if v == "center" then return h end
+            if h == "center" then return v end
+            return v .. h
+        end, function(spot)
+            local s = SPOTS[spot]
+            if not s then return end
+            N:Set(pth("anchor"), s[1])
+            N:Set(pth("align"), s[2])
+        end))
         c:AddRow(N.MakeCheckbox(c, L["Show timer"],
             function() return o.showTimer end, function(v) N:Set(pth("showTimer"), v) end))
         c:AddRow(N.MakeCheckbox(c, L["Show background"],
@@ -1398,6 +1417,8 @@ local function BuildIndicator(p, key, meta)
             { value = "shadow", text = L["Shadow"] },
             { value = "none", text = L["None"] },
         }, function() return o.outline or "thin" end, function(v) N:Set(pth("outline"), v) end))
+        c:AddRow(N.MakeSlider(c, L["X offset"], -40, 40, 1,
+            function() return o.x or 0 end, function(v) N:Set(pth("x"), N.Round(v)) end))
         c:AddRow(N.MakeSlider(c, L["Y offset"], -40, 40, 1,
             function() return o.y end, function(v) N:Set(pth("y"), N.Round(v)) end))
     elseif meta.bar then
@@ -4698,6 +4719,8 @@ local function BuildSearch(header)
     refreshResults = function()
         local text = box:GetText()
         if text == "" then list:Hide() return end
+        -- The indexer calls this while it runs: keep a closed list closed.
+        if not (list:IsShown() or box:HasFocus()) then return end
         current = searchResults(text)
         local n = math.min(#current, SEARCH_ROWS)
         for i = 1, #rows do rows[i]:Hide() end

@@ -71,7 +71,9 @@ local function makeAnchor(key)
     if not header or N.anchors[key] then return end
 
     local a = CreateFrame("Button", nil, UIParent)
-    a:SetFrameStrata("HIGH")
+    -- MEDIUM keeps the handles under the map and other windows, the level keeps them above the unit frames.
+    a:SetFrameStrata("MEDIUM")
+    a:SetFrameLevel(400)
     a:EnableMouse(true)
     a:Hide()
     N.SkinPanel(a, { 0.10, 0.10, 0.10, 0.95 }, M.color.accent)

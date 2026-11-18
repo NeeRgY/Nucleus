@@ -49,6 +49,19 @@ local function rgb(c)
     return { c[1], c[2], c[3] }, num(c[4])
 end
 
+-- Shield / heal absorb part of a health text.
+local SHIELD_FORMATS = { none = "none", shields = "full", shields_short = "short", shields_short2 = "short",
+    shields_percent = "short", shields_percent_no_sign = "short" }
+local ABSORB_FORMATS = { none = "none", healabsorbs = "full", healabsorbs_short = "short", healabsorbs_short2 = "short",
+    healabsorbs_percent = "short", healabsorbs_percent_no_sign = "short" }
+local function textPart(src, formats, prefix)
+    if type(src) ~= "table" or formats[src.format] == nil then return nil end
+    local part = { format = formats[src.format], delimiter = type(src.delimiter) == "string" and src.delimiter or prefix }
+    local c = rgb(src.color)
+    if c then part.color = c end
+    return part
+end
+
 local function ensure(t, ...)
     for i = 1, select("#", ...) do
         local k = select(i, ...)
@@ -276,9 +289,14 @@ local function convertIndicators(list, out, report, styleDefault)
                     if c then o.color, o.colorMode = c, "custom" end
                 elseif name == "healthText" and type(e.format) == "table" and type(e.format.health1) == "table" then
                     local f = e.format.health1.format
-                    if f == "percent" or f == "effective_percent" or f == "health_percent" then o.format = "percent"
-                    elseif f == "number" or f == "short" then o.format = "value"
+                    if f == "percent" or f == "health_percent" then o.format = "percent"
+                    elseif f == "health_percent_no_sign" then o.format = "percentNoSign"
+                    elseif f == "effective_percent" or f == "effective_percent_no_sign" then o.format = "percent"
+                    elseif f == "number" or f == "short" or f == "health" or f == "health_short" or f == "health_short2"
+                        or f == "effective" or f == "effective_short" or f == "effective_short2" then o.format = "value"
                     elseif f == "none" then o.enabled = false end
+                    o.shield = textPart(e.format.shields, SHIELD_FORMATS, "+")
+                    o.healAbsorb = textPart(e.format.healabsorbs or e.format.healAbsorbs, ABSORB_FORMATS, "-")
                 end
             elseif ICONS[name] then
                 local o = ensure(ind, ICONS[name])

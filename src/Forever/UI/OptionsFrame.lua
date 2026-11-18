@@ -1065,6 +1065,11 @@ local function BuildColor(p, key)
         function() return a.healPredict.opacity end, function(v) N:Set(ap .. "healPredict.opacity", v) end))
     healPredict:AddRow(N.MakeColorPicker(healPredict, L["Color"],
         function() return a.healPredict.color end, function(v) N:Set(ap .. "healPredict.color", v) end))
+    local calcBox = N.MakeCheckbox(healPredict, L["Include heal over time (untested)"],
+        function() return a.healPredict.useCalculator == true end,
+        function(v) N:Set(ap .. "healPredict.useCalculator", v) end)
+    N.SetTip(calcBox, L["Include heal over time (untested)"], L["HEALCALC_TIP"])
+    healPredict:AddRow(calcBox)
     p:AddCard(healPredict)
 
     local function oh() return a.healPredict.overheal end
@@ -1406,6 +1411,21 @@ local function BuildIndicator(p, key, meta)
             function() return o.customFormat end, function(v) N:Set(pth("customFormat"), v) end))
         c:AddRow(N.MakeCheckbox(c, L["Hide at full health"],
             function() return o.hideAtFull end, function(v) N:Set(pth("hideAtFull"), v) end))
+        -- Shield / heal absorb text: format, color, prefix.
+        local function extraRows(part, label, defColor, defPrefix)
+            local function cur() return o[part] or {} end
+            c:AddRow(N.MakeDropdown(c, L[label], {
+                { value = "none", text = L["None"] },
+                { value = "short", text = L["Short (12K)"] },
+                { value = "full", text = L["Full (12,345)"] },
+            }, function() return cur().format or "none" end, function(v) N:Set(pth(part .. ".format"), v) end))
+            c:AddRow(N.MakeColorPicker(c, L[label .. " color"],
+                function() return cur().color or defColor end, function(v) N:Set(pth(part .. ".color"), v) end))
+            c:AddRow(N.MakeTextInput(c, L[label .. " prefix"],
+                function() return cur().delimiter or defPrefix end, function(v) N:Set(pth(part .. ".delimiter"), v) end))
+        end
+        extraRows("shield", "Shield text", { 0, 1, 0 }, "+")
+        extraRows("healAbsorb", "Heal absorb text", { 1, 0, 0 }, "-")
     end
 
     if meta.absorbFormat then
@@ -1525,7 +1545,15 @@ local function BuildIndicator(p, key, meta)
         c:AddRow(N.MakeSlider(c, L["Y offset"], -60, 60, 1,
             function() return o.y end, function(v) N:Set(pth("y"), N.Round(v)) end))
         c:AddRow(N.MakeCheckbox(c, L["Hide in combat"],
-            function() return o.hideInCombat end, function(v) N:Set(pth("hideInCombat"), v) end))
+            function() return o.hideInCombat end, function(v) N:Set(pth("hideInCombat"), v) end))        c:AddRow(N.MakeDropdown(c, L["Highlight"], {
+            { value = "none", text = L["None"] },
+            { value = "border", text = L["Border"] },
+            { value = "pixel", text = L["GLOW_pixel"] },
+            { value = "halo", text = L["GLOW_halo"] },
+            { value = "pulse", text = L["GLOW_pulse"] },
+        }, function() return o.highlight or "none" end, function(v) N:Set(pth("highlight"), v) end))
+        c:AddRow(N.MakeColorPicker(c, L["Color"],
+            function() return o.highlightColor end, function(v) N:Set(pth("highlightColor"), v) end))
     elseif meta.private then
         -- Blizzard draws these icons; we only choose the slots and what each shows.
         c:AddRow(N.MakeSlider(c, L["Max icons"], 1, 5, 1,
@@ -1569,16 +1597,27 @@ local function BuildIndicator(p, key, meta)
         colorRow(L["Orange"], L["AGGRO_ORANGE_INFO"], "warnColor")
         colorRow(L["Red"], L["AGGRO_RED_INFO"], "tankColor")
     elseif meta.status then
-        c:AddRow(N.MakeDropdown(c, L["Anchor"], {
-            { value = "top", text = L["Top"] },
-            { value = "center", text = L["Center"] },
-            { value = "bottom", text = L["Bottom"] },
-        }, function() return o.anchor end, function(v) N:Set(pth("anchor"), v) end))
-        c:AddRow(N.MakeDropdown(c, L["Alignment"], {
-            { value = "left", text = L["Left"] },
-            { value = "center", text = L["Center"] },
-            { value = "right", text = L["Right"] },
-        }, function() return o.align end, function(v) N:Set(pth("align"), v) end))
+        -- Nine spots map to the vertical anchor plus the horizontal alignment.
+        local SPOTS = {
+            topleft = { "top", "left" }, top = { "top", "center" }, topright = { "top", "right" },
+            left = { "center", "left" }, center = { "center", "center" }, right = { "center", "right" },
+            bottomleft = { "bottom", "left" }, bottom = { "bottom", "center" }, bottomright = { "bottom", "right" },
+        }
+        local spotOpts = {}
+        for _, key in ipairs(N.UnitFrame.TEXT_POSITIONS) do
+            spotOpts[#spotOpts + 1] = { value = key, text = L[TEXT_POSITION_LABELS[key]] }
+        end
+        c:AddRow(N.MakeDropdown(c, L["Position"], spotOpts, function()
+            local v, h = o.anchor or "bottom", o.align or "center"
+            if v == "center" then return h end
+            if h == "center" then return v end
+            return v .. h
+        end, function(spot)
+            local s = SPOTS[spot]
+            if not s then return end
+            N:Set(pth("anchor"), s[1])
+            N:Set(pth("align"), s[2])
+        end))
         c:AddRow(N.MakeCheckbox(c, L["Show timer"],
             function() return o.showTimer end, function(v) N:Set(pth("showTimer"), v) end))
         c:AddRow(N.MakeCheckbox(c, L["Show background"],
@@ -1591,6 +1630,8 @@ local function BuildIndicator(p, key, meta)
             { value = "shadow", text = L["Shadow"] },
             { value = "none", text = L["None"] },
         }, function() return o.outline or "thin" end, function(v) N:Set(pth("outline"), v) end))
+        c:AddRow(N.MakeSlider(c, L["X offset"], -40, 40, 1,
+            function() return o.x or 0 end, function(v) N:Set(pth("x"), N.Round(v)) end))
         c:AddRow(N.MakeSlider(c, L["Y offset"], -40, 40, 1,
             function() return o.y end, function(v) N:Set(pth("y"), N.Round(v)) end))
     elseif meta.bar then
@@ -5374,6 +5415,8 @@ local function BuildSearch(header)
     refreshResults = function()
         local text = box:GetText()
         if text == "" then list:Hide() return end
+        -- The indexer calls this while it runs: keep a closed list closed.
+        if not (list:IsShown() or box:HasFocus()) then return end
         current = searchResults(text)
         local n = math.min(#current, SEARCH_ROWS)
         for i = 1, #rows do rows[i]:Hide() end

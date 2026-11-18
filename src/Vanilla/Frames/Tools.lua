@@ -92,7 +92,7 @@ local function makeHost(key, title)
 
     local handle = CreateFrame("Frame", nil, host)
     handle:SetPoint("BOTTOM", host, "TOP", 0, 4)
-    handle:SetFrameStrata("HIGH")
+    handle:SetFrameStrata("MEDIUM")
     handle:EnableMouse(true)
     handle:RegisterForDrag("LeftButton")
     handle:SetScript("OnDragStart", function()

@@ -158,6 +158,23 @@ Indicators.Register("missingBuffs", {
                 end
                 ic:SetSize(size, size)
                 ic.tex:SetTexture(buffTexture(buff))
+                local hl = o.highlight or "none"
+                local hc = o.highlightColor or { 1, 0.85, 0.1 }
+                N.SetPanelBorder(ic, (hl == "border") and { hc[1], hc[2], hc[3], 1 } or M.color.border)
+                if hl == "pixel" or hl == "halo" or hl == "pulse" then
+                    local newGlow = (N.AuraEngine and N.AuraEngine.NewGlow) or N.NewGlow
+                    if newGlow then
+                        ic.glow = ic.glow or newGlow(ic, ic)
+                        local sig = hl .. size .. hc[1] .. hc[2] .. hc[3]
+                        if ic._glowSig ~= sig then
+                            ic._glowSig = sig
+                            ic.glow:Show(hl, hc[1], hc[2], hc[3], 0, 1, 0.3, math.max(3, math.floor(size / 3)))
+                        end
+                    end
+                elseif ic.glow and ic._glowSig then
+                    ic._glowSig = nil
+                    ic.glow:Hide()
+                end
                 local off = (i - 1) * (size + spacing)
                 local dx, dy = 0, 0
                 if o.growth == "RIGHT" then dx = off

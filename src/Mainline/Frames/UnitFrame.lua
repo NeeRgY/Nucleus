@@ -683,6 +683,20 @@ end
 function UF.AllButtons() return allButtons end
 function UF.ButtonsOfUnit(unit) return byUnit[unit] end
 
+-- The prediction calculator may count heal over time spells that UnitGetIncomingHeals misses.
+local function incomingHeals(b)
+    local u = b.unit
+    local hp = N.db[b.groupKey].appearance.healPredict
+    if hp and hp.useCalculator and b.healCalc and _G.UnitGetDetailedHealPrediction then
+        local ok, all = pcall(function()
+            UnitGetDetailedHealPrediction(u, "player", b.healCalc)
+            return (b.healCalc:GetIncomingHeals())
+        end)
+        if ok and all ~= nil then return all end
+    end
+    return UnitGetIncomingHeals and UnitGetIncomingHeals(u) or 0
+end
+
 local function readUnit(b)
     local u = b.unit
     b.connected = desecret(UnitIsConnected(u), true)
@@ -693,7 +707,7 @@ local function readUnit(b)
     b.pp, b.ppMax = UnitPower(u), UnitPowerMax(u)
     b.ppEnum, b.ppType = UnitPowerType(u) -- numeric type (for UnitPowerPercent), token (for colours)
     b.aggroStatus = desecret(UnitThreatSituation(u), 0)
-    b.incHeal = UnitGetIncomingHeals and UnitGetIncomingHeals(u) or 0
+    b.incHeal = incomingHeals(b)
     b.absorbAmt = UnitGetTotalAbsorbs and UnitGetTotalAbsorbs(u) or 0
     b.healAbsorbAmt = UnitGetTotalHealAbsorbs and UnitGetTotalHealAbsorbs(u) or 0
     local tgt = UnitExists("target") and UnitIsUnit(u, "target")
@@ -840,6 +854,65 @@ local function hideWhenFull(b, fs, o)
     return false
 end
 
+local function fullNum(v)
+    if v == nil then return nil end
+    if IsSecret(v) then return shortNum(v) end
+    if type(v) ~= "number" then return nil end
+    v = math.floor(v + 0.5)
+    return _G.BreakUpLargeNumbers and BreakUpLargeNumbers(v) or tostring(v)
+end
+
+-- Main text part as (format, args...); no format when the values are missing.
+local function mainText(b, mode)
+    local pct = hpPercent(b)
+    local cur = shortNum(b.hp)
+    if mode == "value" then
+        if cur ~= nil then return "%s", cur end
+    elseif mode == "valuePercent" then
+        if cur ~= nil and pct ~= nil then return "%s | %d%%", cur, pct end
+    elseif mode == "percentValue" then
+        if cur ~= nil and pct ~= nil then return "%d%% | %s", pct, cur end
+    elseif mode == "percentNoSign" then
+        if pct ~= nil then return "%d", pct end
+    elseif pct ~= nil then
+        return "%d%%", pct
+    end
+end
+
+-- Shield / heal absorb part as (format, arg): colored prefix + amount; nil when off or zero.
+local function extraText(b, fs, cfg, amt)
+    if type(cfg) ~= "table" or cfg.format == nil or cfg.format == "none" or amt == nil then return nil end
+    local c = cfg.color or { 1, 1, 1 }
+    local open = string.format(" |cff%02x%02x%02x", c[1] * 255 + 0.5, c[2] * 255 + 0.5, c[3] * 255 + 0.5)
+    local prefix = tostring(cfg.delimiter or ""):gsub("|", "||")
+    if IsSecret(amt) then
+        -- Secret amount: TruncateWhenZero blanks zero, and GetText is only truthy when non-zero.
+        local su = _G.C_StringUtil
+        if su and su.TruncateWhenZero then
+            fs:SetText(su.TruncateWhenZero(amt))
+            if not fs:GetText() then return nil end
+            local s = (cfg.format == "full") and fs:GetText() or shortNum(amt)
+            if s ~= nil then return open .. prefix:gsub("%%", "%%%%") .. "%s|r", s end
+        end
+        if su and su.TruncateWhenZero and su.WrapString then
+            local ok, ws = pcall(function() return su.WrapString(su.TruncateWhenZero(amt), open .. prefix, "|r") end)
+            if ok and ws ~= nil then return "%s", ws end
+        end
+        local s = shortNum(amt)
+        if s == nil then return nil end
+        return open .. prefix:gsub("%%", "%%%%") .. "%s|r", s
+    end
+    if type(amt) ~= "number" or amt <= 0 then return nil end
+    local s
+    if cfg.format == "full" then
+        s = fullNum(amt)
+    else
+        s = shortNum(amt)
+    end
+    if s == nil then return nil end
+    return open .. prefix:gsub("%%", "%%%%") .. "%s|r", s
+end
+
 -- All health-text formats; secret numbers can't be read but can be formatted into a FontString.
 local function setHealthText(b, fs, o)
     if hideWhenFull(b, fs, o) then return end
@@ -852,21 +925,25 @@ local function setHealthText(b, fs, o)
         setDeficitText(b, fs)
         return
     end
-    local pct = hpPercent(b)
-    local cur = shortNum(b.hp)
-    if mode == "value" then
-        if cur ~= nil then fs:SetText(cur) else fs:SetText("") end
-    elseif mode == "valuePercent" and cur ~= nil and pct ~= nil then
-        fs:SetFormattedText("%s | %d%%", cur, pct)
-    elseif mode == "percentValue" and cur ~= nil and pct ~= nil then
-        fs:SetFormattedText("%d%% | %s", pct, cur)
-    elseif mode == "percentNoSign" and pct ~= nil then
-        fs:SetFormattedText("%d", pct)
-    elseif pct ~= nil then
-        fs:SetFormattedText("%d%%", pct)
+    local args, n = {}, 0
+    local fmt, a1, a2 = mainText(b, mode)
+    if fmt then
+        args[1], args[2] = a1, a2
+        n = (a2 ~= nil) and 2 or 1
     else
-        fs:SetText("")
+        fmt = ""
     end
+    local sf, sa = extraText(b, fs, o.shield, b.absorbAmt)
+    if sf then
+        fmt = fmt .. sf
+        n = n + 1; args[n] = sa
+    end
+    local hf, ha = extraText(b, fs, o.healAbsorb, b.healAbsorbAmt)
+    if hf then
+        fmt = fmt .. hf
+        n = n + 1; args[n] = ha
+    end
+    if fmt == "" then fs:SetText("") else fs:SetFormattedText(fmt, unpack(args, 1, n)) end
 end
 
 local function powerPercent(b)
@@ -1157,7 +1234,7 @@ local function refreshPower(b)
 end
 
 local function refreshHealPredict(b)
-    b.incHeal = UnitGetIncomingHeals and UnitGetIncomingHeals(b.unit) or 0
+    b.incHeal = incomingHeals(b)
     renderShields(b, N.db[b.groupKey].appearance)
 end
 
@@ -1166,6 +1243,7 @@ local function refreshAbsorbs(b)
     b.absorbAmt = UnitGetTotalAbsorbs and UnitGetTotalAbsorbs(u) or 0
     b.healAbsorbAmt = UnitGetTotalHealAbsorbs and UnitGetTotalHealAbsorbs(u) or 0
     renderShields(b, N.db[b.groupKey].appearance)
+    if b.hpText:IsShown() then setHealthText(b, b.hpText, N.db[b.groupKey].indicators.healthText) end
     if N.Indicators then N.Indicators.UpdateOne(b, "shieldBar") end
 end
 

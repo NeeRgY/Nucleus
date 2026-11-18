@@ -3,6 +3,22 @@ local N = ns.N
 
 N.Changelog = {
     {
+        version = "1.1.4",
+        date = "2026-11-18",
+        notes = {
+            "## New",
+            "The Health Text can now also show the shield and the heal absorb next to the health, for example 1,272 +282 with the shield in green. Shield text and Heal absorb text each have their own format, color and prefix (Indicators > Health Text, Retail and Forever, off by default). Where the game hides the numbers they are shown side by side instead of added up.",
+            "Missing Buffs can now highlight the missing buff icons with a colored border or a glow (Indicators > Missing Buffs: Highlight and Color, off by default).",
+            "Heal Prediction has a new option Include heal over time (Appearance > Shield > Heal Prediction, Retail and Forever, off by default): it reads the incoming heals from the game's prediction calculator, which may show Renew and other heal over time spells. Not tested yet.",
+            "The Status indicator now has a Position setting with the nine spots of the other texts and an X offset (Indicators > Status). It replaces Anchor and Alignment, your current placement carries over.",
+            "The Cell import now carries over the shield and heal absorb text of the Health Text (Retail and Forever).",
+            "## Fixes",
+            "Hide own debuffs on my frame no longer switches itself back on after a reload (Retail and Forever).",
+            "The move handles of the frames and tools no longer show up on top of the world map and other windows while the frames are unlocked.",
+            "The search list now closes with one click instead of reappearing while the settings are still being indexed.",
+        },
+    },
+    {
         version = "1.1.3",
         date = "2026-11-15",
         notes = {

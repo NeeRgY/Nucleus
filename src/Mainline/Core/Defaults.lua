@@ -84,7 +84,7 @@ local function groupDefaults(overrides)
             absorb     = { enabled = true, style = "striped", opacity = 0.35, color = { 1.00, 1.00, 1.00 }, invertFill = false },
             overshieldColor = { 0.75, 0.90, 1.00 },
             healAbsorb = { enabled = true, style = "flat", opacity = 0.75, color = { 0.55, 0.20, 0.75 } },
-            healPredict = { enabled = true, opacity = 0.30, color = { 1.00, 1.00, 1.00 } },
+            healPredict = { enabled = true, opacity = 0.30, color = { 1.00, 1.00, 1.00 }, useCalculator = false },
             targetBorder = { color = { 0.42, 0.70, 1.00 }, thickness = 1, enabled = true, opacity = 1 },
             hoverBorder  = { color = { 1.00, 1.00, 1.00 }, thickness = 1, enabled = true, opacity = 1 },
             -- Aura time text: turns `color` below `seconds`, counts in tenths below `decimals` (0 = never).
@@ -99,7 +99,9 @@ local function groupDefaults(overrides)
             -- "custom" format: {p} percent, {v} value, {m} max, {d} deficit.
             healthText = { enabled = true,  size = 10, x = 0, y = 0, color = { 0.85, 0.85, 0.87 },
                            format = "percent", customFormat = "{p}%", hideAtFull = false,
-                           position = "center", colorMode = "custom", outline = "thin" },
+                           position = "center", colorMode = "custom", outline = "thin",
+                           shield = { format = "none", color = { 0, 1, 0 }, delimiter = "+" },
+                           healAbsorb = { format = "none", color = { 1, 0, 0 }, delimiter = "-" } },
             -- Power Bar: height, which roles get one, offset, optional text.
             powerBar   = { enabled = false, height = 4, x = 0, y = 0,
                            filter = powerFilterDefaults(), -- [class][role] = show the bar
@@ -109,7 +111,7 @@ local function groupDefaults(overrides)
                            barColorMode = "power", barColor = { 0.2, 0.4, 1 }, barColors = { _list = true }, -- barColors[token] = color
                            position = "bottom" },
             -- Status: a pill naming the unit's state; anchor / align place it, `show` switches single states.
-            status     = { enabled = true, size = 11, outline = "thin", anchor = "bottom", align = "center", y = 2,
+            status     = { enabled = true, size = 11, outline = "thin", anchor = "bottom", align = "center", x = 0, y = 2,
                            showTimer = true, showBackground = true,
                            stateColors = {
                                afk            = { 1.00, 0.40, 0.40 },
@@ -179,6 +181,7 @@ local function groupDefaults(overrides)
             -- Missing Buffs: an icon per missing raid buff; `buffs` switches each one.
             missingBuffs  = { enabled = false, size = 13, spacing = 1, position = "bottomright",
                               growth = "LEFT", x = 0, y = 4, hideInCombat = true,
+                              highlight = "none", highlightColor = { 1, 0.85, 0.1 }, -- "none" | "border" | "pixel" | "halo" | "pulse"
                               buffs = { fortitude = true, intellect = true, wild = true,
                                         shout = true, skyfury = true, bronze = true } },
         },
@@ -198,6 +201,7 @@ local function groupDefaults(overrides)
                 -- Filters: with showAll off only debuffs matching the ticked filters show (match = "any" | "all").
                 showAll = true, match = "any",
                 showSated = false, -- true: also show the Bloodlust-type exhaustion debuffs
+                hideSelf = true,
                 onlyNonPlayer = false, -- kept for older settings; castBy below is what counts
                 castBy = "all", -- "all" | "npc" (hide debuffs cast by players or their pets, e.g. the
                                 -- Bloodlust exhaustion) | "me" | "others"

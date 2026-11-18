@@ -1023,9 +1023,10 @@ Indicators.Register("status", {
 
         local pill = f.pill
         pill:ClearAllPoints()
-        if o.align == "left" then pill:SetPoint("LEFT", f, "LEFT", 3, 0)
-        elseif o.align == "right" then pill:SetPoint("RIGHT", f, "RIGHT", -3, 0)
-        else pill:SetPoint("CENTER", f, "CENTER", 0, 0) end
+        local px = o.x or 0
+        if o.align == "left" then pill:SetPoint("LEFT", f, "LEFT", 3 + px, 0)
+        elseif o.align == "right" then pill:SetPoint("RIGHT", f, "RIGHT", -3 + px, 0)
+        else pill:SetPoint("CENTER", f, "CENTER", px, 0) end
         local bg = o.showBackground
         pill._nucFill:SetShown(bg)
         pill._nucBorder[1]:SetShown(bg)

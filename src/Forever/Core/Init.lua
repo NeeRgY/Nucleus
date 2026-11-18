@@ -3,7 +3,7 @@ local addonName, ns = ...
 
 ns.CLIENT = "Forever"
 ns.ADDON = addonName
-ns.VERSION = C_AddOns and C_AddOns.GetAddOnMetadata(addonName, "Version") or "1.1.3"
+ns.VERSION = C_AddOns and C_AddOns.GetAddOnMetadata(addonName, "Version") or "1.1.4"
 
 local N = {}
 ns.N = N

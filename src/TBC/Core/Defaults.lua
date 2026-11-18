@@ -92,7 +92,7 @@ local function groupDefaults(overrides)
                            barColorMode = "power", barColor = { 0.2, 0.4, 1 }, barColors = { _list = true }, -- barColors[token] = color
                            position = "bottom" },
             -- Status: a pill naming the unit's state; anchor / align place it, `show` switches single states.
-            status     = { enabled = true, size = 11, outline = "thin", anchor = "bottom", align = "center", y = 2,
+            status     = { enabled = true, size = 11, outline = "thin", anchor = "bottom", align = "center", x = 0, y = 2,
                            showTimer = true, showBackground = true,
                            stateColors = {
                                afk            = { 1.00, 0.40, 0.40 },
@@ -147,6 +147,7 @@ local function groupDefaults(overrides)
             -- Missing Buffs: an icon per missing raid buff; `buffs` switches each one.
             missingBuffs  = { enabled = false, size = 13, spacing = 1, position = "bottomright",
                               growth = "LEFT", x = 0, y = 4, hideInCombat = true,
+                              highlight = "none", highlightColor = { 1, 0.85, 0.1 }, -- "none" | "border" | "pixel" | "halo" | "pulse"
                               buffs = { fortitude = true, intellect = true, wild = true,
                                         shout = true, skyfury = true, bronze = true } },
         },
