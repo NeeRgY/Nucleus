@@ -47,7 +47,9 @@ https://github.com/NeeRgY/Cell
 - Absorb text and shield bar, health thresholds, aggro border, target counter, private auras
 - Overheal display for the heal prediction (WoW Forever)
 - Cast bar: the spell a group member is casting, with icon, name, target and time, interrupt flash, colors per cast type and your choice of position
-- Missing raid buffs, class and specialization icon
+- Missing raid buffs with a colored border or a tunable glow, on all frames, only yours or only the others
+- Low Mana tag with your own threshold, text, color and blink (Retail and WoW Forever)
+- Class and specialization icon
 - Custom indicators: icons, text, bars, borders, overlays and glows for the auras you choose
 
 ### Auras
@@ -57,10 +59,12 @@ https://github.com/NeeRgY/Cell
 - Colored time text, dispel type colors, health bar highlights
 
 ### More
-- Click-casting per class and per specialization, with a smart resurrection that picks the normal or the combat spell
+- Click-casting per class and per specialization, with a smart resurrection that picks the normal or the combat spell, and bindings that can be listed in the frame tooltip
+- Class colors you can change for each class, with a Darken slider (Retail and WoW Forever)
 - Profiles with automatic switching by situation, specialization or role
 - Profile export and import as text, backups, and an importer for Cell profiles
-- Targeted spell bars, actions (potion and Healthstone animations), ready and pull timer, battle resurrection tracker, marker bar
+- Targeted spell bars, actions (potion and Healthstone animations), ready and pull timer, battle resurrection tracker, marker bar, buff tracker, death report
+- A Help / FAQ window (the ? button) and a search, filter and favorites for the Indicators list
 - Ping mirror on your frames
 - Font outline styles including Shadow, fonts and bar textures from LibSharedMedia, 11 languages
 
@@ -73,7 +77,7 @@ https://github.com/NeeRgY/Cell
 | Vanilla                | 1.15.8, 1.15.9         | `Nucleus_Vanilla.toc`  | `NucleusDB_Vanilla`   | Early        |
 | TBC                    | 2.5.6                  | `Nucleus_TBC.toc`      | `NucleusDB_TBC`       | Early        |
 
-Aura sounds and the cast bar are available on Retail and WoW Forever.
+Aura sounds, the cast bar, Low Mana, class colors and the click-casting tooltip are available on Retail and WoW Forever.
 
 ## Installation
 
