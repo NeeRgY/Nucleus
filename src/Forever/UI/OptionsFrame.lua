@@ -324,6 +324,12 @@ local function BuildTooltip(p)
     c:AddRow(N.MakeCheckbox(c, L["Show aura tooltips"],
         function() return N.db.tooltip.auras end,
         function(v) N:Set("tooltip.auras", v) end))
+    c:AddRow(N.MakeCheckbox(c, L["Show click-casting bindings"],
+        function() return N.db.tooltip.bindings == true end,
+        function(v) N:Set("tooltip.bindings", v) end))
+    c:AddRow(N.MakeCheckbox(c, L["Hide target and menu bindings"],
+        function() return N.db.tooltip.bindingsSkipBasic == true end,
+        function(v) N:Set("tooltip.bindingsSkipBasic", v) end))
     c:AddRow(N.MakeDropdown(c, L["TT_ANCHOR"], {
         { value = "frame", text = L["TT_FRAME"] },
         { value = "cursor", text = L["TT_CURSOR"] },
@@ -1108,6 +1114,49 @@ local function BuildColor(p, key)
     p:AddCard(overheal)
     ohDim()
 
+    -- Class colors: one pick per class plus a darken slider, shared by Party and Raid.
+    local cls = N.MakeCard(p, L["Class colors"])
+    local darken = N.MakeSlider(cls, L["Darken class colors"], 0, 0.6, 0.05,
+        function() return N.db.core.classDarken or 0 end,
+        function(v) N:Set("core.classDarken", v) end)
+    cls:AddRow(darken)
+    local tokens
+    if N.Classic and N.Classic.CLASSES then
+        tokens = N.Classic.CLASSES
+    else
+        tokens = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "DEATHKNIGHT", "SHAMAN", "MAGE",
+                   "WARLOCK", "MONK", "DRUID", "DEMONHUNTER", "EVOKER" }
+    end
+    local names = LOCALIZED_CLASS_NAMES_MALE or {}
+    local sorted = {}
+    for _, token in ipairs(tokens) do
+        if RAID_CLASS_COLORS and RAID_CLASS_COLORS[token] then sorted[#sorted + 1] = token end
+    end
+    table.sort(sorted, function(a, b) return (names[a] or a) < (names[b] or b) end)
+    local pickers = {}
+    for _, token in ipairs(sorted) do
+        local picker = N.MakeColorPicker(cls, names[token] or token,
+            function() return { N.ClassBaseRGB(token) } end,
+            function(v) N:Set("core.classColors." .. token, v) end)
+        pickers[#pickers + 1] = picker
+        cls:AddRow(picker)
+    end
+    cls:AddRow(ActionButton(cls, L["Reset class colors"], function()
+        N:Set("core.classColors", { _list = true })
+        N:Set("core.classDarken", 0)
+        darken.Refresh()
+        for _, picker in ipairs(pickers) do picker.Refresh() end
+    end))
+    local hint = N.FontString(cls, 11)
+    hint:SetPoint("TOPLEFT", cls, "TOPLEFT", N.CARD_PAD, cls._y)
+    hint:SetWidth(cls:GetWidth() - 2 * N.CARD_PAD)
+    hint:SetJustifyH("LEFT")
+    hint:SetTextColor(uc(M.color.textDim))
+    hint:SetText(L["CLASSCOLORS_HINT"])
+    hint:SetHeight(hint:GetStringHeight() + 4)
+    cls:SetHeight(-cls._y + hint:GetHeight() + N.CARD_PAD)
+    p:AddCard(cls)
+
     local tcc = N.MakeCard(p, L["Time text"])
     tcc:AddRow(N.MakeCheckbox(tcc, L["Change the colour when time is running out"],
         function() return a.timeColor.enabled end,
@@ -1446,6 +1495,23 @@ local function BuildIndicator(p, key, meta)
             function() return o.classColor end, function(v) N:Set(pth("classColor"), v) end))
     end
 
+    if meta.lowMana then
+        c:AddRow(N.MakeSlider(c, L["Mana below (%)"], 5, 90, 5,
+            function() return o.threshold or 20 end, function(v) N:Set(pth("threshold"), N.Round(v)) end))
+        c:AddRow(N.MakeDropdown(c, L["Show for"], {
+            { value = "healers", text = L["Healers only"] },
+            { value = "guess", text = L["LOWMANA_GUESS"] },
+            { value = "all", text = L["LOWMANA_ALL"] },
+        }, function()
+            if o.showFor and o.showFor ~= "auto" then return o.showFor end
+            return o.healersOnly == false and "all" or "healers"
+        end, function(v) N:Set(pth("showFor"), v) end))
+        c:AddRow(N.MakeTextInput(c, L["Low mana text"],
+            function() return o.text or "" end, function(v) N:Set(pth("text"), v) end))
+        c:AddRow(N.MakeCheckbox(c, L["Blink"],
+            function() return o.blink == true end, function(v) N:Set(pth("blink"), v) end))
+    end
+
     if meta.shield then
         c:AddRow(N.MakeSlider(c, L["Height"], 1, 100, 1,
             function() return o.height end, function(v) N:Set(pth("height"), N.Round(v)) end))
@@ -1545,15 +1611,80 @@ local function BuildIndicator(p, key, meta)
         c:AddRow(N.MakeSlider(c, L["Y offset"], -60, 60, 1,
             function() return o.y end, function(v) N:Set(pth("y"), N.Round(v)) end))
         c:AddRow(N.MakeCheckbox(c, L["Hide in combat"],
-            function() return o.hideInCombat end, function(v) N:Set(pth("hideInCombat"), v) end))        c:AddRow(N.MakeDropdown(c, L["Highlight"], {
+            function() return o.hideInCombat end, function(v) N:Set(pth("hideInCombat"), v) end))
+        local hlReflow
+        c:AddRow(N.MakeDropdown(c, L["Highlight"], {
             { value = "none", text = L["None"] },
             { value = "border", text = L["Border"] },
             { value = "pixel", text = L["GLOW_pixel"] },
             { value = "halo", text = L["GLOW_halo"] },
             { value = "pulse", text = L["GLOW_pulse"] },
-        }, function() return o.highlight or "none" end, function(v) N:Set(pth("highlight"), v) end))
+        }, function() return o.highlight or "none" end,
+           function(v) N:Set(pth("highlight"), v); if hlReflow then hlReflow() end end))
         c:AddRow(N.MakeColorPicker(c, L["Color"],
             function() return o.highlightColor end, function(v) N:Set(pth("highlightColor"), v) end))
+        local HL_USES = {
+            thick = { border = true, pixel = true, halo = true, pulse = true },
+            len = { pixel = true },
+            speed = { pixel = true, halo = true, pulse = true },
+            dist = { pixel = true, halo = true, pulse = true },
+            hint = { border = true, pixel = true, halo = true, pulse = true },
+        }
+        local hlItems, hlY0, hlGap = {}, c._y, nil
+        local function hlAdd(which, row)
+            c:AddRow(row)
+            if not hlGap then hlGap = (hlY0 - c._y) - (row._rowHeight or 0) end
+            hlItems[#hlItems + 1] = { row = row, which = which }
+        end
+        hlAdd("thick", N.MakeSlider(c, L["Thickness"], 1, 6, 1,
+            function() return o.highlightThickness or 1 end, function(v) N:Set(pth("highlightThickness"), N.Round(v)) end))
+        hlAdd("len", N.MakeSlider(c, L["Line length"], 2, 20, 1,
+            function() return o.highlightLength or 4 end, function(v) N:Set(pth("highlightLength"), N.Round(v)) end))
+        hlAdd("speed", N.MakeSlider(c, L["Speed"], 0.05, 1.5, 0.05,
+            function() return o.highlightSpeed or 0.3 end, function(v) N:Set(pth("highlightSpeed"), v) end))
+        hlAdd("dist", N.MakeSlider(c, L["Distance"], -6, 12, 1,
+            function() return o.highlightDistance or 0 end, function(v) N:Set(pth("highlightDistance"), N.Round(v)) end))
+        local hlRow = CreateFrame("Frame", nil, c)
+        local hlText = N.FontString(hlRow, 11)
+        hlText:SetPoint("TOPLEFT", hlRow, "TOPLEFT", 0, 0)
+        hlText:SetWidth(c:GetWidth() - 2 * N.CARD_PAD)
+        hlText:SetJustifyH("LEFT")
+        hlText:SetTextColor(uc(M.color.textDim))
+        hlText:SetText(L["MB_HIGHLIGHT_HINT"])
+        hlRow._rowHeight = hlText:GetStringHeight() + 6
+        hlAdd("hint", hlRow)
+        -- Show only the settings that the chosen highlight uses and move the cards below along.
+        function hlReflow()
+            local h = o.highlight or "none"
+            local oldY, y = c._y, hlY0
+            for _, it in ipairs(hlItems) do
+                local show = HL_USES[it.which][h] == true
+                it.row:SetShown(show)
+                if show then
+                    it.row:ClearAllPoints()
+                    it.row:SetPoint("TOPLEFT", c, "TOPLEFT", N.CARD_PAD, y)
+                    it.row:SetPoint("RIGHT", c, "RIGHT", -N.CARD_PAD, 0)
+                    y = y - (it.row._rowHeight or 0) - hlGap
+                end
+            end
+            c._y = y
+            c:SetHeight(-y + N.CARD_PAD - hlGap)
+            local cTop = select(5, c:GetPoint(1))
+            local dy = y - oldY
+            for _, ch in ipairs({ p:GetChildren() }) do
+                if ch ~= c and ch.GetPoint then
+                    local pt, rel, rp, x, yo = ch:GetPoint(1)
+                    if pt == "TOPLEFT" and rel == p and cTop and yo and yo < cTop then
+                        ch:SetPoint("TOPLEFT", p, "TOPLEFT", x, yo + dy)
+                        local p2, r2, rp2, x2, y2 = ch:GetPoint(2)
+                        if p2 == "TOPRIGHT" then ch:SetPoint("TOPRIGHT", p, "TOPRIGHT", x2, y2 + dy) end
+                    end
+                end
+            end
+            if p._y then p._y = p._y + dy; p:SetHeight(-p._y + 10) end
+            if N.OptionsResize then N.OptionsResize(p) end
+        end
+        hlReflow()
     elseif meta.private then
         -- Blizzard draws these icons; we only choose the slots and what each shows.
         c:AddRow(N.MakeSlider(c, L["Max icons"], 1, 5, 1,
@@ -1737,6 +1868,37 @@ local function BuildIndicator(p, key, meta)
     end
 
     if meta.missing then
+        -- Who gets the icons, and an own placement for the player's own frame.
+        local oc = N.MakeCard(p, L["My frame"])
+        oc:AddRow(N.MakeDropdown(oc, L["Show for"], {
+            { value = "all", text = L["All frames"] },
+            { value = "self", text = L["Only my frame"] },
+            { value = "others", text = L["Only other players"] },
+        }, function() return o.showFor or "all" end, function(v) N:Set(pth("showFor"), v) end))
+        oc:AddRow(N.MakeCheckbox(oc, L["Own placement on my frame"],
+            function() return o.own and o.own.enabled == true end,
+            function(v) N:Set(pth("own.enabled"), v) end))
+        local ownPos = {}
+        for _, key in ipairs(N.UnitFrame.TEXT_POSITIONS) do
+            ownPos[#ownPos + 1] = { value = key, text = L[TEXT_POSITION_LABELS[key]] }
+        end
+        oc:AddRow(N.MakeDropdown(oc, L["Position"], ownPos,
+            function() return o.own and o.own.position or "topleft" end,
+            function(v) N:Set(pth("own.position"), v) end))
+        oc:AddRow(N.MakeDropdown(oc, L["Growth direction"], {
+            { value = "RIGHT", text = L["Right"] },
+            { value = "LEFT", text = L["Left"] },
+            { value = "UP", text = L["Up"] },
+            { value = "DOWN", text = L["Down"] },
+        }, function() return o.own and o.own.growth or "RIGHT" end, function(v) N:Set(pth("own.growth"), v) end))
+        oc:AddRow(N.MakeSlider(oc, L["Icon size"], 8, 32, 1,
+            function() return o.own and o.own.size or 16 end, function(v) N:Set(pth("own.size"), N.Round(v)) end))
+        oc:AddRow(N.MakeSlider(oc, L["X offset"], -60, 60, 1,
+            function() return o.own and o.own.x or 0 end, function(v) N:Set(pth("own.x"), N.Round(v)) end))
+        oc:AddRow(N.MakeSlider(oc, L["Y offset"], -60, 60, 1,
+            function() return o.own and o.own.y or 0 end, function(v) N:Set(pth("own.y"), N.Round(v)) end))
+        p:AddCard(oc)
+
         local bc = N.MakeCard(p, L["Buffs to check"])
         for _, buff in ipairs(N.Indicators.missingBuffs) do
             local cb = N.MakeCheckbox(bc, (buff.key ~= "blessing" and N.Classic.SpellName(buff.icon)) or L[buff.label] or buff.label,
@@ -2842,7 +3004,7 @@ local function BuildAuraSounds(p)
 end
 
 local function BuildToolsPosition(p)
-    local pos = N.MakeCard(p, L["Position"])
+    local pos = N.MakeCard(p, p._inToolGroup and L["Move tools"] or L["Position"])
     local mv = CreateFrame("Button", nil, pos)
     mv._rowHeight = 28
     N.SkinButton(mv)
@@ -2873,9 +3035,9 @@ end
 local function BuildTools(p, kind)
     local o = N.db.tools[kind]
     local function pth(f) return "tools." .. kind .. "." .. f end
-    local titles = { readyPull = "Ready & Pull", battleRes = "Battle Res", marks = "Marks", deathReport = "Death Report" }
+    local titles = { readyPull = "Ready & Pull", battleRes = "Battle Res", marks = "Marks", deathReport = "Death Report", buffTracker = "Buff Tracker" }
 
-    local c = N.MakeCard(p, L[titles[kind]])
+    local c = N.MakeCard(p, p._inToolGroup and L["Settings"] or L[titles[kind]])
     c:AddRow(N.MakeCheckbox(c, L["Enabled"],
         function() return o.enabled end, function(v) N:Set(pth("enabled"), v) end))
     if kind ~= "deathReport" then
@@ -2966,6 +3128,94 @@ local function BuildTools(p, kind)
             function() return o.showTimer end, function(v) N:Set(pth("showTimer"), v) end))
         addHint()
         p:AddCard(c)
+    elseif kind == "buffTracker" then
+        c:AddRow(N.MakeCheckbox(c, L["BT_TRACKALL"],
+            function() return o.trackAll end, function(v) N:Set(pth("trackAll"), v) end))
+        local tRow = CreateFrame("Frame", nil, c)
+        local tText = N.FontString(tRow, 11)
+        tText:SetPoint("TOPLEFT", tRow, "TOPLEFT", 0, 0)
+        tText:SetWidth(c:GetWidth() - 2 * N.CARD_PAD)
+        tText:SetJustifyH("LEFT")
+        tText:SetTextColor(uc(M.color.textDim))
+        tText:SetText(L["BT_TRACKALL_HINT"])
+        tRow._rowHeight = tText:GetStringHeight() + 6
+        c:AddRow(tRow)
+        c:AddRow(N.MakeDropdown(c, L["When nothing is missing"], {
+            { value = "hide", text = L["Hide the tracker"] },
+            { value = "text", text = L["Show a text"] },
+            { value = "icons", text = L["Show dimmed icons"] },
+        }, function() return o.idle or "hide" end, function(v) N:Set(pth("idle"), v) end))
+        c:AddRow(N.MakeCheckbox(c, L["Hide in combat"],
+            function() return o.hideInCombat ~= false end, function(v) N:Set(pth("hideInCombat"), v) end))
+        c:AddRow(N.MakeCheckbox(c, L["Show counts"],
+            function() return o.showCount ~= false end, function(v) N:Set(pth("showCount"), v) end))
+        c:AddRow(N.MakeDropdown(c, L["Orientation"], orient,
+            function() return o.orientation end, function(v) N:Set(pth("orientation"), v) end))
+        c:AddRow(N.MakeSlider(c, L["Icon size"], 16, 64, 1,
+            function() return o.iconSize end, function(v) N:Set(pth("iconSize"), N.Round(v)) end))
+        c:AddRow(N.MakeSlider(c, L["Spacing"], 0, 20, 1,
+            function() return o.spacing end, function(v) N:Set(pth("spacing"), N.Round(v)) end))
+        local bhint = N.FontString(c, 11)
+        bhint:SetPoint("TOPLEFT", c, "TOPLEFT", N.CARD_PAD, c._y)
+        bhint:SetWidth(c:GetWidth() - 2 * N.CARD_PAD)
+        bhint:SetJustifyH("LEFT")
+        bhint:SetTextColor(uc(M.color.textDim))
+        bhint:SetText(L["BUFFTRACKER_HINT"])
+        bhint:SetHeight(bhint:GetStringHeight() + 4)
+        c:SetHeight(-c._y + bhint:GetHeight() + N.CARD_PAD)
+        p:AddCard(c)
+
+        local mc = N.MakeCard(p, L["Chat message"])
+        local explainRow = CreateFrame("Frame", nil, mc)
+        local explain = N.FontString(explainRow, 11)
+        explain:SetPoint("TOPLEFT", explainRow, "TOPLEFT", 0, 0)
+        explain:SetWidth(mc:GetWidth() - 2 * N.CARD_PAD)
+        explain:SetJustifyH("LEFT")
+        explain:SetTextColor(uc(M.color.textDim))
+        explain:SetText(L["BUFFTRACKER_EXPLAIN"])
+        explainRow._rowHeight = explain:GetStringHeight() + 8
+        mc:AddRow(explainRow)
+        mc:AddRow(N.MakeDropdown(mc, L["Messages sent"], {
+            { value = "one", text = L["One message for all buffs"] },
+            { value = "perBuff", text = L["One message per buff"] },
+        }, function() return o.msgMode or "one" end, function(v) N:Set(pth("msgMode"), v) end))
+        mc:AddRow(N.MakeSlider(mc, L["Names in the message"], 1, 10, 1,
+            function() return o.maxNames or 3 end, function(v) N:Set(pth("maxNames"), N.Round(v)) end))
+        mc:AddRow(N.MakeTextInput(mc, L["Message for a few players"],
+            function() return o.msgFew or "" end, function(v) N:Set(pth("msgFew"), v or "") end))
+        mc:AddRow(N.MakeTextInput(mc, L["Message for many players"],
+            function() return o.msgMany or "" end, function(v) N:Set(pth("msgMany"), v or "") end))
+        p:AddCard(mc)
+
+        local bc = N.MakeCard(p, L["Buffs to check"])
+        for _, buff in ipairs(N.Indicators.missingBuffs) do
+            local cb = N.MakeCheckbox(bc, N.Indicators.BuffLabel(buff),
+                function() return not (o.buffs and o.buffs[buff.key] == false) end,
+                function(v) N:Set(pth("buffs." .. buff.key), v) end)
+            local pic = cb:CreateTexture(nil, "ARTWORK")
+            pic:SetSize(20, 20)
+            pic:SetPoint("RIGHT", cb, "RIGHT", 0, 0)
+            pic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+            pic:SetTexture(N.Indicators.BuffTexture(buff) or 134400)
+            cb._rowHeight = 24
+            bc:AddRow(cb)
+            if buff.key == "blessing" then
+                -- the single blessings: "Blessings" is missing while none of the enabled ones is on them
+                for _, sub in ipairs(N.Classic.BLESSINGS) do
+                    local sc = N.MakeCheckbox(bc, "      " .. (N.Classic.SpellName(sub.icon) or sub.label),
+                        function() return not (o.buffs and o.buffs[sub.key] == false) end,
+                        function(v) N:Set(pth("buffs." .. sub.key), v) end)
+                    local sp = sc:CreateTexture(nil, "ARTWORK")
+                    sp:SetSize(18, 18)
+                    sp:SetPoint("RIGHT", sc, "RIGHT", 0, 0)
+                    sp:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+                    sp:SetTexture(N.Indicators.BuffTexture(sub) or 134400)
+                    sc._rowHeight = 22
+                    bc:AddRow(sc)
+                end
+            end
+        end
+        p:AddCard(bc)
     elseif kind == "deathReport" then
         c:AddRow(N.MakeDropdown(c, L["Output"], {
             { value = "local", text = L["Only me"] },
@@ -3007,6 +3257,115 @@ local function BuildTools(p, kind)
     end
 
     if kind ~= "deathReport" then addLook() end
+end
+
+-- Utilities: one foldable block per tool, its cards sit inside.
+local TOOL_HEAD = 34
+local function ToolGroup(p, kind, title, build)
+    local groups = p._groups
+    if not groups then
+        groups = {}
+        p._groups = groups
+        p._yTop = p._y -- the blocks start below what is already on the page (the Position card)
+        function p.Relayout()
+            local y = p._yTop or -4
+            for _, g in ipairs(groups) do
+                local inner = 0
+                if g.open then
+                    for _, card in ipairs(g.cards) do inner = inner + card:GetHeight() + 10 end
+                    inner = inner + 2
+                end
+                g.box:SetHeight(TOOL_HEAD + inner)
+                g.box:ClearAllPoints()
+                g.box:SetPoint("TOPLEFT", p, "TOPLEFT", 2, y)
+                g.box:SetPoint("TOPRIGHT", p, "TOPRIGHT", -2, y)
+                local cy = -TOOL_HEAD
+                for _, card in ipairs(g.cards) do
+                    card:SetShown(g.open)
+                    if g.open then
+                        card:ClearAllPoints()
+                        card:SetPoint("TOPLEFT", g.box, "TOPLEFT", 10, cy)
+                        card:SetPoint("TOPRIGHT", g.box, "TOPRIGHT", -10, cy)
+                        cy = cy - card:GetHeight() - 10
+                    end
+                end
+                y = y - g.box:GetHeight() - 12
+            end
+            p:SetHeight(-y + 10)
+            if N.OptionsResize then N.OptionsResize(p) end
+        end
+    end
+
+    local g = { kind = kind, cards = {} }
+    g.open = not (N.db.utilityFolded and N.db.utilityFolded[kind])
+    local box = CreateFrame("Frame", nil, p)
+    N.SkinRound(box, M.color.base, M.color.line)
+    box._toolGroup = g
+    g.box = box
+
+    local tab = box:CreateTexture(nil, "ARTWORK")
+    tab:SetTexture(M.flat)
+    tab:SetPoint("TOPLEFT", 12, -11)
+    tab:SetSize(3, 12)
+    local function tint() tab:SetColorTexture(M.color.accent[1], M.color.accent[2], M.color.accent[3], 1) end
+    tint()
+    N.OnRecolor(tint)
+    local head = N.FontString(box, 13)
+    head:SetPoint("LEFT", tab, "RIGHT", 7, 0)
+    head:SetTextColor(uc(M.color.text))
+    head:SetText(title)
+    local mark = N.FontString(box, 15)
+    mark:SetPoint("TOPRIGHT", box, "TOPRIGHT", -14, -9)
+    mark:SetTextColor(uc(M.color.textDim))
+    local state = N.FontString(box, 11)
+    state:SetPoint("TOPRIGHT", box, "TOPRIGHT", -36, -12)
+    local function paint()
+        mark:SetText(g.open and "-" or "+")
+        local tool = N.db.tools and N.db.tools[kind]
+        if tool and tool.enabled ~= nil then
+            local on = tool.enabled and true or false
+            state:SetText(L[on and "NAV_ON" or "NAV_OFF"])
+            if on then state:SetTextColor(0.25, 0.85, 0.35) else state:SetTextColor(uc(M.color.textDim)) end
+        else
+            state:SetText("")
+        end
+    end
+    function g.setOpen(open)
+        g.open = open and true or false
+        if type(N.db.utilityFolded) ~= "table" then N.db.utilityFolded = { _list = true } end
+        N.db.utilityFolded[kind] = (not g.open) or nil
+        paint()
+        p.Relayout()
+    end
+    local fold = CreateFrame("Button", nil, box)
+    fold:SetPoint("TOPLEFT", box, "TOPLEFT", 0, 0)
+    fold:SetPoint("TOPRIGHT", box, "TOPRIGHT", 0, 0)
+    fold:SetHeight(TOOL_HEAD)
+    fold:SetScript("OnClick", function() g.setOpen(not g.open) end)
+    fold:HookScript("OnEnter", function() N.SetPanelBorder(box, M.color.accent) end)
+    fold:HookScript("OnLeave", function() N.SetPanelBorder(box, M.color.line) end)
+    N:On("NUCLEUS_SETTING_CHANGED", function(_, _, path)
+        if path and path:find("^tools%." .. kind .. "%.enabled") then paint() end
+    end)
+    paint()
+
+    -- The cards of the tool are collected here and placed inside the block by Relayout. They are a little
+    -- narrower than usual, so their hints fit.
+    local normal, fullW = p.AddCard, p._cardW
+    p._cardW = fullW - 20
+    p._inToolGroup = true
+    function p:AddCard(card)
+        card:SetParent(box)
+        card._toolGroup = g
+        g.cards[#g.cards + 1] = card
+    end
+    local ok, err = pcall(build)
+    p.AddCard = normal
+    p._cardW = fullW
+    p._inToolGroup = nil
+    if not ok then error(err, 0) end
+    groups[#groups + 1] = g
+    p.Relayout()
 end
 
 local CUSTOM_ANCHORS = {
@@ -4323,13 +4682,15 @@ local function BuildTabModel()
         } },
         { id = "utilities", label = L["Utilities"], flow = "single", subs = {
             { id = "position", label = L["Position"], build = BuildToolsPosition },
-            { id = "readyPull", label = L["Ready & Pull"], build = function(p) BuildTools(p, "readyPull") end,
+            { id = "readyPull", label = L["Ready & Pull"], build = function(p) ToolGroup(p, "readyPull", L["Ready & Pull"], function() BuildTools(p, "readyPull") end) end,
               enabledCheck = function() return N.db.tools.readyPull.enabled end },
-            { id = "battleRes", label = L["Battle Res"], build = function(p) BuildTools(p, "battleRes") end,
+            { id = "battleRes", label = L["Battle Res"], build = function(p) ToolGroup(p, "battleRes", L["Battle Res"], function() BuildTools(p, "battleRes") end) end,
               enabledCheck = function() return N.db.tools.battleRes.enabled end },
-            { id = "marks", label = L["Marks"], build = function(p) BuildTools(p, "marks") end,
+            { id = "marks", label = L["Marks"], build = function(p) ToolGroup(p, "marks", L["Marks"], function() BuildTools(p, "marks") end) end,
               enabledCheck = function() return N.db.tools.marks.enabled end },
-            { id = "deathReport", label = L["Death Report"], build = function(p) BuildTools(p, "deathReport") end,
+            { id = "buffTracker", label = L["Buff Tracker"], build = function(p) ToolGroup(p, "buffTracker", L["Buff Tracker"], function() BuildTools(p, "buffTracker") end) end,
+              enabledCheck = function() return N.db.tools.buffTracker.enabled end },
+            { id = "deathReport", label = L["Death Report"], build = function(p) ToolGroup(p, "deathReport", L["Death Report"], function() BuildTools(p, "deathReport") end) end,
               enabledCheck = function() return N.db.tools.deathReport.enabled end },
         } },
         { id = "profile", label = L["Profile"], flow = "single", subs = {
@@ -4580,6 +4941,23 @@ local function MakeNavItem(parent)
     glyph:Hide()
     b.glyph = glyph
 
+    -- Pins the entry to the top of the list; shown on hover and while pinned.
+    local star = CreateFrame("Button", nil, b)
+    star:SetSize(18, 18)
+    star:SetPoint("RIGHT", b, "RIGHT", -6, 0)
+    local mark = star:CreateTexture(nil, "OVERLAY")
+    mark:SetTexture(M.tex.star)
+    mark:SetSize(14, 14)
+    mark:SetPoint("CENTER")
+    b.star = star
+    function b.starColor()
+        local c = b._fav and { 1, 0.82, 0.25 } or M.color.textDim
+        mark:SetVertexColor(c[1], c[2], c[3], 1)
+    end
+    N.SetTip(star, function() return L[b._fav and "NAV_UNPIN" or "NAV_PIN"] end, nil)
+    star:HookScript("OnEnter", function() b._hover = true; b.Repaint() end)
+    star:HookScript("OnLeave", function() b._hover = b:IsMouseOver() and true or false; b.Repaint() end)
+
     b.label = N.FontString(b, 12)
     b.label:SetPoint("LEFT", 12, 0)
     b.label:SetPoint("RIGHT", -6, 0)
@@ -4598,6 +4976,9 @@ local function MakeNavItem(parent)
         tint:SetShown(b._active)
         wash:SetShown(b._hover and not b._active)
         accentBg:SetShown(b.isAction and true or false)
+        -- Stays shown but transparent: a hidden star could not take the mouse that just left the row.
+        star:SetShown(not b.isAction)
+        star:SetAlpha(((b._hover or b._fav) and 1) or 0)
         local c = (b.isAction or b._active) and M.color.accentBright
             or (b._hover and M.color.text or M.color.textDim)
         b.label:SetTextColor(uc(c))
@@ -4627,6 +5008,34 @@ end
 -- Custom indicators get two lines: the name and, below it, the kind of indicator.
 local ROW_H, CUSTOM_ROW_H = 26, 34
 
+-- The side list of a tab: the Indicators tab can be filtered, searched and have entries pinned to the top.
+local navQuery = ""
+local navKeep = false -- keeps the open entry in the list while it is switched on or off
+local function NavView(tab)
+    if tab.id ~= "indicators" then return tab.subs end
+    local fav = N.db.indicatorFav or {}
+    local mode = N.db.indicatorFilter or "all"
+    local pinned, rest, actions = {}, {}, {}
+    for _, sub in ipairs(tab.subs) do
+        if sub.action then
+            actions[#actions + 1] = sub
+        else
+            local on = (not sub.enabledCheck) or sub.enabledCheck()
+            local show = mode == "all" or (mode == "on" and on) or (mode == "off" and not on) or (navKeep and sub.id == activeSub)
+            if show and navQuery ~= "" then
+                show = (tostring(sub.label):lower():find(navQuery, 1, true)) ~= nil
+            end
+            if show then
+                local into = fav[sub.id] and pinned or rest
+                into[#into + 1] = sub
+            end
+        end
+    end
+    for _, sub in ipairs(rest) do pinned[#pinned + 1] = sub end
+    for _, sub in ipairs(actions) do pinned[#pinned + 1] = sub end
+    return pinned
+end
+
 local navBuiltFor
 local function BuildSubNav(tab)
     for _, b in ipairs(subNavPool) do b:Hide() end
@@ -4634,10 +5043,11 @@ local function BuildSubNav(tab)
     local keep = (navBuiltFor == tab.id) and railScroll:GetVerticalScroll() or 0
     navBuiltFor = tab.id
     local total = 16
-    for _, sub in ipairs(tab.subs) do total = total + (sub.custom and CUSTOM_ROW_H or ROW_H) end
+    local view = NavView(tab)
+    for _, sub in ipairs(view) do total = total + (sub.custom and CUSTOM_ROW_H or ROW_H) end
     railChild:SetHeight(total)
     railScroll.SetOffset(keep)
-    for i, sub in ipairs(tab.subs) do
+    for i, sub in ipairs(view) do
         local b = subNavPool[i]
         if not b then
             b = MakeNavItem(railChild)
@@ -4652,7 +5062,7 @@ local function BuildSubNav(tab)
         b.label:SetText(sub.label)
         b.isAction = sub.action and true or false
         local hasGlyph = SetNavGlyph(b, sub.glyph, h)
-        local right = hasGlyph and -34 or -6
+        local right = hasGlyph and -56 or -26
         b.label:ClearAllPoints()
         b.typeText:ClearAllPoints()
         if sub.custom then
@@ -4669,6 +5079,17 @@ local function BuildSubNav(tab)
         end
         b.Repaint()
         b.enabledCheck = sub.enabledCheck
+        b._fav = (N.db.indicatorFav or {})[sub.id] == true
+        b.starColor()
+        b.star:ClearAllPoints()
+        b.star:SetPoint("RIGHT", b, "RIGHT", hasGlyph and -34 or -6, 0)
+        b.star:SetScript("OnClick", function()
+            local favs = N.db.indicatorFav
+            if type(favs) ~= "table" then favs = { _list = true }; N.db.indicatorFav = favs end
+            favs[sub.id] = (not favs[sub.id]) or nil
+            BuildSubNav(tab)
+        end)
+        b.Repaint()
         b:SetScript("OnClick", function(_, button)
             if button == "RightButton" then
                 if sub.custom then
@@ -4696,6 +5117,12 @@ end
 N:On("NUCLEUS_SETTING_CHANGED", function(_, _, path)
     if path and (path:find("%.indicators%.") or path:find("%.auras%.") or path:find("%.customIndicators") or path:find("^targetedSpellBars%.enabled") or path:find("^actions%.enabled") or path:find("^auraSounds%.enabled")) then
         RefreshSubNavDim()
+        if path:find("%.enabled$") and (N.db.indicatorFilter or "all") ~= "all"
+            and activeTab == "indicators" and window and window:IsShown() then
+            navKeep = true
+            BuildSubNav(FindTab("indicators"))
+            navKeep = false
+        end
     end
 end)
 N:On("NUCLEUS_EDIT_MODE", RefreshSubNavDim)
@@ -5034,6 +5461,135 @@ local function BuildModeBar()
     N:On("NUCLEUS_EDIT_MODE", refreshBoxes)
     more:SetScript("OnClick", function() menu:SetShown(not menu:IsShown()) end)
 
+    -- Which indicators and aura rows the Test Mode frames show.
+    local gear = CreateFrame("Button", nil, window)
+    gear:SetSize(26, 26)
+    gear:SetPoint("LEFT", more, "RIGHT", 2, 0)
+    N.SkinButton(gear)
+    local gearTex = gear:CreateTexture(nil, "OVERLAY")
+    gearTex:SetSize(14, 14)
+    gearTex:SetPoint("CENTER")
+    gearTex:SetTexture(M.tex.gear)
+    gearTex:SetVertexColor(uc(M.color.textDim))
+    gear:HookScript("OnEnter", function() gearTex:SetVertexColor(1, 1, 1, 1) end)
+    gear:HookScript("OnLeave", function() gearTex:SetVertexColor(uc(M.color.textDim)) end)
+    N.SetTip(gear, L["TEST_INDICATORS"], L["TEST_INDICATORS_TIP"])
+
+    local fblock = CreateFrame("Button", nil, UIParent)
+    fblock:SetFrameStrata("FULLSCREEN_DIALOG")
+    fblock:SetAllPoints(UIParent)
+    fblock:EnableMouse(true)
+    fblock:Hide()
+    local fmenu = CreateFrame("Frame", nil, UIParent)
+    fmenu._nucUI = true
+    fmenu:SetFrameStrata("FULLSCREEN_DIALOG")
+    fmenu:SetFrameLevel(fblock:GetFrameLevel() + 5)
+    fmenu:SetPoint("BOTTOMLEFT", gear, "TOPLEFT", 0, 4)
+    N.SkinRound(fmenu, { 0.095, 0.103, 0.125, 1 }, M.color.line, true)
+    N.AddShadow(fmenu, 14, 0.5, -3)
+    fmenu:Hide()
+    fblock:SetScript("OnClick", function() fmenu:Hide() end)
+    fmenu:SetScript("OnShow", function() fblock:Show() end)
+    fmenu:SetScript("OnHide", function() fblock:Hide() end)
+
+    local indList, auraList = {}, {}
+    for _, meta in ipairs(N.Indicators.builtins) do indList[#indList + 1] = { name = meta.name, label = L[meta.label] } end
+    indList[#indList + 1] = { name = "custom", label = L["TEST_CUSTOM"] }
+    for _, kind in ipairs({ "buffs", "debuffs", "debuffs2", "debuffs3", "debuffs4", "dispels", "defensives",
+                            "externals", "defext", "offensives", "crowdControls" }) do
+        if AURA_TITLES[kind] and N.db.party.auras and N.db.party.auras[kind] then
+            auraList[#auraList + 1] = { name = kind, label = L[AURA_TITLES[kind]], aura = true }
+        end
+    end
+
+    local ftitle = N.FontString(fmenu, 11)
+    ftitle:SetPoint("TOPLEFT", 10, -8)
+    ftitle:SetTextColor(uc(M.color.textDim))
+    ftitle:SetText(L["TEST_INDICATORS"])
+    local fhint = N.FontString(fmenu, 11)
+    fhint:SetPoint("TOPLEFT", 10, -26)
+    fhint:SetWidth(430)
+    fhint:SetJustifyH("LEFT")
+    fhint:SetWordWrap(true)
+    fhint:SetTextColor(uc(M.color.textDim))
+    fhint:SetText(L["TEST_ONLY_ENABLED"])
+    local COL_W = 210
+    local columns = {}
+    local function column(list, x, header)
+        local hf = N.FontString(fmenu, 12)
+        hf:SetPoint("TOPLEFT", x, -60)
+        hf:SetText(header)
+        local col = { x = x, items = {} }
+        for _, it in ipairs(list) do
+            local cb = N.MakeCheckbox(fmenu, it.label,
+                function() return not (N.db.testHidden and N.db.testHidden[it.name]) end,
+                function(v) N:Set("testHidden." .. it.name, (not v) or nil) end)
+            cb:SetWidth(COL_W)
+            cb:SetHeight(22)
+            cb:Hide()
+            col.items[#col.items + 1] = { name = it.name, aura = it.aura, box = cb }
+        end
+        columns[#columns + 1] = col
+    end
+    column(indList, 10, L["Indicators"])
+    column(auraList, 10 + COL_W + 10, L["Auras"])
+
+    local selAll, selNone
+    -- Only what is switched on in the settings of the mode being edited gets a checkbox.
+    local function isOn(item)
+        local d = N.db[N:Mode()]
+        if not d then return false end
+        if item.name == "custom" then return #(d.customIndicators or {}) > 0 end
+        local o = (item.aura and d.auras or d.indicators)[item.name]
+        return o ~= nil and o.enabled == true
+    end
+    local function relayout()
+        ftitle:SetText(L["TEST_INDICATORS"] .. " - " .. (L["MODE_" .. N:Mode()] or N:Mode()))
+        local rows = 0
+        for _, col in ipairs(columns) do
+            local n = 0
+            for _, item in ipairs(col.items) do
+                if isOn(item) then
+                    n = n + 1
+                    item.box:ClearAllPoints()
+                    item.box:SetPoint("TOPLEFT", fmenu, "TOPLEFT", col.x, -80 - (n - 1) * 22)
+                    item.box:Show()
+                    item.box.Refresh()
+                else
+                    item.box:Hide()
+                end
+            end
+            rows = math.max(rows, n)
+        end
+        selAll:ClearAllPoints()
+        selAll:SetPoint("TOPLEFT", fmenu, "TOPLEFT", 10, -80 - rows * 22 - 8)
+        selNone:ClearAllPoints()
+        selNone:SetPoint("TOPLEFT", fmenu, "TOPLEFT", 10 + COL_W + 10, -80 - rows * 22 - 8)
+        fmenu:SetHeight(80 + rows * 22 + 8 + 24 + 10)
+    end
+
+    local function bulkButton(label, hideAll)
+        local b = ActionButton(fmenu, label, function()
+            local t = { _list = true }
+            if hideAll then
+                for _, col in ipairs(columns) do
+                    for _, item in ipairs(col.items) do t[item.name] = true end
+                end
+            end
+            N:Set("testHidden", t)
+            relayout()
+        end)
+        b:SetSize(COL_W, 24)
+        return b
+    end
+    selAll = bulkButton(L["Select all"], false)
+    selNone = bulkButton(L["Select none"], true)
+
+    fmenu:SetWidth(COL_W * 2 + 30)
+    fmenu:HookScript("OnShow", relayout)
+    N:On("NUCLEUS_EDIT_MODE", function() if fmenu:IsShown() then relayout() end end)
+    gear:SetScript("OnClick", function() fmenu:SetShown(not fmenu:IsShown()) end)
+
     local function syncTest()
         test:SetActiveState(N.TestMode and N.TestMode.IsActive())
     end
@@ -5318,6 +5874,17 @@ local function flashWidget(w)
 end
 
 local function scrollToWidget(w)
+    -- A widget inside a folded Utilities block: open the block first and come back once it is laid out.
+    local f, opened = w, false
+    while f do
+        local g = f._toolGroup
+        if g and not g.open then g.setOpen(true); opened = true end
+        f = f.GetParent and f:GetParent() or nil
+    end
+    if opened then
+        C_Timer.After(0.05, function() scrollToWidget(w) end)
+        return
+    end
     local top, base = w and w.GetTop and w:GetTop(), scrollChild:GetTop()
     if not (top and base) then return end
     local limit = math.max(0, scrollChild:GetHeight() - scroll:GetHeight())
@@ -5526,8 +6093,18 @@ local function BuildWindow()
     modeLabel = N.FontString(header, 11)
     modeLabel:SetPoint("LEFT", badge, "RIGHT", 8, 0)
     modeLabel:SetTextColor(uc(M.color.accentBright))
-    N.OnRecolor(function() modeLabel:SetTextColor(uc(M.color.accentBright)) end)
-    BuildSearch(header)
+    N.OnRecolor(function() modeLabel:SetTextColor(uc(M.color.accentBright)) end)    BuildSearch(header)
+
+    -- Opens the help window (Help / FAQ).
+    local helpBtn = CreateFrame("Button", nil, header)
+    helpBtn:SetSize(26, 24)
+    helpBtn:SetPoint("RIGHT", header, "RIGHT", -(46 + 200 + 10), 0)
+    N.SkinButton(helpBtn)
+    local helpMark = N.FontString(helpBtn, 14)
+    helpMark:SetPoint("CENTER")
+    helpMark:SetText("?")
+    helpBtn:SetScript("OnClick", function() N.ShowHelp() end)
+    N.SetTip(helpBtn, L["Help / FAQ"], L["FAQ_TIP"])
 
     N.Hairline(window, "hb", MODEBAR, M.color.line, 12, 12)
 
@@ -5537,9 +6114,62 @@ local function BuildWindow()
     N.SkinRound(subnavHost, M.color.card, M.color.line)
 
     railScroll, railChild = N.MakeScroll(subnavHost, -3)
-    railScroll:SetPoint("TOPLEFT", subnavHost, "TOPLEFT", 4, -4)
+    railScroll:SetPoint("TOPLEFT", subnavHost, "TOPLEFT", 4, -60)
     railScroll:SetPoint("BOTTOMRIGHT", subnavHost, "BOTTOMRIGHT", -9, 4)
     railChild:SetWidth(RAIL_W - 12 - 4 - 9)
+
+    -- Search and filter above the list of the Indicators tab.
+    local nbox = CreateFrame("EditBox", nil, subnavHost)
+    nbox:SetPoint("TOPLEFT", subnavHost, "TOPLEFT", 6, -6)
+    nbox:SetPoint("TOPRIGHT", subnavHost, "TOPRIGHT", -6, -6)
+    nbox:SetHeight(22)
+    nbox:SetAutoFocus(false)
+    nbox:SetFont(M.fontUI, 12, "")
+    N.RegisterFont(nbox, 12, "")
+    nbox:SetTextInsets(8, 8, 0, 0)
+    nbox:SetTextColor(uc(M.color.text))
+    N.SkinRound(nbox, M.color.base, M.color.line, true)
+    local nph = N.FontString(nbox, 12)
+    nph:SetPoint("LEFT", 8, 0)
+    nph:SetTextColor(uc(M.color.textDim))
+    nph:SetText(L["Filter..."])
+    local function rebuildNav()
+        local t = FindTab("indicators")
+        if t and activeTab == "indicators" then BuildSubNav(t) end
+    end
+    nbox:SetScript("OnTextChanged", function(self)
+        navQuery = strtrim(self:GetText() or ""):lower()
+        nph:SetShown(self:GetText() == "")
+        rebuildNav()
+    end)
+    nbox:SetScript("OnEscapePressed", function(self) self:SetText(""); self:ClearFocus() end)
+    nbox:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+    nbox:SetScript("OnEditFocusGained", function() N.SetPanelBorder(nbox, M.color.accent) end)
+    nbox:SetScript("OnEditFocusLost", function() N.SetPanelBorder(nbox, M.color.line) end)
+
+    local filterButtons = {}
+    local function paintFilter()
+        for _, fb in ipairs(filterButtons) do fb:SetActiveState((N.db.indicatorFilter or "all") == fb.mode) end
+    end
+    local bw = math.floor((RAIL_W - 12 - 12 - 8) / 3)
+    for i, m in ipairs({ { "all", "NAV_ALL" }, { "on", "NAV_ON" }, { "off", "NAV_OFF" } }) do
+        local fb = CreateFrame("Button", nil, subnavHost)
+        fb:SetSize(bw, 20)
+        fb:SetPoint("TOPLEFT", subnavHost, "TOPLEFT", 6 + (i - 1) * (bw + 4), -32)
+        fb.mode = m[1]
+        N.SkinButton(fb)
+        local ft = N.FontString(fb, 11)
+        ft:SetPoint("CENTER")
+        ft:SetText(L[m[2]])
+        fb:SetScript("OnClick", function()
+            N.db.indicatorFilter = m[1]
+            paintFilter()
+            rebuildNav()
+        end)
+        N.SetTip(fb, L[m[2]], L[m[2] .. "_TIP"])
+        filterButtons[i] = fb
+    end
+    paintFilter()
 
     scroll, scrollChild = N.MakeScroll(window)
     scroll:SetPoint("TOPLEFT", window, "TOPLEFT", RAIL_W + 14, -BODY_TOP)
@@ -5623,6 +6253,144 @@ local function AddPopupHint(child, cardW, text)
     hint:SetHeight(hint:GetStringHeight() + 4)
     child._y = child._y - hint:GetHeight() - 8
     child:SetHeight(-child._y + 4)
+end
+
+-- Help / FAQ: questions that fold open on a click. Entries for features a build does not have are left out.
+-- Where each FAQ answer lives: tab, sub page (for pages with a side list) and the card to scroll to.
+local FAQ_GOTO = {
+    MOVE     = { tab = "position", card = "Move handles" },
+    COPY     = { tab = "position", card = "Copy settings between Party and Raid" },
+    CELL     = { tab = "profile", card = "Export / Import" },
+    AURAS    = { tab = "indicators", sub = "buffs" },
+    CLASSCOL = { tab = "appearance", card = "Health Bar Color" },
+    LOWMANA  = { tab = "indicators", sub = "lowMana" },
+    HOT      = { tab = "appearance", card = "Heal Prediction" },
+    BUG      = { tab = "about", card = "Links" },
+}
+
+local function GoToSetting(t)
+    if not window then BuildWindow() end
+    window:Show()
+    local tab = FindTab(t.tab)
+    if not tab then return end
+    if t.sub and not tab.flow then lastSubOf[t.tab] = t.sub end
+    SelectTab(t.tab)
+    if not t.card then return end
+    local panel
+    if tab.flow then
+        panel = GetFlowPanel(tab)
+    else
+        for _, sub in ipairs(tab.subs) do
+            if sub.id == (t.sub or lastSubOf[t.tab]) then panel = GetPanel(t.tab, sub) end
+        end
+    end
+    if not panel then return end
+    local title = L[t.card]
+    for _, card in ipairs({ panel:GetChildren() }) do
+        if card._title == title then
+            C_Timer.After(0.05, function()
+                scrollToWidget(card)
+                flashWidget(card)
+            end)
+            return
+        end
+    end
+end
+
+local helpWin
+function N.ShowHelp()
+    if not helpWin then
+        local win, child = BuildPopupShell("NucleusHelp", L["Help / FAQ"], 560, 640)
+        local cardW = child._cardW
+        local pad = N.CARD_PAD
+        local textW = cardW - 4 - 2 * pad
+
+        local intro = N.FontString(child, 12)
+        intro:SetPoint("TOPLEFT", child, "TOPLEFT", 4, -6)
+        intro:SetWidth(cardW - 8)
+        intro:SetJustifyH("LEFT")
+        intro:SetTextColor(uc(M.color.textDim))
+        intro:SetText(L["FAQ_INTRO"])
+        intro:SetHeight(intro:GetStringHeight() + 4)
+
+        local party = N.db.party
+        local keys = { "MOVE", "NOEFFECT", "COPY", "CELL" }
+        keys[#keys + 1] = "AURAS"
+        if N.ClassBaseRGB then keys[#keys + 1] = "CLASSCOL" end
+        if party.indicators and party.indicators.lowMana then keys[#keys + 1] = "LOWMANA" end
+        if party.appearance and party.appearance.healPredict and party.appearance.healPredict.useCalculator ~= nil then
+            keys[#keys + 1] = "HOT"
+        end
+        keys[#keys + 1] = "BUG"
+
+        local foot = N.FontString(child, 12)
+        foot:SetWidth(cardW - 8)
+        foot:SetJustifyH("LEFT")
+        foot:SetTextColor(uc(M.color.textDim))
+        foot:SetText(L["FAQ_MORE"])
+
+        local items = {}
+        local function layout()
+            local y = -6 - intro:GetHeight() - 10
+            for _, f in ipairs(items) do
+                f:ClearAllPoints()
+                f:SetPoint("TOPLEFT", child, "TOPLEFT", 2, y)
+                f:SetPoint("TOPRIGHT", child, "TOPRIGHT", -2, y)
+                y = y - f:GetHeight() - 8
+            end
+            foot:ClearAllPoints()
+            foot:SetPoint("TOPLEFT", child, "TOPLEFT", 4, y - 6)
+            child:SetHeight(-y + foot:GetStringHeight() + 20)
+        end
+
+        for _, key in ipairs(keys) do
+            local f = CreateFrame("Button", nil, child)
+            N.SkinRound(f, M.color.card, M.color.line)
+            local q = N.FontString(f, 13)
+            q:SetPoint("TOPLEFT", f, "TOPLEFT", pad, -10)
+            q:SetWidth(textW - 22)
+            q:SetJustifyH("LEFT")
+            q:SetTextColor(uc(M.color.text))
+            q:SetText(L["FAQ_Q_" .. key])
+            local mark = N.FontString(f, 15)
+            mark:SetPoint("TOPRIGHT", f, "TOPRIGHT", -pad, -9)
+            mark:SetTextColor(uc(M.color.textDim))
+            local a = N.FontString(f, 12)
+            a:SetPoint("TOPLEFT", q, "BOTTOMLEFT", 0, -8)
+            a:SetWidth(textW)
+            a:SetJustifyH("LEFT")
+            a:SetWordWrap(true)
+            a:SetTextColor(uc(M.color.textDim))
+            a:SetText(L["FAQ_A_" .. key])
+            local target = FAQ_GOTO[key]
+            local go
+            if target then
+                go = ActionButton(f, L["FAQ_GO"], function()
+                    helpWin:Hide()
+                    GoToSetting(target)
+                end)
+                go:SetSize(170, 24)
+                go:SetPoint("TOPLEFT", a, "BOTTOMLEFT", 0, -10)
+                go:Hide()
+            end
+            local function setOpen(open)
+                f._open = open
+                mark:SetText(open and "-" or "+")
+                a:SetShown(open)
+                if go then go:SetShown(open) end
+                local qh = q:GetStringHeight()
+                f:SetHeight(open and (qh + a:GetStringHeight() + 34 + (go and 34 or 0)) or (qh + 22))
+            end
+            f:SetScript("OnClick", function() setOpen(not f._open); layout() end)
+            f:HookScript("OnEnter", function() N.SetPanelBorder(f, M.color.accent) end)
+            f:HookScript("OnLeave", function() N.SetPanelBorder(f, M.color.line) end)
+            setOpen(false)
+            items[#items + 1] = f
+        end
+        layout()
+        helpWin = win
+    end
+    helpWin:SetShown(not helpWin:IsShown())
 end
 
 local newCustomPopup

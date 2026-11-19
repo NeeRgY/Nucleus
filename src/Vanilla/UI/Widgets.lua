@@ -113,6 +113,7 @@ function N.MakeCard(parent, title)
     local head = N.FontString(card, 12)
     head:SetPoint("LEFT", tab, "RIGHT", 7, 0)
     head:SetText(title)
+    card._title = title
     head:SetTextColor(unpackColor(M.color.text))
 
     local rule = card:CreateTexture(nil, "ARTWORK")

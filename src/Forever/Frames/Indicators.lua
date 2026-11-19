@@ -78,7 +78,7 @@ local function runUpdate(button, def, event, ...)
         return
     end
     local o = N.db[button.groupKey].indicators[def.name]
-    if not o or not (o.enabled or button._previewOnly == def.name) or (def.enabled and not def.enabled(button)) then
+    if not o or (button._testMode and (N.db.testHidden or {})[def.name]) or not (o.enabled or button._previewOnly == def.name) or (def.enabled and not def.enabled(button)) then
         hideObj(obj)
         return
     end
@@ -214,6 +214,7 @@ Indicators.builtins = {
     { name = "missingBuffs", label = "Missing Buffs", missing = true },
     { name = "targetCounter", label = "Target Counter", text = true },
     { name = "absorbText", label = "Absorb Text", text = true, positioned = true, absorbFormat = true },
+    { name = "lowMana", label = "Low Mana", text = true, positioned = true, lowMana = true },
     { name = "shieldBar", label = "Shield Bar", shield = true },
     { name = "castBar", label = "Cast Bar", cast = true },
     { name = "healthThresholds", label = "Health Thresholds", thresholds = true },
@@ -898,6 +899,115 @@ Indicators.Register("absorbText", {
         if b._mock then v = b._mock.absorb
         elseif _G.UnitGetTotalAbsorbs and b.unit then v = UnitGetTotalAbsorbs(b.unit) end
         setAbsorbText(b, fs, v, o.format)
+    end,
+})
+
+-- Low Mana: a tag on frames whose mana is under the threshold.
+local MANA = (Enum and Enum.PowerType and Enum.PowerType.Mana) or 0
+local NO_MANA = { WARRIOR = true, ROGUE = true, DEATHKNIGHT = true, DEMONHUNTER = true, HUNTER = not N.Classic or nil }
+local HEAL_CLASSES = { PRIEST = true, DRUID = true, SHAMAN = true, PALADIN = true, MONK = true, EVOKER = true }
+
+-- Who gets the tag: "healers" (Healer role only), "guess" (also healer classes without a role) or "all".
+local function showsFor(b, mode)
+    if mode == "all" then return true end
+    local role = _G.UnitGroupRolesAssigned and b.unit and UnitGroupRolesAssigned(b.unit)
+    if type(role) == "string" and not IsSecret(role) and role ~= "NONE" then return role == "HEALER" end
+    if mode ~= "guess" then return false end
+    return type(b.class) == "string" and not IsSecret(b.class) and HEAL_CLASSES[b.class] == true
+end
+
+-- Alpha 1 under the threshold and 0 above it, for a percentage the addon may not read.
+local lowCurve
+local function alphaCurve(threshold)
+    if lowCurve and lowCurve.at == threshold then return lowCurve.curve end
+    if not (C_CurveUtil and C_CurveUtil.CreateCurve) then return nil end
+    local ok, curve = pcall(function()
+        local c = C_CurveUtil.CreateCurve()
+        local edge = threshold / 100
+        c:AddPoint(0, 1)
+        c:AddPoint(edge, 1)
+        c:AddPoint(math.min(1, edge + 0.001), 0)
+        c:AddPoint(1, 0)
+        return c
+    end)
+    if not (ok and curve) then return nil end
+    lowCurve = { at = threshold, curve = curve }
+    return curve
+end
+
+-- The blink dims the text's parent frame by hand, so it never touches the alpha that hides the text.
+local function pulse(fs, on)
+    local holder = fs:GetParent()
+    if on then
+        if not holder._lowBlink then
+            holder._lowBlink = true
+            holder:SetScript("OnUpdate", function(self)
+                self:SetAlpha(0.3 + 0.7 * math.abs(1 - 2 * (GetTime() % 1)))
+            end)
+        end
+    elseif holder._lowBlink then
+        holder._lowBlink = nil
+        holder:SetScript("OnUpdate", nil)
+        holder:SetAlpha(1)
+    end
+end
+
+Indicators.Register("lowMana", {
+    events = { "UNIT_POWER_UPDATE", "UNIT_MAXPOWER", "UNIT_DISPLAYPOWER", "GROUP_ROSTER_UPDATE", "PLAYER_ROLES_ASSIGNED" },
+    create = function(b)
+        local holder = CreateFrame("Frame", nil, b.overlay or b)
+        holder:SetAllPoints(b.overlay or b)
+        local fs = N.FontString(holder, 10)
+        fs:SetJustifyH("CENTER")
+        fs:Hide()
+        return fs
+    end,
+    update = function(b, fs)
+        local o = N.db[b.groupKey].indicators.lowMana
+        fs:SetFont(M.font, o.size or 10, "OUTLINE")
+        if o.colorMode == "class" then
+            fs:SetTextColor(N.ClassRGB(b.class))
+        else
+            local c = o.color or { 0.40, 0.65, 1 }
+            fs:SetTextColor(c[1], c[2], c[3])
+        end
+        N.UnitFrame.PlaceText(fs, b.health or b, o)
+        fs:SetText((o.text and o.text ~= "") and o.text or L["LOW MANA"])
+        fs:SetAlpha(1)
+        pulse(fs, o.blink)
+
+        if b._mock then
+            -- Test frames follow the threshold too; only this indicator's own preview always shows the tag.
+            local m = b._mock
+            local low = b._previewOnly == "lowMana" or not (m.pp and m.ppMax and m.ppMax > 0)
+                or m.pp / m.ppMax * 100 < (o.threshold or 20)
+            if low then fs:Show() else fs:Hide() end
+            return
+        end
+        local unit = b.unit
+        local class = b.class
+        if not unit or (type(class) == "string" and not IsSecret(class) and NO_MANA[class])
+            or not showsFor(b, (o.showFor and o.showFor ~= "auto") and o.showFor or (o.healersOnly == false and "all" or "healers")) then
+            fs:Hide()
+            return
+        end
+        local threshold = o.threshold or 20
+        local cur, max = UnitPower(unit, MANA), UnitPowerMax(unit, MANA)
+        if not N.AnySecret(cur, max) and type(cur) == "number" and type(max) == "number" then
+            if max > 0 and cur / max * 100 < threshold then fs:Show() else fs:Hide() end
+            return
+        end
+        -- Hidden values: let the game turn the percentage into an alpha.
+        local curve = alphaCurve(threshold)
+        if curve and _G.UnitPowerPercent then
+            local ok, alpha = pcall(UnitPowerPercent, unit, MANA, true, curve)
+            if ok and alpha ~= nil then
+                fs:Show()
+                fs:SetAlpha(alpha)
+                return
+            end
+        end
+        fs:Hide()
     end,
 })
 

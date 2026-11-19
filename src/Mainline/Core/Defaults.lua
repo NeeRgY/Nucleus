@@ -150,6 +150,8 @@ local function groupDefaults(overrides)
             -- Absorb Text: format = "short" (12K) | "full" (12,345) | "percent" of max health
             absorbText    = { enabled = false, size = 10, x = 0,  y = 8,  color = { 0.75, 0.90, 1.00 },
                               position = "center", colorMode = "custom", format = "short" },
+            lowMana       = { enabled = false, size = 10, x = 0, y = 12, color = { 0.40, 0.65, 1.00 },
+                              position = "bottom", colorMode = "custom", threshold = 20, healersOnly = true, showFor = "auto", text = "", blink = false },
             -- Private Auras: up to 5 slots, Blizzard draws icon and border (borderScale).
             privateAura   = { enabled = true, num = 2, size = 18, spacing = 1, position = "top",
                               growth = "RIGHT", x = 0, y = 3, showCountdownFrame = true,
@@ -181,7 +183,10 @@ local function groupDefaults(overrides)
             -- Missing Buffs: an icon per missing raid buff; `buffs` switches each one.
             missingBuffs  = { enabled = false, size = 13, spacing = 1, position = "bottomright",
                               growth = "LEFT", x = 0, y = 4, hideInCombat = true,
-                              highlight = "none", highlightColor = { 1, 0.85, 0.1 }, -- "none" | "border" | "pixel" | "halo" | "pulse"
+                              showFor = "all", -- "all" | "self" | "others"
+                              own = { enabled = false, position = "topleft", growth = "RIGHT", size = 16, x = 0, y = -4 },
+                              highlight = "none", highlightColor = { 1, 0.85, 0.1 }, highlightThickness = 1, highlightLength = 4,
+                              highlightSpeed = 0.3, highlightDistance = 0, -- "none" | "border" | "pixel" | "halo" | "pulse"
                               buffs = { fortitude = true, intellect = true, wild = true,
                                         shout = true, skyfury = true, bronze = true } },
         },
@@ -339,6 +344,11 @@ N.Defaults = {
         },
     },
     profileScope = { tooltip = "profile", clickCasting = "profile", utilities = "profile", spotlight = "profile" },
+    utilityFolded = { _list = true }, -- Utilities tab: blocks that are folded shut (tool key -> true)
+    indicatorFilter = "all", -- list of the Indicators tab: "all" | "on" | "off"
+    indicatorFav = { _list = true }, -- list of the Indicators tab: entries pinned to the top
+    -- Test Mode: indicators and aura rows hidden on the test frames (the settings button next to the menu)
+    testHidden = { _list = true },
     -- Test Mode: sections previewed besides the one being edited (the menu next to the button)
     testSections = { party = false, raid = false, ownPet = false, groupPets = false, npc = false, spotlight = false },
 
@@ -381,6 +391,8 @@ N.Defaults = {
 
     core = {
         rangeUpdateInterval = 0.15,
+        classDarken = 0,                -- 0 to 0.6: how much every class color is darkened
+        classColors = { _list = true }, -- [class token] = { r, g, b }, only the classes the player changed
     },
 
     tooltip = {
@@ -389,6 +401,7 @@ N.Defaults = {
         auras = false, -- tooltips of single auras when hovering their icons
         anchor = "frame", -- frame | cursor | default | icon (aura tooltips only)
         auraOffsetX = 0, auraOffsetY = 0, -- aura tooltip nudge from its anchor
+        bindings = false, bindingsSkipBasic = false, -- list the click-casting bindings in the frame tooltip
     },
 
     minimap = {
@@ -470,6 +483,16 @@ N.Defaults = {
             enabled = true, fadeOut = false, backdrop = false, background = { 0.05, 0.05, 0.07 }, border = 1,
             borderColor = { 0.20, 0.20, 0.25 }, alpha = 1, strata = "MEDIUM", iconSize = 30, showTimer = true,
             point = "CENTER", x = 0, y = -160,
+        },
+        buffTracker = {
+            enabled = false, fadeOut = false, backdrop = false, background = { 0.05, 0.05, 0.07 }, border = 1,
+            borderColor = { 0.20, 0.20, 0.25 }, alpha = 1, strata = "MEDIUM",
+            iconSize = 30, spacing = 4, orientation = "horizontal", showCount = true,
+            trackAll = false, idle = "hide", msgMode = "one", -- when nothing is missing: "hide" | "text" | "icons", messages: "one" | "perBuff"
+            hideInCombat = true, maxNames = 3,
+            msgFew = "", msgMany = "", -- empty = the language's default text ({players}, {buffs}, {count})
+            buffs = { fortitude = true, intellect = true, wild = true, shout = true, skyfury = true, bronze = true },
+            point = "CENTER", x = 0, y = -200,
         },
         marks = {
             enabled = false, fadeOut = false, backdrop = false, background = { 0.05, 0.05, 0.07 }, border = 1,

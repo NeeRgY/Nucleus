@@ -147,7 +147,10 @@ local function groupDefaults(overrides)
             -- Missing Buffs: an icon per missing raid buff; `buffs` switches each one.
             missingBuffs  = { enabled = false, size = 13, spacing = 1, position = "bottomright",
                               growth = "LEFT", x = 0, y = 4, hideInCombat = true,
-                              highlight = "none", highlightColor = { 1, 0.85, 0.1 }, -- "none" | "border" | "pixel" | "halo" | "pulse"
+                              showFor = "all", -- "all" | "self" | "others"
+                              own = { enabled = false, position = "topleft", growth = "RIGHT", size = 16, x = 0, y = -4 },
+                              highlight = "none", highlightColor = { 1, 0.85, 0.1 }, highlightThickness = 1, highlightLength = 4,
+                              highlightSpeed = 0.3, highlightDistance = 0, -- "none" | "border" | "pixel" | "halo" | "pulse"
                               buffs = { fortitude = true, intellect = true, wild = true,
                                         shout = true, skyfury = true, bronze = true } },
         },
@@ -292,6 +295,11 @@ N.Defaults = {
         },
     },
     profileScope = { tooltip = "profile", clickCasting = "profile", utilities = "profile", spotlight = "profile" },
+    utilityFolded = { _list = true }, -- Utilities tab: blocks that are folded shut (tool key -> true)
+    indicatorFilter = "all", -- list of the Indicators tab: "all" | "on" | "off"
+    indicatorFav = { _list = true }, -- list of the Indicators tab: entries pinned to the top
+    -- Test Mode: indicators and aura rows hidden on the test frames (the settings button next to the menu)
+    testHidden = { _list = true },
     -- Test Mode: sections previewed besides the one being edited (the menu next to the button)
     testSections = { party = false, raid = false, ownPet = false, groupPets = false, npc = false, spotlight = false },
 
@@ -414,6 +422,16 @@ N.Defaults = {
             borderColor = { 0.20, 0.20, 0.25 }, alpha = 1, strata = "MEDIUM", iconSize = 30, showTimer = true,
             point = "CENTER", x = 0, y = -160,
         },
+        buffTracker = {
+            enabled = false, fadeOut = false, backdrop = false, background = { 0.05, 0.05, 0.07 }, border = 1,
+            borderColor = { 0.20, 0.20, 0.25 }, alpha = 1, strata = "MEDIUM",
+            iconSize = 30, spacing = 4, orientation = "horizontal", showCount = true,
+            trackAll = false, idle = "hide", msgMode = "one", -- when nothing is missing: "hide" | "text" | "icons", messages: "one" | "perBuff"
+            hideInCombat = true, maxNames = 3,
+            msgFew = "", msgMany = "", -- empty = the language's default text ({players}, {buffs}, {count})
+            buffs = { fortitude = true, intellect = true, wild = true, shout = true, skyfury = true, bronze = true },
+            point = "CENTER", x = 0, y = -200,
+        },
         marks = {
             enabled = false, fadeOut = false, backdrop = false, background = { 0.05, 0.05, 0.07 }, border = 1,
             borderColor = { 0.20, 0.20, 0.25 }, alpha = 1, strata = "MEDIUM", mode = "target", -- target | world | both
@@ -496,6 +514,7 @@ do
         mb.buffs = {}
         for _, buff in ipairs(C.BUFFS) do mb.buffs[buff.key] = C.BUFF_DEFAULT[buff.key] == true end
         for _, sub in ipairs(C.BLESSINGS) do mb.buffs[sub.key] = C.BUFF_DEFAULT[sub.key] ~= false end
+        N.Defaults.tools.buffTracker.buffs = N.DeepCopy(mb.buffs)
         g.indicators.classSpec.mode = "class" -- one specialization per class
     end
     N.Defaults.actions.list = C.ACTIONS

@@ -78,7 +78,7 @@ local function runUpdate(button, def)
         return
     end
     local o = N.db[button.groupKey].indicators[def.name]
-    if not o or not (o.enabled or button._previewOnly == def.name) or (def.enabled and not def.enabled(button)) then
+    if not o or (button._testMode and (N.db.testHidden or {})[def.name]) or not (o.enabled or button._previewOnly == def.name) or (def.enabled and not def.enabled(button)) then
         hideObj(obj)
         return
     end

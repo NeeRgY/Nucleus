@@ -104,6 +104,7 @@ M.tex = {
     roundSm = TEX .. "NucleusRoundSm.tga", -- 16px, radius 4, slice margin 5
     circle  = TEX .. "NucleusCircle.tga",
     gear    = TEX .. "NucleusGear.tga",    -- 32px settings cog
+    star    = TEX .. "NucleusStar.tga",    -- 32px five-point star (favorite marks)
     roles   = TEX .. "NucleusRoles.tga",   -- 128x32: tank / healer / damage tiles (square role icons)
     shadow  = TEX .. "NucleusShadow.tga",  -- 64px, slice margin 28, shape inset 14
     glowDash  = TEX .. "NucleusGlowDash.tga",  -- 32x4 tile: one dash, one gap (marching glow)

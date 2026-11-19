@@ -108,6 +108,7 @@ M.tex = {
     roundSm = TEX .. "NucleusRoundSm.tga", -- 16px, radius 4, slice margin 5
     circle  = TEX .. "NucleusCircle.tga",
     gear    = TEX .. "NucleusGear.tga",    -- 32px settings cog
+    star    = TEX .. "NucleusStar.tga",    -- 32px five-point star (favorite marks)
     roles   = TEX .. "NucleusRoles.tga",   -- 128x32: tank / healer / damage tiles (square role icons)
     shadow  = TEX .. "NucleusShadow.tga",  -- 64px, slice margin 28, shape inset 14
     glowDash  = TEX .. "NucleusGlowDash.tga",  -- 32x4 tile: one dash, one gap (marching glow)
@@ -182,7 +183,7 @@ end
 
 
 -- Class color from Blizzard's fixed colors, pcall-guarded (a secret token falls back to grey).
-function N.ClassRGB(class)
+local function gameClassRGB(class)
     if class == nil then return 0.6, 0.6, 0.6 end
 
     if C_ClassColor and C_ClassColor.GetClassColor then
@@ -197,6 +198,25 @@ function N.ClassRGB(class)
     if ok3 and c2 then return c2.r, c2.g, c2.b end
 
     return 0.6, 0.6, 0.6
+end
+
+-- A class color before darkening: the player's own pick, else the game's.
+function N.ClassBaseRGB(class)
+    if class == nil or N.IsSecret(class) then return gameClassRGB(class) end
+    local own = N.db and N.db.core and N.db.core.classColors
+    own = own and own[class]
+    if type(own) == "table" and type(own[1]) == "number" then return own[1], own[2], own[3] end
+    return gameClassRGB(class)
+end
+
+function N.ClassRGB(class)
+    local r, g, b = N.ClassBaseRGB(class)
+    local dark = N.db and N.db.core and N.db.core.classDarken
+    if type(dark) == "number" and dark > 0 then
+        local k = 1 - dark
+        return r * k, g * k, b * k
+    end
+    return r, g, b
 end
 
 function N.ApplyFontChoices()

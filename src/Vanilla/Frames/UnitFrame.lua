@@ -186,11 +186,13 @@ end
 
 -- Preview mask: button._previewOnly = <element name> hides everything else.
 local function pShow(b, name)
+    if b._testMode and (N.db.testHidden or {})[name] then return false end
     return (not b._previewOnly) or b._previewOnly == name
         or (b._previewOnly == "actions" and name == "name")
 end
 
 local function pOn(b, name, enabled)
+    if b._testMode and (N.db.testHidden or {})[name] then return false end
     return enabled or b._previewOnly == name or (b._previewOnly == "actions" and name == "name")
 end
 

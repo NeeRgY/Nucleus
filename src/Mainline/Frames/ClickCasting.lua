@@ -88,6 +88,39 @@ function CC.BindingText(binding)
     return table.concat(parts, " + ")
 end
 
+-- What a binding does, in a few words, for the frame tooltip; nil when there is nothing to show.
+local PLAIN_LABEL = { target = "Target", focus = "Focus", menu = "Menu", assist = "Assist" }
+
+local function itemName(value)
+    local slot = tonumber(tostring(value):match("^slot:(%d+)$"))
+    local id = slot and GetInventoryItemID and GetInventoryItemID("player", slot) or tonumber(value)
+    if id and C_Item and C_Item.GetItemNameByID then return C_Item.GetItemNameByID(id) end
+    return type(value) == "string" and not slot and value or nil
+end
+
+function CC.ActionText(binding)
+    local L = N.L
+    local kind, value = binding and binding.kind, binding and binding.value
+    if not kind or kind == "none" then return nil end
+    if PLAIN_LABEL[kind] then return L[PLAIN_LABEL[kind]] end
+    if kind == "general" then return PLAIN_LABEL[value] and L[PLAIN_LABEL[value]] or nil end
+    if kind == "trinket1" or kind == "trinket2" then return itemName("slot:" .. (kind == "trinket1" and 13 or 14)) end
+    if value == nil or value == "" then return nil end
+    if kind == "spell" then
+        local id = tonumber(value)
+        return id and C_Spell.GetSpellName(id) or tostring(value)
+    elseif kind == "item" then
+        return itemName(value)
+    elseif kind == "macro" then
+        local text = tostring(value)
+        if text:match("^[/#]") then
+            text = text:match("^[^\n]*")
+            return #text > 26 and (text:sub(1, 25) .. "…") or text
+        end
+        return text
+    end
+end
+
 -- Attributes a binding needs, or nil. Macro text starts with "/" or "#", else it is a macro name.
 local PLAIN_ACTIONS = { target = "target", focus = "focus", menu = "togglemenu", assist = "assist" }
 

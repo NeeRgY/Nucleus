@@ -666,6 +666,10 @@ function P.GetSpec()
     if not (ok and index) then return nil end
     local ok2, specID, specName, _, _, role = pcall(getInfo, index)
     if not (ok2 and specID) then return nil end
+    -- Forever has one specialization per class, so its role never changes. The role picked in the group
+    -- (role selector, group finder) is the one that matters here.
+    local assigned = _G.UnitGroupRolesAssigned and UnitGroupRolesAssigned("player")
+    if assigned == "TANK" or assigned == "HEALER" or assigned == "DAMAGER" then role = assigned end
     return specID, role, specName
 end
 
@@ -746,6 +750,7 @@ for _, ev in ipairs({
     "PLAYER_ENTERING_WORLD", "GROUP_ROSTER_UPDATE", "ZONE_CHANGED_NEW_AREA",
     "PLAYER_SPECIALIZATION_CHANGED", "ACTIVE_PLAYER_SPECIALIZATION_CHANGED",
     "PLAYER_DIFFICULTY_CHANGED", "INSTANCE_GROUP_SIZE_CHANGED", "PLAYER_REGEN_ENABLED",
+    "PLAYER_ROLES_ASSIGNED", "ROLE_CHANGED_INFORM",
 }) do
     pcall(watcher.RegisterEvent, watcher, ev)
 end

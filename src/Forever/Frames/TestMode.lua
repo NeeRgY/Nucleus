@@ -111,6 +111,7 @@ local function mockFor(i, key)
         aggro = (i == 1),
         role = roleOf(i, key),
         isLeader = (i == 1),
+        isSelf = (i == 1),
         raidRole = (i == 2 and "MAINTANK") or (i == 3 and "MAINASSIST") or nil,
         incHeal = (i % 4 == 0) and 30 or 0,
         absorb = (i % 5 == 0) and 35 or 0,
@@ -339,6 +340,7 @@ local function buildKey(key, force)
             b = CreateFrame("Button", nil, container)
             b:RegisterForClicks("AnyUp")
             UF.CreateVisual(b, key)
+            b._testMode = true
             pool[i] = b
         end
         UF.LayoutBars(b)
@@ -470,7 +472,7 @@ function TM.IsActive() return active end
 
 function TM.Init()
     N:On("NUCLEUS_SETTING_CHANGED", function(_, section)
-        if active and (N.GROUP_KEYS[section] or section == "testSections") then
+        if active and (N.GROUP_KEYS[section] or section == "testSections" or section == "testHidden") then
             rebuild()
         end
     end)

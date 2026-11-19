@@ -1232,7 +1232,7 @@ function A.Update(b)
         local cfg = N.db[b.groupKey].auras[row.cfg]
         local pool = b._nucAuras[row.cfg] or {}
 
-        if (b._previewOnly and b._previewOnly ~= row.cfg) or not live or not (cfg.enabled or b._previewOnly == row.cfg) then
+        if (b._previewOnly and b._previewOnly ~= row.cfg) or (b._testMode and (N.db.testHidden or {})[row.cfg]) or not live or not (cfg.enabled or b._previewOnly == row.cfg) then
             for _, ic in ipairs(pool) do ic:Hide() end
             if row.kind == "dispel" then hideFX(b) end
         else

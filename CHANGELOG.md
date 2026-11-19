@@ -1,5 +1,24 @@
 # Nucleus Changelog
 
+## 1.1.5 (2026-11-19)
+
+### New
+
+- The unit tooltip of a frame can now list your click-casting bindings, like Shift + Left Click: Renew (Tooltip settings: Show click-casting bindings, off by default, with an option to hide the target and menu bindings) (Retail and Forever).
+- Class colors: pick your own color for each class and darken all of them with a slider (Appearance > Color > Class colors), for example to tone down the white of Priests (Retail and Forever).
+- Utilities: every tool now has its own block with all of its settings, and each block can be folded shut with a click on its header. The header shows whether the tool is on or off.
+- New Buff Tracker tool (Utilities > Buff Tracker, off by default): a movable display of who is missing which raid buff you can cast. Right click it to tell the group or raid, as one message or one per buff, with message texts you can change. When nothing is missing it hides, shows a text or shows dimmed icons. Names in the tooltip use the class colors. Optionally it follows the buffs of every class in the group, not only the ones you can cast (off by default), and it also knows the single Paladin blessings.
+- The Missing Buffs highlight has new settings for thickness, line length, speed and distance (Indicators > Missing Buffs).
+- Missing Buffs can now be limited to your own frame or to the other players, and your own frame can use its own placement (Indicators > Missing Buffs: Show for and My frame).
+- The list on the Indicators tab now has a search box, an All / On / Off filter for entries that are switched on or off, and a star on every entry to pin it to the top of the list.
+- New Help / FAQ window: the ? button in the title bar of the options opens short answers to common questions, such as moving frames, copying settings, importing from Cell and reporting bugs.
+- Test Mode has a new settings button next to its arrow: choose which indicators and aura rows the test frames show, so the preview stays easy to read when many are switched on.
+- New Low Mana indicator (Indicators > Low Mana, off by default): shows a tag on frames whose mana is under a threshold. Options: threshold, who it is shown for (healers, healer classes or everyone with mana), your own text, blink, position, size and color (Retail and Forever).
+
+### Fixes
+
+- Auto Switch now follows the role you pick in the group (role selector or group finder), so a Healer or Tank profile switches when you change your role (Forever).
+
 ## 1.1.4 (2026-11-18)
 
 ### New

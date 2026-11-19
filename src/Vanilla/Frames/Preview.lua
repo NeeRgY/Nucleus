@@ -86,7 +86,7 @@ local function freshMock(filter, stateKey)
         class = (select(2, UnitClass("player"))) or "PRIEST",
         hpMax = 100, hp = 100, ppMax = 100, pp = 45, ppType = 0,
         connected = true, dead = false, aggro = false,
-        role = "HEALER", isLeader = true, raidRole = "CYCLE", isTarget = false,
+        role = "HEALER", isLeader = true, isSelf = true, raidRole = "CYCLE", isTarget = false,
         raidMarker = 8, targetedBy = 2, combat = true, phased = false, summon = false,
         readyCheck = "ready",
         buffs = {

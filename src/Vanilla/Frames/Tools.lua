@@ -509,17 +509,264 @@ local function updateMarks()
 end
 
 
+-- Buff Tracker: who is missing which raid buff. A right click tells the group.
+local bt
+local btMissing = {} -- buff key -> { { name = ..., class = ... }, ... }
+local btTicker, btLast
+local updateBuffTracker
+
+local function btScan(c)
+    wipe(btMissing)
+    local MB = N.Indicators
+    if not MB.MissingFor then return end
+    local function add(unit)
+        local missing = MB.MissingFor(unit, c.buffs, c.trackAll)
+        if not missing then return end
+        local name = UnitName(unit)
+        if not name or IsSecret(name) then return end
+        local _, class = UnitClass(unit)
+        if IsSecret(class) then class = nil end
+        for _, key in ipairs(missing) do
+            local list = btMissing[key]
+            if not list then list = {}; btMissing[key] = list end
+            list[#list + 1] = { name = name, class = class }
+        end
+    end
+    if IsInRaid() then
+        for i = 1, 40 do
+            if UnitExists("raid" .. i) then add("raid" .. i) end
+        end
+    else
+        add("player")
+        for i = 1, 4 do
+            if UnitExists("party" .. i) then add("party" .. i) end
+        end
+    end
+end
+
+local function btNames(list)
+    local out = {}
+    for _, e in ipairs(list) do out[#out + 1] = e.name end
+    return out
+end
+
+-- Fills the placeholders of a message text and keeps it inside the chat's length limit.
+local function btFill(template, players, buffs, count)
+    local vars = { players = table.concat(players, ", "), buffs = table.concat(buffs, ", "), count = tostring(count) }
+    local text = template:gsub("{(%a+)}", function(key) return vars[key] end)
+    if #text > 250 then
+        text = text:sub(1, 247)
+        while #text > 0 and text:byte(-1) >= 0x80 do text = text:sub(1, -2) end
+        text = text .. "..."
+    end
+    return text
+end
+
+-- One message for everything that is missing, or one per buff. Texts come from the settings or the language default.
+local function btMessages(c)
+    local MB = N.Indicators
+    local limit = c.maxNames or 3
+    local few = (c.msgFew and c.msgFew ~= "") and c.msgFew or L["BUFFTRACKER_FEW"]
+    local many = (c.msgMany and c.msgMany ~= "") and c.msgMany or L["BUFFTRACKER_MANY"]
+    local out = {}
+    if c.msgMode == "perBuff" then
+        for _, buff in ipairs(MB.missingBuffs) do
+            local list = btMissing[buff.key]
+            if list and #list > 0 then
+                out[#out + 1] = btFill(#list <= limit and few or many, btNames(list), { MB.BuffLabel(buff) }, #list)
+            end
+        end
+    else
+        local names, buffs, seen = {}, {}, {}
+        for _, buff in ipairs(MB.missingBuffs) do
+            local list = btMissing[buff.key]
+            if list and #list > 0 then
+                buffs[#buffs + 1] = MB.BuffLabel(buff)
+                for _, e in ipairs(list) do
+                    if not seen[e.name] then seen[e.name] = true; names[#names + 1] = e.name end
+                end
+            end
+        end
+        if #buffs > 0 then out[1] = btFill(#names <= limit and few or many, names, buffs, #names) end
+    end
+    return out
+end
+
+-- Raid chat in a raid, otherwise the group chat (instance chat in a finder group).
+local function btChannel()
+    if IsInGroup and LE_PARTY_CATEGORY_INSTANCE and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then return "INSTANCE_CHAT" end
+    if IsInRaid() then return "RAID" end
+    if IsInGroup() then return "PARTY" end
+end
+
+function T.AnnounceBuffs()
+    local c = cfg("buffTracker")
+    if not c then return end
+    local channel = btChannel()
+    if not channel then N:Print(L["BUFFTRACKER_NOGROUP"]); return end
+    local now = GetTime()
+    if btLast and now - btLast < 5 then return end
+    local messages = btMessages(c)
+    if #messages == 0 then N:Print(L["BUFFTRACKER_NONE"]); return end
+    local locked = C_ChatInfo and C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown()
+    if locked then
+        for _, text in ipairs(messages) do N:Print(text) end
+        return
+    end
+    btLast = now
+    for i, text in ipairs(messages) do
+        local function send() pcall(SendChatMessage, text, channel) end
+        if i == 1 then send() else C_Timer.After((i - 1) * 0.4, send) end
+    end
+end
+
+local function btIcon(i)
+    local ic = bt.icons[i]
+    if ic then return ic end
+    ic = CreateFrame("Frame", nil, bt)
+    ic:EnableMouse(true)
+    N.SkinRound(ic, M.color.base, M.color.line, true)
+    ic.tex = ic:CreateTexture(nil, "ARTWORK")
+    ic.tex:SetPoint("TOPLEFT", 2, -2)
+    ic.tex:SetPoint("BOTTOMRIGHT", -2, 2)
+    ic.tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    ic.count = N.FontString(ic, 12)
+    ic.count:SetPoint("BOTTOMRIGHT", -2, 2)
+    ic:SetScript("OnMouseUp", function(_, button)
+        if button == "RightButton" then T.AnnounceBuffs() end
+    end)
+    ic:SetScript("OnEnter", function(self)
+        if not self.buff then return end
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(N.Indicators.BuffLabel(self.buff))
+        for _, e in ipairs(self.names or {}) do
+            if type(e) == "table" and e.class then
+                GameTooltip:AddLine(e.name, N.ClassRGB(e.class))
+            else
+                GameTooltip:AddLine(type(e) == "table" and e.name or tostring(e), 1, 1, 1)
+            end
+        end
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine(L["BUFFTRACKER_CLICK"], 0.55, 0.65, 0.80)
+        GameTooltip:Show()
+    end)
+    ic:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    bt.icons[i] = ic
+    return ic
+end
+
+local function buildBuffTracker()
+    bt = makeHost("buffTracker", L["Buff Tracker"])
+    bt.icons = {}
+    bt.ok = N.FontString(bt, 12)
+    bt.ok:SetPoint("LEFT", bt, "LEFT", 6, 0)
+    bt.ok:SetTextColor(0.25, 0.85, 0.35)
+    bt.ok:SetText(L["BUFFTRACKER_OK"])
+    bt.ok:Hide()
+    bt:EnableMouse(true)
+    bt:SetScript("OnMouseUp", function(_, button)
+        if button == "RightButton" then T.AnnounceBuffs() end
+    end)
+end
+
+local function layoutBuffTracker()
+    if not bt then return end
+    local c = cfg("buffTracker")
+    if not c then return end
+    loadPosition(bt, c)
+    applyLook(bt, c)
+end
+
+updateBuffTracker = function()
+    if not bt then return end
+    local c = cfg("buffTracker")
+    if not c then return end
+    if c.enabled and not btTicker then
+        btTicker = C_Timer.NewTicker(2, function() updateBuffTracker() end)
+    elseif not c.enabled and btTicker then
+        btTicker:Cancel()
+        btTicker = nil
+    end
+    local moving = unlocked()
+    local combat = N.InCombat()
+    bt.handle:SetShown(c.enabled and moving and true or false)
+    if not c.enabled or (combat and c.hideInCombat ~= false and not moving) then
+        setVisible(bt, false, c.fadeOut)
+        return
+    end
+    if not combat then btScan(c) end
+
+    local MB = N.Indicators
+    local idle = c.idle or "hide"
+    local size, spacing = c.iconSize or 30, c.spacing or 4
+    local vertical = c.orientation == "vertical"
+    local shown = {}
+    for _, buff in ipairs(MB.missingBuffs) do
+        local list = btMissing[buff.key]
+        local missing = list and #list > 0
+        if missing then
+            shown[#shown + 1] = { buff = buff, names = list }
+        elseif idle == "icons" and MB.Trackable(buff, c.buffs, c.trackAll) then
+            shown[#shown + 1] = { buff = buff, names = {}, idle = true }
+        end
+    end
+    if #shown == 0 and moving then
+        for i = 1, math.min(3, #MB.missingBuffs) do
+            shown[#shown + 1] = { buff = MB.missingBuffs[i], names = { "..." } }
+        end
+    end
+
+    for _, ic in ipairs(bt.icons) do ic:Hide() end
+    bt.ok:Hide()
+    if #shown == 0 then
+        if idle ~= "text" then
+            setVisible(bt, false, c.fadeOut)
+            return
+        end
+        bt.ok:Show()
+        bt:SetSize(math.max(60, bt.ok:GetStringWidth() + 12), size)
+        setVisible(bt, true, c.fadeOut)
+        return
+    end
+
+    for i, item in ipairs(shown) do
+        local ic = btIcon(i)
+        ic.buff, ic.names = item.buff, item.names
+        ic:SetSize(size, size)
+        ic:ClearAllPoints()
+        local off = (i - 1) * (size + spacing)
+        if vertical then
+            ic:SetPoint("TOPLEFT", bt, "TOPLEFT", 0, -off)
+        else
+            ic:SetPoint("TOPLEFT", bt, "TOPLEFT", off, 0)
+        end
+        ic.tex:SetTexture(MB.BuffTexture(item.buff))
+        ic.tex:SetDesaturated(item.idle and true or false)
+        ic:SetAlpha(item.idle and 0.5 or 1)
+        ic.count:SetFont(M.font, math.max(10, math.floor(size * 0.45)), "OUTLINE")
+        ic.count:SetText(item.idle and "" or #item.names)
+        ic.count:SetShown(c.showCount ~= false and not item.idle)
+        ic:Show()
+    end
+    local total = #shown * size + (#shown - 1) * spacing
+    if vertical then bt:SetSize(size, total) else bt:SetSize(total, size) end
+    setVisible(bt, true, c.fadeOut)
+end
+
 function T.Refresh()
     if not N.db or not N.db.tools then return end
     if not rp then buildReadyPull() end
     if not br then buildBattleRes() end
     if not mk then buildMarks() end
+    if not bt then buildBuffTracker() end
     layoutReadyPull()
     layoutBattleRes()
     layoutMarks()
+    layoutBuffTracker()
     updateReadyPull()
     T.UpdateBattleRes()
     updateMarks()
+    updateBuffTracker()
 end
 
 local function softRefresh()
@@ -527,12 +774,13 @@ local function softRefresh()
     updateReadyPull()
     T.UpdateBattleRes()
     updateMarks()
+    updateBuffTracker()
 end
 
 local ev = CreateFrame("Frame")
 for _, e in ipairs({
     "GROUP_ROSTER_UPDATE", "PARTY_LEADER_CHANGED", "PLAYER_ROLES_ASSIGNED",
-    "PLAYER_TARGET_CHANGED", "PLAYER_ENTERING_WORLD", "SPELL_UPDATE_CHARGES",
+    "PLAYER_TARGET_CHANGED", "PLAYER_ENTERING_WORLD", "SPELL_UPDATE_CHARGES", "PLAYER_REGEN_DISABLED",
 }) do N.SafeRegister(ev, e) end
 pcall(ev.RegisterEvent, ev, "START_PLAYER_COUNTDOWN")
 pcall(ev.RegisterEvent, ev, "CANCEL_PLAYER_COUNTDOWN")
