@@ -13,22 +13,26 @@ local ANCHOR_TITLES = {
     spotlight = "Spotlight Frame",
 }
 
-function N.StyleMover(a, label, text, target)
+function N.StyleMover(a, label, text, target, flip)
     local scale = ((N.db and N.db.moverSize) or 100) / 100
     local bar = N.db and N.db.moverStyle == "bar"
     a._moverText = text .. ((N.db and N.db.moverMode == "alt") and " [ALT]" or "")
     a:ClearAllPoints()
     local ox, oy = (N.db and N.db.moverX) or 0, 2 + ((N.db and N.db.moverY) or 0)
+    -- flip: the handle sits below the block.
+    if flip then
+        a:SetPoint("TOP", target, "BOTTOM", ox, -oy)
+    else
+        a:SetPoint("BOTTOM", target, "TOP", ox, oy)
+    end
     if bar then
         label:Hide()
-        a:SetPoint("BOTTOM", target, "TOP", ox, oy)
         a:SetSize(math.max(10, (N.db and N.db.moverBarWidth) or 100), math.max(3, math.floor(6 * scale + 0.5)))
         if a._nucFill then a._nucFill:SetColorTexture(M.color.accent[1], M.color.accent[2], M.color.accent[3], 0.9) end
     else
         label:Show()
         label:SetFont(M.font, math.max(6, math.floor(10 * scale + 0.5)), "OUTLINE")
         label:SetText(a._moverText)
-        a:SetPoint("BOTTOM", target, "TOP", ox, oy)
         a:SetSize(math.max(24, math.floor(label:GetStringWidth() + 14 * scale)), math.floor(15 * scale + 0.5))
         if a._nucFill then a._nucFill:SetColorTexture(0.10, 0.10, 0.10, 0.95) end
     end
@@ -81,7 +85,12 @@ local function makeAnchor(key)
     local label = N.FontString(a, 10)
     label:SetPoint("CENTER")
     label:SetTextColor(M.color.accentBright[1], M.color.accentBright[2], M.color.accentBright[3])
-    local function restyle() N.StyleMover(a, label, L[ANCHOR_TITLES[key]], header) end
+    -- Reversed vertical growth puts the handle below the block.
+    local function restyle()
+        local cfg = N.db[key]
+        local flip = cfg.reverse and cfg.orientation ~= "horizontal" and true or false
+        N.StyleMover(a, label, L[ANCHOR_TITLES[key]], header, flip)
+    end
     a._restyle = restyle
     restyle()
 
@@ -153,6 +162,9 @@ end
 N:On("NUCLEUS_SETTING_CHANGED", function(_, _, path)
     if path == "locked" or path == "moverMode" or path == "moverSize" or path == "moverStyle" or path == "moverHover"
         or path == "moverBarWidth" or path == "moverX" or path == "moverY" then
+        N.RefreshLock()
+    elseif path:find("%.reverse$") or path:find("%.orientation$") then
+        -- The handle follows reverse growth and orientation.
         N.RefreshLock()
     end
 end)

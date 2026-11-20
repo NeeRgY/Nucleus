@@ -9,7 +9,8 @@ local extra = {
     SHAMAN  = { 324, 325, 905, 945, 8134, 10431, 10432,       -- Lightning Shield
                 546, 131,                                     -- Water Walking, Water Breathing
                 408521, 1239242, 1239243,                     -- Riptide (ranks 1 to 3)
-                408514 },                                     -- Earth Shield
+                408514,                                       -- Earth Shield
+                408510 },                                     -- Water Shield
     DRUID   = { 1126, 5232, 6756, 5234, 8907, 9884, 9885,     -- Mark of the Wild
                 21849, 21850,                                 -- Gift of the Wild
                 467, 782, 1075, 8914, 9756, 9910,             -- Thorns

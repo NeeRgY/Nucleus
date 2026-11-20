@@ -218,9 +218,10 @@ local function styleText(fs, o, dim)
     fs:SetTextColor(c[1], c[2], c[3])
 end
 
--- The bundled font lacks CJK glyphs: such names use a Blizzard font.
+-- The bundled font lacks Cyrillic and CJK glyphs: such names use a Blizzard font.
 local function glyphFont(text)
     if type(text) ~= "string" or N.IsSecret(text) then return false end
+    if text:find("[\208-\212]") then return "Fonts/FRIZQT___CYR.TTF" end
     if text:find("[\234-\237]") then return "Fonts/2002.TTF" end
     if text:find("[\227-\233]") then return "Fonts/ARKai_T.ttf" end
     return false
@@ -383,7 +384,12 @@ function UF.LayoutBars(b)
     N.SetBarTexture(b.power, appearance.barTexture)
     -- Background opacity: empty part of the bars and the frame fill.
     local bgOpacity = appearance.backgroundOpacity or 1
-    N.SetBarLossColor(b.health, appearance.healthLossColor, bgOpacity)
+    if appearance.healthInverted then
+        N.SetBarLossColor(b.health, { 1, 1, 1, 1 }, bgOpacity) -- tinted per render with the health color
+    else
+        N.SetBarLossColor(b.health, appearance.healthLossColor, bgOpacity)
+        b.health._nucLoss:SetVertexColor(1, 1, 1, 1)
+    end
     N.SetBarLossColor(b.power, appearance.healthLossColor, bgOpacity)
     local fc = M.color.frameBg
     b._nucFill:SetColorTexture(fc[1], fc[2], fc[3], (fc[4] or 1) * bgOpacity)
@@ -762,7 +768,13 @@ local function render(b)
         b.health:SetValue(0)
     end
     local hr, hg, hbl = healthColor(b, appearance)
-    b.health:SetStatusBarColor(hr, hg, hbl, appearance.barOpacity or 1)
+    if appearance.healthInverted then
+        -- Inverted colors: the color sits behind the whole bar and the fill is a dark layer on top of it.
+        b.health._nucLoss:SetVertexColor(hr, hg, hbl, 1)
+        b.health:SetStatusBarColor(0, 0, 0, (appearance.healthInvertDarkness or 0.8) * (appearance.barOpacity or 1))
+    else
+        b.health:SetStatusBarColor(hr, hg, hbl, appearance.barOpacity or 1)
+    end
 
     local ind = N.db[b.groupKey].indicators
 

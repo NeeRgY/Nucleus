@@ -35,7 +35,9 @@ local function start()
     SlashCmdList.NUCLEUSANCHOR = function() N.ToggleAnchors() end
 
     SLASH_NUCLEUSTEST1 = "/nuctest"
-    SlashCmdList.NUCLEUSTEST = function() N.TestMode.Toggle() end
+    SlashCmdList.NUCLEUSTEST = function(msg)
+        if msg and msg:lower():find("cyr") then N.TestMode.ToggleCyrillic() else N.TestMode.Toggle() end
+    end
 
     SLASH_NUCLEUSDEBUG1 = "/nucdebug"
     SlashCmdList.NUCLEUSDEBUG = function()

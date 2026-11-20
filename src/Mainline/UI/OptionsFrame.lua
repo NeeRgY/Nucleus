@@ -995,6 +995,21 @@ local function BuildColor(p, key)
     col:AddRow(N.MakeColorPicker(col, L["Health loss color"],
         function() return a.healthLossColor end,
         function(v) N:Set(key .. ".appearance.healthLossColor", v) end))
+    col:AddRow(N.MakeCheckbox(col, L["Inverted colors"],
+        function() return a.healthInverted end,
+        function(v) N:Set(key .. ".appearance.healthInverted", v and true or false) end))
+    col:AddRow(N.MakeSlider(col, L["Fill darkness"], 0.2, 0.95, 0.05,
+        function() return a.healthInvertDarkness or 0.8 end,
+        function(v) N:Set(key .. ".appearance.healthInvertDarkness", v) end))
+    local invRow = CreateFrame("Frame", nil, col)
+    local invText = N.FontString(invRow, 11)
+    invText:SetPoint("TOPLEFT", invRow, "TOPLEFT", 0, 0)
+    invText:SetWidth(col:GetWidth() - 2 * N.CARD_PAD)
+    invText:SetJustifyH("LEFT")
+    invText:SetTextColor(uc(M.color.textDim))
+    invText:SetText(L["INVERTED_HINT"])
+    invRow._rowHeight = invText:GetStringHeight() + 6
+    col:AddRow(invRow)
     col:AddRow(N.MakeSlider(col, L["Bar opacity"], 0, 1, 0.05,
         function() return a.barOpacity or 1 end,
         function(v) N:Set(key .. ".appearance.barOpacity", v) end))
@@ -1053,11 +1068,6 @@ local function BuildColor(p, key)
         function() return a.healPredict.opacity end, function(v) N:Set(ap .. "healPredict.opacity", v) end))
     healPredict:AddRow(N.MakeColorPicker(healPredict, L["Color"],
         function() return a.healPredict.color end, function(v) N:Set(ap .. "healPredict.color", v) end))
-    local calcBox = N.MakeCheckbox(healPredict, L["Include heal over time (untested)"],
-        function() return a.healPredict.useCalculator == true end,
-        function(v) N:Set(ap .. "healPredict.useCalculator", v) end)
-    N.SetTip(calcBox, L["Include heal over time (untested)"], L["HEALCALC_TIP"])
-    healPredict:AddRow(calcBox)
     p:AddCard(healPredict)
 
     -- Class colors: one pick per class plus a darken slider, shared by Party and Raid.
@@ -3115,15 +3125,75 @@ local function BuildTools(p, kind)
             function() return o.iconSize end, function(v) N:Set(pth("iconSize"), N.Round(v)) end))
         c:AddRow(N.MakeSlider(c, L["Spacing"], 0, 20, 1,
             function() return o.spacing end, function(v) N:Set(pth("spacing"), N.Round(v)) end))
-        local bhint = N.FontString(c, 11)
-        bhint:SetPoint("TOPLEFT", c, "TOPLEFT", N.CARD_PAD, c._y)
-        bhint:SetWidth(c:GetWidth() - 2 * N.CARD_PAD)
-        bhint:SetJustifyH("LEFT")
-        bhint:SetTextColor(uc(M.color.textDim))
-        bhint:SetText(L["BUFFTRACKER_HINT"])
-        bhint:SetHeight(bhint:GetStringHeight() + 4)
-        c:SetHeight(-c._y + bhint:GetHeight() + N.CARD_PAD)
+        local function hintRow(card, text)
+            local row = CreateFrame("Frame", nil, card)
+            local fs = N.FontString(row, 11)
+            fs:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
+            fs:SetWidth(card:GetWidth() - 2 * N.CARD_PAD)
+            fs:SetJustifyH("LEFT")
+            fs:SetTextColor(uc(M.color.textDim))
+            fs:SetText(text)
+            row._rowHeight = fs:GetStringHeight() + 6
+            card:AddRow(row)
+            return row
+        end
+
+        -- Highlight of the icons: only the settings the chosen style uses are shown.
+        local hlReflow, hlAdded
+        c:AddRow(N.MakeDropdown(c, L["Highlight"], {
+            { value = "none", text = L["None"] },
+            { value = "border", text = L["Border"] },
+            { value = "pixel", text = L["GLOW_pixel"] },
+            { value = "halo", text = L["GLOW_halo"] },
+            { value = "pulse", text = L["GLOW_pulse"] },
+        }, function() return o.highlight or "none" end,
+           function(v) N:Set(pth("highlight"), v); if hlReflow then hlReflow() end end))
+        local HL_USES = {
+            color = { border = true, pixel = true, halo = true, pulse = true },
+            thick = { border = true, pixel = true, halo = true, pulse = true },
+            len = { pixel = true },
+            speed = { pixel = true, halo = true, pulse = true },
+            dist = { pixel = true, halo = true, pulse = true },
+            hlhint = { border = true, pixel = true, halo = true, pulse = true },
+        }
+        local hlItems, hlY0, hlGap = {}, c._y, nil
+        local function hlRow(which, row, added)
+            if not added then c:AddRow(row) end
+            if not hlGap then hlGap = (hlY0 - c._y) - (row._rowHeight or 0) end
+            hlItems[#hlItems + 1] = { row = row, which = which }
+        end
+        hlRow("color", N.MakeColorPicker(c, L["Color"],
+            function() return o.highlightColor end, function(v) N:Set(pth("highlightColor"), v) end))
+        hlRow("thick", N.MakeSlider(c, L["Thickness"], 1, 6, 1,
+            function() return o.highlightThickness or 1 end, function(v) N:Set(pth("highlightThickness"), N.Round(v)) end))
+        hlRow("len", N.MakeSlider(c, L["Line length"], 2, 20, 1,
+            function() return o.highlightLength or 4 end, function(v) N:Set(pth("highlightLength"), N.Round(v)) end))
+        hlRow("speed", N.MakeSlider(c, L["Speed"], 0.05, 1.5, 0.05,
+            function() return o.highlightSpeed or 0.3 end, function(v) N:Set(pth("highlightSpeed"), v) end))
+        hlRow("dist", N.MakeSlider(c, L["Distance"], -6, 12, 1,
+            function() return o.highlightDistance or 0 end, function(v) N:Set(pth("highlightDistance"), N.Round(v)) end))
+        hlRow("hlhint", hintRow(c, L["MB_HIGHLIGHT_HINT"]), true)
+        hlRow("always", hintRow(c, L["BUFFTRACKER_HINT"]), true)
+        function hlReflow()
+            local mode = o.highlight or "none"
+            local y = hlY0
+            for _, it in ipairs(hlItems) do
+                local show = it.which == "always" or (HL_USES[it.which] and HL_USES[it.which][mode]) == true
+                it.row:SetShown(show)
+                if show then
+                    it.row:ClearAllPoints()
+                    it.row:SetPoint("TOPLEFT", c, "TOPLEFT", N.CARD_PAD, y)
+                    it.row:SetPoint("RIGHT", c, "RIGHT", -N.CARD_PAD, 0)
+                    y = y - (it.row._rowHeight or 0) - hlGap
+                end
+            end
+            c._y = y
+            c:SetHeight(-y + N.CARD_PAD - hlGap)
+            if hlAdded and p.Relayout then p.Relayout() end
+        end
+        hlReflow()
         p:AddCard(c)
+        hlAdded = true
 
         local mc = N.MakeCard(p, L["Chat message"])
         local explainRow = CreateFrame("Frame", nil, mc)
@@ -4314,32 +4384,27 @@ local function FillChangelog(c, entries)
     local HEAD_COLOR = { New = "ff7bd88f", Performance = "ffe6b450", Fixes = "ffe06c75" }
     local width = c:GetWidth() - 2 * N.CARD_PAD
     local y = -N.CARD_TOP
+    -- One text per entry and no line spacing: the measured height is then exact, long lists do not drift.
     local function add(size, text, gap)
         y = y - (gap or 0)
         local fs = N.FontString(c, size)
         fs:SetPoint("TOPLEFT", N.CARD_PAD, y)
         fs:SetWidth(width)
         fs:SetJustifyH("LEFT")
-        fs:SetSpacing(3)
+        fs:SetSpacing(0)
         fs:SetText(text)
         y = y - fs:GetStringHeight()
     end
     for _, entry in ipairs(entries) do
         add(15, string.format("|cff61aef7%s|r  |cff8a8a8a%s|r", entry.version, entry.date), 10)
-        local bullets = {}
-        local function flush()
-            if #bullets > 0 then add(12, table.concat(bullets, "\n"), 3); bullets = {} end
-        end
         for _, note in ipairs(entry.notes) do
             if note:sub(1, 3) == "## " then
-                flush()
                 local name = note:sub(4)
-                add(14, "|c" .. (HEAD_COLOR[name] or "ffc8cdd6") .. name .. "|r", 8)
+                add(14, "|c" .. (HEAD_COLOR[name] or "ffc8cdd6") .. name .. "|r", 10)
             else
-                bullets[#bullets + 1] = "   \194\183 " .. note
+                add(12, "   \194\183 " .. note, 5)
             end
         end
-        flush()
     end
     c:SetHeight(-y + N.CARD_PAD)
 end
@@ -6149,7 +6214,6 @@ local FAQ_GOTO = {
     AURAS    = { tab = "indicators", sub = "buffs" },
     CLASSCOL = { tab = "appearance", card = "Health Bar Color" },
     LOWMANA  = { tab = "indicators", sub = "lowMana" },
-    HOT      = { tab = "appearance", card = "Heal Prediction" },
     BUG      = { tab = "about", card = "Links" },
 }
 
@@ -6203,9 +6267,6 @@ function N.ShowHelp()
         keys[#keys + 1] = "AURAS"
         if N.ClassBaseRGB then keys[#keys + 1] = "CLASSCOL" end
         if party.indicators and party.indicators.lowMana then keys[#keys + 1] = "LOWMANA" end
-        if party.appearance and party.appearance.healPredict and party.appearance.healPredict.useCalculator ~= nil then
-            keys[#keys + 1] = "HOT"
-        end
         keys[#keys + 1] = "BUG"
 
         local foot = N.FontString(child, 12)

@@ -3,6 +3,20 @@ local N = ns.N
 
 N.Changelog = {
     {
+        version = "1.1.6",
+        date = "2026-11-20",
+        notes = {
+            "## New",
+            "Health Bar Color has a new option Inverted colors: the class color fills the whole bar and a dark layer covers the health that is left, so missing health looks brighter. The darkness of the layer can be changed (Appearance > Health Bar Color, off by default).",
+            "The Buff Tracker icons can get a highlight (border or glow), set under Utilities > Buff Tracker (off by default).",
+            "## Fixes",
+            "The What's new window and the Changelog tab no longer let long entries overlap each other.",
+            "The option Include heal over time (Heal Prediction) was removed. It needs the game to report heal over time, which it does not, so it never showed anything.",
+            "Cyrillic names no longer show as squares on clients that are not set to Russian. Names with Cyrillic letters use a Blizzard font that has them, whichever font is chosen.",
+            "Reverse growth now pins the frames to the edge they grow away from, so a part-full group keeps its place and grows upward (or to the left) from the anchor point. The move handle sits on that edge. Frames of players with Reverse growth already on may sit in a different place after the update.",
+        },
+    },
+    {
         version = "1.1.5",
         date = "2026-11-19",
         notes = {

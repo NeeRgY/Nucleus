@@ -74,6 +74,8 @@ local function groupDefaults(overrides)
             healthColorMode = "class",       -- "class" | "custom" | "gradient"
             healthCustomColor = { 0.20, 0.55, 0.95 },
             healthLossColor = { 0.065, 0.068, 0.075 },
+            healthInverted = false,          -- inverted colors: color behind the whole bar, dark fill on top
+            healthInvertDarkness = 0.8,
             barOpacity = 1,                  -- the filled part of the health and power bars
             backgroundOpacity = 1,           -- empty part of the bars and the frame background
             deadColorEnabled = false,        -- dead / ghost units get deadColor on the health bar
@@ -84,7 +86,7 @@ local function groupDefaults(overrides)
             absorb     = { enabled = true, style = "striped", opacity = 0.35, color = { 1.00, 1.00, 1.00 }, invertFill = false },
             overshieldColor = { 0.75, 0.90, 1.00 },
             healAbsorb = { enabled = true, style = "flat", opacity = 0.75, color = { 0.55, 0.20, 0.75 } },
-            healPredict = { enabled = true, opacity = 0.30, color = { 1.00, 1.00, 1.00 }, useCalculator = false },
+            healPredict = { enabled = true, opacity = 0.30, color = { 1.00, 1.00, 1.00 } },
             targetBorder = { color = { 0.42, 0.70, 1.00 }, thickness = 1, enabled = true, opacity = 1 },
             hoverBorder  = { color = { 1.00, 1.00, 1.00 }, thickness = 1, enabled = true, opacity = 1 },
             -- Aura time text: turns `color` below `seconds`, counts in tenths below `decimals` (0 = never).
@@ -489,6 +491,8 @@ N.Defaults = {
             borderColor = { 0.20, 0.20, 0.25 }, alpha = 1, strata = "MEDIUM",
             iconSize = 30, spacing = 4, orientation = "horizontal", showCount = true,
             trackAll = false, idle = "hide", msgMode = "one", -- when nothing is missing: "hide" | "text" | "icons", messages: "one" | "perBuff"
+            highlight = "none", highlightColor = { 1, 0.85, 0.1 }, highlightThickness = 1, highlightLength = 4,
+            highlightSpeed = 0.3, highlightDistance = 0, -- "none" | "border" | "pixel" | "halo" | "pulse"
             hideInCombat = true, maxNames = 3,
             msgFew = "", msgMany = "", -- empty = the language's default text ({players}, {buffs}, {count})
             buffs = { fortitude = true, intellect = true, wild = true, shout = true, skyfury = true, bronze = true },

@@ -62,6 +62,8 @@ local function groupDefaults(overrides)
             healthColorMode = "class",       -- "class" | "custom" | "gradient"
             healthCustomColor = { 0.20, 0.55, 0.95 },
             healthLossColor = { 0.065, 0.068, 0.075 },
+            healthInverted = false,          -- inverted colors: color behind the whole bar, dark fill on top
+            healthInvertDarkness = 0.8,
             barOpacity = 1,                  -- the filled part of the health and power bars
             backgroundOpacity = 1,           -- empty part of the bars and the frame background
             deadColorEnabled = false,        -- dead / ghost units get deadColor on the health bar
@@ -72,7 +74,7 @@ local function groupDefaults(overrides)
             absorb     = { enabled = true, style = "striped", opacity = 0.35, color = { 1.00, 1.00, 1.00 }, invertFill = false },
             overshieldColor = { 0.75, 0.90, 1.00 },
             healAbsorb = { enabled = true, style = "flat", opacity = 0.75, color = { 0.55, 0.20, 0.75 } },
-            healPredict = { enabled = true, opacity = 0.30, color = { 1.00, 1.00, 1.00 }, useCalculator = false,
+            healPredict = { enabled = true, opacity = 0.30, color = { 1.00, 1.00, 1.00 },
                            -- Overheal: the part of an incoming heal beyond full health, outside the frame.
                            overheal = { enabled = false, mode = "extend", length = 40, edgeWidth = 3,
                                         opacity = 0.70, color = { 0.30, 1.00, 0.55 } } },
@@ -486,10 +488,32 @@ N.Defaults = {
             borderColor = { 0.20, 0.20, 0.25 }, alpha = 1, strata = "MEDIUM",
             iconSize = 30, spacing = 4, orientation = "horizontal", showCount = true,
             trackAll = false, idle = "hide", msgMode = "one", -- when nothing is missing: "hide" | "text" | "icons", messages: "one" | "perBuff"
+            highlight = "none", highlightColor = { 1, 0.85, 0.1 }, highlightThickness = 1, highlightLength = 4,
+            highlightSpeed = 0.3, highlightDistance = 0, -- "none" | "border" | "pixel" | "halo" | "pulse"
             hideInCombat = true, maxNames = 3,
             msgFew = "", msgMany = "", -- empty = the language's default text ({players}, {buffs}, {count})
             buffs = { fortitude = true, intellect = true, wild = true, shout = true, skyfury = true, bronze = true },
             point = "CENTER", x = 0, y = -200,
+        },
+        buffReminder = {
+            enabled = false, fadeOut = false, backdrop = false, background = { 0.05, 0.05, 0.07 }, border = 1,
+            borderColor = { 0.20, 0.20, 0.25 }, alpha = 1, strata = "MEDIUM",
+            iconSize = 34, spacing = 4, orientation = "horizontal",
+            where = "all", -- "all" | "world" | "instance"
+            highlight = "none", highlightColor = { 1, 0.85, 0.1 }, highlightThickness = 1, highlightLength = 4,
+            highlightSpeed = 0.3, highlightDistance = 0, -- "none" | "border" | "pixel" | "halo" | "pulse"
+            -- One table per reminder; where = "inherit" follows the general Show in above.
+            reminders = {
+                camp = { enabled = false, where = "inherit" },
+                sleepingBag = { enabled = false, where = "inherit", showBelow = 0, timer = true },
+                wellFed = { enabled = false, where = "inherit", showBelow = 0, timer = true },
+                treasure = { enabled = false, where = "inherit" },
+                mageArmor = { enabled = false, where = "inherit" },
+                classBuffs = { enabled = false, where = "inherit", list = { _list = true } }, -- list[buff key] = true | false
+                weapon = { enabled = false, where = "inherit", showBelow = 1, timer = true, hideNoItem = true,
+                           mh = { imbue = "auto", temp = "auto" }, oh = { imbue = "auto", temp = "auto" } },
+            },
+            point = "CENTER", x = 0, y = -240,
         },
         marks = {
             enabled = false, fadeOut = false, backdrop = false, background = { 0.05, 0.05, 0.07 }, border = 1,

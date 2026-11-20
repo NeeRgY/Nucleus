@@ -37,6 +37,17 @@ local MOCK_DEBUFFS = {
     { icon = 135812, dispelName = nil },
 }
 
+-- /nuctest cyr swaps the sample names for Cyrillic ones, to try the font and the transliteration.
+local CYR_NAMES = {
+    "Иван Петров", "Светлана Волкова", "Дмитрий Орлов", "Ёжик Лесной", "Щука Речная",
+    "Юлия Зайцева", "Фёдор Громов", "Эльвира Жукова",
+}
+local cyrillic = false
+local function sampleName(i)
+    if cyrillic then return CYR_NAMES[(i - 1) % #CYR_NAMES + 1] end
+    return NAMES[(i - 1) % #NAMES + 1]
+end
+
 local function mockAuras(i)
     local now = GetTime()
     local buffs, debuffs, dispels = {}, {}, {}
@@ -100,7 +111,7 @@ local function mockFor(i, key)
         phased = (i == 4),
         summon = (i == 7),
         otherParty = (i == 10),
-        name = NAMES[(i - 1) % #NAMES + 1],
+        name = sampleName(i),
         class = CLASSES[(i - 1) % #CLASSES + 1],
         hpMax = 100,
         hp = (i % 11 == 0) and 0 or ((i * 37) % 83) + 18,
@@ -217,6 +228,19 @@ local function place(container, key, pool, n)
     end
 end
 
+-- Corner the container hangs from, flipped for reversed growth like the live header (not for the raid grid).
+local function anchorCorner(cfg, key)
+    local corner = cfg.point
+    if cfg.reverse and not (key == "raid" and N.RaidGrid and N.RaidGrid.Active()) then
+        if cfg.orientation == "horizontal" then
+            corner = corner:find("LEFT") and (corner:gsub("LEFT", "RIGHT")) or (corner:gsub("RIGHT", "LEFT"))
+        else
+            corner = corner:find("TOP") and (corner:gsub("TOP", "BOTTOM")) or (corner:gsub("BOTTOM", "TOP"))
+        end
+    end
+    return corner
+end
+
 local function makeHandle(container, key)
     local M = N.Media
     container:SetMovable(true)
@@ -231,8 +255,13 @@ local function makeHandle(container, key)
     local title = N.L[({ party = "Party Frames", raid = "Raid Frames", ownPet = "Own Pet Frame",
         groupPets = "Group Pet Frames", npc = "NPC Companion Frames", partyTargets = "Party Target Frames",
         spotlight = "Spotlight Frame" })[key]]
-    N.StyleMover(a, label, title, container)
-    a._restyle = function() N.StyleMover(a, label, title, container) end
+    local function restyleHandle()
+        local cfg = N.db[key]
+        local flip = cfg.reverse and cfg.orientation ~= "horizontal" and true or false
+        N.StyleMover(a, label, title, container, flip)
+    end
+    restyleHandle()
+    a._restyle = restyleHandle
     a:RegisterForDrag("LeftButton")
     a:SetScript("OnDragStart", function()
         if N.MoverMayDrag() then container:StartMoving(); a._moving = true end
@@ -241,9 +270,10 @@ local function makeHandle(container, key)
         if not a._moving then return end
         a._moving = nil
         container:StopMovingOrSizing()
-        local point = N.db[key].point
-        local mx, my = N.PointXY(container, point)
-        local ux, uy = N.PointXY(UIParent, point)
+        -- Measure the corner the container hangs from.
+        local corner = anchorCorner(N.db[key], key)
+        local mx, my = N.PointXY(container, corner)
+        local ux, uy = N.PointXY(UIParent, N.db[key].point)
         N:Set(key .. ".x", N.Round(mx - ux))
         N:Set(key .. ".y", N.Round(my - uy))
         N:Fire("NUCLEUS_FRAME_MOVED", key)
@@ -328,7 +358,7 @@ local function buildKey(key, force)
     end
     local cfg = N.db[key]
     container:ClearAllPoints()
-    container:SetPoint(cfg.point, UIParent, cfg.point, cfg.x, cfg.y)
+    container:SetPoint(anchorCorner(cfg, key), UIParent, cfg.point, cfg.x, cfg.y)
     container:SetSize(cfg.width, cfg.height)
 
     local pool = pools[key]
@@ -468,6 +498,12 @@ function TM.Set(on)
 end
 
 function TM.Toggle() TM.Set(not active) end
+
+function TM.ToggleCyrillic()
+    cyrillic = not cyrillic
+    if active then rebuild() else TM.Set(true) end
+    N:Print(cyrillic and "Test Mode: Cyrillic sample names on (/nuctest cyr again to switch back)" or "Test Mode: normal sample names")
+end
 function TM.IsActive() return active end
 
 function TM.Init()

@@ -655,6 +655,48 @@ local function btIcon(i)
     return ic
 end
 
+-- Highlight of an icon: a colored border or one of the glows, set in the tool's settings.
+local function btHighlight(ic, c, size, off)
+    local mode = off and "none" or (c.highlight or "none")
+    local hc = c.highlightColor or { 1, 0.85, 0.1 }
+    local th, dist = c.highlightThickness or 1, c.highlightDistance or 0
+    local speed, len = c.highlightSpeed or 0.3, c.highlightLength or 4
+    if mode == "border" then
+        local edges = ic._hlEdges
+        if not edges then
+            edges = {}
+            for k = 1, 4 do edges[k] = ic:CreateTexture(nil, "OVERLAY", nil, 6) end
+            ic._hlEdges = edges
+        end
+        local t = N.Snap(ic, th)
+        for k = 1, 4 do
+            edges[k]:SetColorTexture(hc[1], hc[2], hc[3], 1)
+            edges[k]:ClearAllPoints()
+            edges[k]:Show()
+        end
+        edges[1]:SetPoint("TOPLEFT"); edges[1]:SetPoint("TOPRIGHT"); edges[1]:SetHeight(t)
+        edges[2]:SetPoint("BOTTOMLEFT"); edges[2]:SetPoint("BOTTOMRIGHT"); edges[2]:SetHeight(t)
+        edges[3]:SetPoint("TOPLEFT", 0, -t); edges[3]:SetPoint("BOTTOMLEFT", 0, t); edges[3]:SetWidth(t)
+        edges[4]:SetPoint("TOPRIGHT", 0, -t); edges[4]:SetPoint("BOTTOMRIGHT", 0, t); edges[4]:SetWidth(t)
+    elseif ic._hlEdges then
+        for k = 1, 4 do ic._hlEdges[k]:Hide() end
+    end
+    if mode == "pixel" or mode == "halo" or mode == "pulse" then
+        local newGlow = (N.AuraEngine and N.AuraEngine.NewGlow) or N.NewGlow
+        if newGlow then
+            ic.glow = ic.glow or newGlow(ic, ic)
+            local sig = table.concat({ mode, size, hc[1], hc[2], hc[3], th, dist, speed, len }, "|")
+            if ic._glowSig ~= sig then
+                ic._glowSig = sig
+                ic.glow:Show(mode, hc[1], hc[2], hc[3], dist, th, speed, len)
+            end
+        end
+    elseif ic.glow and ic._glowSig then
+        ic._glowSig = nil
+        ic.glow:Hide()
+    end
+end
+
 local function buildBuffTracker()
     bt = makeHost("buffTracker", L["Buff Tracker"])
     bt.icons = {}
@@ -747,6 +789,7 @@ updateBuffTracker = function()
         ic.count:SetText(item.idle and "" or #item.names)
         ic.count:SetShown(c.showCount ~= false and not item.idle)
         ic:Show()
+        btHighlight(ic, c, size, item.idle)
     end
     local total = #shown * size + (#shown - 1) * spacing
     if vertical then bt:SetSize(size, total) else bt:SetSize(total, size) end
