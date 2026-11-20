@@ -228,7 +228,8 @@ local function place(container, key, pool, n)
     end
 end
 
--- Corner the container hangs from, flipped for reversed growth like the live header (not for the raid grid).
+-- Corner the container hangs from: flipped when growth is reversed, like the live header (placeHeader).
+-- The raid grid positions its own block, so it keeps the plain point.
 local function anchorCorner(cfg, key)
     local corner = cfg.point
     if cfg.reverse and not (key == "raid" and N.RaidGrid and N.RaidGrid.Active()) then
@@ -270,7 +271,7 @@ local function makeHandle(container, key)
         if not a._moving then return end
         a._moving = nil
         container:StopMovingOrSizing()
-        -- Measure the corner the container hangs from.
+        -- Measure the corner the container actually hangs from, so dragging matches placement.
         local corner = anchorCorner(N.db[key], key)
         local mx, my = N.PointXY(container, corner)
         local ux, uy = N.PointXY(UIParent, N.db[key].point)

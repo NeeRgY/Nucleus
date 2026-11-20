@@ -19,7 +19,7 @@ function N.StyleMover(a, label, text, target, flip)
     a._moverText = text .. ((N.db and N.db.moverMode == "alt") and " [ALT]" or "")
     a:ClearAllPoints()
     local ox, oy = (N.db and N.db.moverX) or 0, 2 + ((N.db and N.db.moverY) or 0)
-    -- flip: the handle sits below the block.
+    -- flip: the handle marks the growth anchor, so it sits below the block instead of above it.
     if flip then
         a:SetPoint("TOP", target, "BOTTOM", ox, -oy)
     else
@@ -85,7 +85,7 @@ local function makeAnchor(key)
     local label = N.FontString(a, 10)
     label:SetPoint("CENTER")
     label:SetTextColor(M.color.accentBright[1], M.color.accentBright[2], M.color.accentBright[3])
-    -- Reversed vertical growth puts the handle below the block.
+    -- The handle marks the growth anchor: below the block when growth runs upward (reverse).
     local function restyle()
         local cfg = N.db[key]
         local flip = cfg.reverse and cfg.orientation ~= "horizontal" and true or false
@@ -164,7 +164,7 @@ N:On("NUCLEUS_SETTING_CHANGED", function(_, _, path)
         or path == "moverBarWidth" or path == "moverX" or path == "moverY" then
         N.RefreshLock()
     elseif path:find("%.reverse$") or path:find("%.orientation$") then
-        -- The handle follows reverse growth and orientation.
+        -- The handle tracks the growth anchor, so it moves when growth or orientation changes.
         N.RefreshLock()
     end
 end)
