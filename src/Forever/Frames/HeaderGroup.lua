@@ -74,9 +74,7 @@ local function placeHeader(header, key, cfg, group)
     if key == "raid" and grid and grid.Active() then
         corner, ox, oy = grid.Anchor(group or 1)
     elseif cfg.reverse then
-        -- Pin the block to the edge the frames grow away from (same idea as RG.Anchor for the
-        -- raid grid): with reversed growth the anchor point becomes the bottom (vertical) or
-        -- right (horizontal) edge, so a part-full group keeps its place as it grows.
+        -- Reversed growth: hang the block from the edge it grows away from, so a part-full group keeps its place.
         corner = cfg.orientation == "horizontal"
             and flipCorner(corner, "LEFT", "RIGHT")
             or flipCorner(corner, "TOP", "BOTTOM")
