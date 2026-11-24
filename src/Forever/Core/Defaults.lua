@@ -188,7 +188,7 @@ local function groupDefaults(overrides)
             buffs = {
                 enabled = false, max = 3, size = 15, spacing = 2, perRow = 8, lineSpacing = 2,
                 point = "TOPRIGHT", growth = "LEFT", x = 0, y = 0,
-                showStacks = true, showCooldown = true, cdStyle = "spiral", showTime = true, timeSize = 10, timeX = 0, timeY = 0, stackSize = 10, stackX = 1, stackY = -1, stackPoint = "BOTTOMRIGHT", stackColor = { 1, 1, 1 }, timePoint = "CENTER", timeBaseColor = { 1, 1, 1 }, onlyMine = true,
+                showStacks = true, showCooldown = true, cdStyle = "spiral", showTime = true, timeSize = 10, timeX = 0, timeY = 0, stackSize = 10, stackX = 1, stackY = -1, stackPoint = "BOTTOMRIGHT", stackColor = { 1, 1, 1 }, timePoint = "CENTER", timeBaseColor = { 1, 1, 1 }, onlyMine = true, markMine = false, markColor = { 0, 0.8, 0 }, markThickness = 1,
                 -- useList: only spells in `list` (the options show your class); off = every buff.
                 useList = true, pickAll = false, -- pickAll: show the spells of every class in the picker
                 list = "1278914,33763,419207,1227806,8936,419287,774,419204,155777,474754,474750,48438,419344,355941,355936,382614,376788,364343,373267,366155,367364,409895,450769,450521,450711,450526,450531,1292922,124682,119611,115175,1260617,198533,156910,53563,200025,1244893,431381,156322,461432,432502,469703,194384,77489,17,1246768,1254306,1300008,41635,401877,1240848,1240849,408120,1238214,1238215,408124,408521,1239242,1239243,408514,431624,139,1253593,1300009,383648,974,444490,61295,360827,395152,395296,410089",
@@ -206,7 +206,7 @@ local function groupDefaults(overrides)
                                 -- Bloodlust exhaustion) | "me" | "others"
                 filters = { nonplayer = false, priority = false, cc = false, bossaura = false,
                             roleaura = false, raid = false, raidcombat = false,
-                            dispellable = false, dispeltyped = false },
+                            dispellable = false, dispeltyped = false, mine = false },
             },
             dispels = {
                 -- showIcons: off by default, the row then only drives highlight, border and dispel-type icons.

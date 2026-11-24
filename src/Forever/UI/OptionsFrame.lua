@@ -1691,7 +1691,8 @@ local function BuildIndicator(p, key, meta)
                     end
                 end
             end
-            if p._y then p._y = p._y + dy; p:SetHeight(-p._y + 10) end
+            -- Before the card is placed there is nothing below it to move.
+            if cTop and p._y then p._y = p._y + dy; p:SetHeight(-p._y + 10) end
             if N.OptionsResize then N.OptionsResize(p) end
         end
         hlReflow()
@@ -2151,6 +2152,14 @@ local function BuildAuras(p, key, kind)
     if kind == "buffs" then
         c:AddRow(N.MakeCheckbox(c, L["Only my auras"],
             function() return o.onlyMine end, function(v) N:Set(pth("onlyMine"), v) end))
+        local mark = N.MakeCheckbox(c, L["HIGHLIGHT_MINE_CB"],
+            function() return o.markMine end, function(v) N:Set(pth("markMine"), v) end)
+        N.SetTip(mark, L["Highlight my auras"], L["MARKMINE_TIP"])
+        c:AddRow(mark)
+        c:AddRow(N.MakeColorPicker(c, L["Highlight Color"],
+            function() return o.markColor end, function(v) N:Set(pth("markColor"), v) end))
+        c:AddRow(N.MakeSlider(c, L["Thickness"], 1, 4, 1,
+            function() return o.markThickness or 1 end, function(v) N:Set(pth("markThickness"), N.Round(v)) end))
     elseif kind == "dispels" then
         c:AddRow(N.MakeCheckbox(c, L["Only what I can dispel"],
             function() return o.dispellableOnly ~= false end, function(v) N:Set(pth("dispellableOnly"), v) end))
@@ -3604,7 +3613,10 @@ local function ToolGroup(p, kind, title, build)
     p.AddCard = normal
     p._cardW = fullW
     p._inToolGroup = nil
-    if not ok then error(err, 0) end
+    if not ok then
+        box:Hide()
+        error(err, 0)
+    end
     groups[#groups + 1] = g
     p.Relayout()
 end
@@ -5025,7 +5037,10 @@ local function GetFlowPanel(tab)
             searchCtx = ctx
             local ok, err = pcall(s.build, p, N:Mode())
             searchCtx = nil
-            if not ok then error(err, 0) end
+            if not ok then
+                N:Print(("Options: the block %s failed to build: %s"):format(tostring(s.id), tostring(err)))
+                if geterrorhandler then geterrorhandler()(err) end
+            end
         end
         panelCache[key] = p
     end
@@ -6499,6 +6514,7 @@ local FAQ_GOTO = {
     MOVE     = { tab = "position", card = "Move handles" },
     COPY     = { tab = "position", card = "Copy settings between Party and Raid" },
     CELL     = { tab = "profile", card = "Export / Import" },
+    PETS     = { tab = "general", card = "Pet frames" },
     AURAS    = { tab = "indicators", sub = "buffs" },
     CLASSCOL = { tab = "appearance", card = "Health Bar Color" },
     LOWMANA  = { tab = "indicators", sub = "lowMana" },
@@ -6552,6 +6568,7 @@ function N.ShowHelp()
 
         local party = N.db.party
         local keys = { "MOVE", "NOEFFECT", "COPY", "CELL" }
+        keys[#keys + 1] = "PETS"
         keys[#keys + 1] = "AURAS"
         if N.ClassBaseRGB then keys[#keys + 1] = "CLASSCOL" end
         if party.indicators and party.indicators.lowMana then keys[#keys + 1] = "LOWMANA" end

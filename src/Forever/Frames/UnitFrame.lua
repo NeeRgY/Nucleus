@@ -57,7 +57,7 @@ end
 
 local UNIT_EVENTS = {
     "UNIT_HEALTH", "UNIT_MAXHEALTH",
-    "UNIT_NAME_UPDATE", "UNIT_CONNECTION",
+    "UNIT_NAME_UPDATE", "UNIT_CONNECTION", "UNIT_FLAGS",
     "UNIT_THREAT_SITUATION_UPDATE",
     "UNIT_HEAL_PREDICTION", "UNIT_ABSORB_AMOUNT_CHANGED",
     "UNIT_HEAL_ABSORB_AMOUNT_CHANGED",
@@ -1115,7 +1115,7 @@ local function render(b)
     -- Dead color: fill the bar fully so the color shows.
     if b.connected and b.dead and appearance.deadColorEnabled and appearance.deadColor then
         b.health:SetValue(b.hpMax)
-    elseif b.connected then
+    elseif b.connected and not b.dead then
         b.health:SetValue(b.hp)
     else
         b.health:SetValue(0)
@@ -1261,7 +1261,13 @@ local function refreshAbsorbs(b)
     if N.Indicators then N.Indicators.UpdateOne(b, "shieldBar") end
 end
 
+-- Death and resurrection change flags, not always health: read the state again when it differs.
+local function refreshFlags(b)
+    if desecret(UnitIsDeadOrGhost(b.unit), false) ~= b.dead then fullUpdate(b) end
+end
+
 local FAST_EVENTS = {
+    UNIT_FLAGS = { "flags", refreshFlags },
     UNIT_POWER_UPDATE = { "power", refreshPower },
     UNIT_HEAL_PREDICTION = { "heal", refreshHealPredict },
     UNIT_ABSORB_AMOUNT_CHANGED = { "absorb", refreshAbsorbs },

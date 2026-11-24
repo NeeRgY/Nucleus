@@ -621,7 +621,7 @@ local function initButton(h, group)
                 host:SetFrameLevel((anim.GetFrameLevel and anim:GetFrameLevel() or 1) + 4)
 
                 local bc = group.border or M.color.border
-                edgeStrips(host, 1, bc[1], bc[2], bc[3], spec.dispelBorder)
+                edgeStrips(host, group.thickness or 1, bc[1], bc[2], bc[3], spec.dispelBorder)
 
                 if spec.stacks then
                     local fs = host:CreateFontString(nil, "OVERLAY")
@@ -796,7 +796,7 @@ local function signature(spec)
     local parts = { spec.shape, spec.cd or "", tostring(spec.stacks), tostring(spec.time),
         tostring(spec.dispelBorder), spec.around or "", spec.text or "", spec.fill or "" }
     for _, g in ipairs(spec.groups) do
-        parts[#parts + 1] = g.key .. ":" .. g.filter .. ":" .. tostring(g.border and g.border[1])
+        parts[#parts + 1] = g.key .. ":" .. g.filter .. ":" .. tostring(g.border and (g.border[1] .. "," .. g.border[2] .. "," .. g.border[3])) .. ":" .. tostring(g.thickness)
         if g.rgb then parts[#parts + 1] = ("%.3f,%.3f,%.3f"):format(g.rgb[1], g.rgb[2], g.rgb[3]) end
     end
     if spec.shape == "dispel" then

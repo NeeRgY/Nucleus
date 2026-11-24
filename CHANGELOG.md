@@ -1,5 +1,30 @@
 # Nucleus Changelog
 
+## 1.1.8 (2026-11-24)
+
+### New
+
+- New Debuffs filter Cast by me: with Show all debuffs off you can now combine it with Dispellable to see what you can dispel plus your own debuffs such as Weakened Soul. Set Cast by to Anyone for this, otherwise it narrows every filter.
+- New option Highlight my auras on the Buffs / Healers row: with Only my auras off, buffs you cast yourself get a coloured border (colour and thickness adjustable), so you can tell your Renew from another priest's.
+
+### Fixes
+
+- The Low Mana tag no longer flashes on druids who shift into Bear or Cat form (it is hidden while the shown power is not mana) (Retail and Forever).
+- The Utilities page no longer stays empty when one of its blocks fails to load: the other blocks still show, and the error is printed in the chat.
+- A dead player's health bar no longer stays filled on some frames: the frame now refreshes as soon as someone dies or is resurrected, and a dead player's bar is always empty.
+- Key and mouse wheel click-cast bindings could stay active on a frame after the mouse had left it. They are now cleared as soon as the mouse is over no unit, and out of combat as soon as the mouse is no longer on that frame.
+
+## 1.1.7 (2026-11-21)
+
+### New
+
+- The Help / FAQ has a new entry on how to switch on the pet frames and change them.
+
+### Fixes
+
+- The Low Mana tag no longer shows on players who are dead or offline (Retail and Forever).
+- The Missing Buffs settings page can be scrolled to the top again. It started a little too high after the highlight settings were added.
+
 ## 1.1.6 (2026-11-20)
 
 ### New

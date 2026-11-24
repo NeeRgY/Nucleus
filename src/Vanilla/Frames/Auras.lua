@@ -239,6 +239,7 @@ local DEBUFF_FILTERS = {
         local dn = d.dispelName
         return dn ~= nil and not IsSecret(dn) and DISPEL_TYPED[dn] == true
     end },
+    { key = "mine", test = function(unit, d) return passesFilter(unit, d, "HARMFUL|PLAYER") end },
 }
 A.DEBUFF_FILTERS = DEBUFF_FILTERS
 
@@ -604,6 +605,37 @@ N:On("NUCLEUS_SETTING_CHANGED", function(_, section)
     if section == "tooltip" and N.RefreshAllButtons then N.RunWhenSafe(N.RefreshAllButtons, "auratips") end
 end)
 
+local function ownAura(unit, d)
+    local src = d.sourceUnit
+    if src ~= nil and not IsSecret(src) then return src == "player" or src == "pet" end
+    return unit ~= nil and passesFilter(unit, d, "HELPFUL|PLAYER")
+end
+
+-- Highlight border of my own buffs, drawn above the icon so a thick border stays visible.
+local function markEdges(icon, on, color, th)
+    local e = icon._markEdges
+    if not on then
+        if e then e.host:Hide() end
+        return
+    end
+    if not e then
+        local host = CreateFrame("Frame", nil, icon)
+        host:SetAllPoints(icon)
+        host:EnableMouse(false)
+        host:SetFrameLevel(icon:GetFrameLevel() + 8)
+        e = { host = host }
+        for i = 1, 4 do e[i] = host:CreateTexture(nil, "OVERLAY") end
+        icon._markEdges = e
+    end
+    local top, bottom, left, right = e[1], e[2], e[3], e[4]
+    for i = 1, 4 do e[i]:SetColorTexture(color[1], color[2], color[3], 1) end
+    top:ClearAllPoints(); top:SetPoint("TOPLEFT"); top:SetPoint("TOPRIGHT"); top:SetHeight(th)
+    bottom:ClearAllPoints(); bottom:SetPoint("BOTTOMLEFT"); bottom:SetPoint("BOTTOMRIGHT"); bottom:SetHeight(th)
+    left:ClearAllPoints(); left:SetPoint("TOPLEFT", 0, -th); left:SetPoint("BOTTOMLEFT", 0, th); left:SetWidth(th)
+    right:ClearAllPoints(); right:SetPoint("TOPRIGHT", 0, -th); right:SetPoint("BOTTOMRIGHT", 0, th); right:SetWidth(th)
+    e.host:Show()
+end
+
 local function apply(icon, d, cfg, row, unit)
     setAuraTip(icon, unit, d)
     styleTexts(icon, cfg)
@@ -670,7 +702,12 @@ local function apply(icon, d, cfg, row, unit)
         icon.count:SetText("")
     end
 
-    if row.cooldown then
+    local marked = row.kind == "buff" and cfg.markMine and not cfg.onlyMine and ownAura(unit, d)
+    markEdges(icon, marked, cfg.markColor or MINE, cfg.markThickness or 1)
+    if marked then
+        local mc = cfg.markColor or MINE
+        N.SetPanelBorder(icon, { mc[1], mc[2], mc[3], 1 })
+    elseif row.cooldown then
         local mine
         local src = d.sourceUnit
         if src ~= nil and not IsSecret(src) then

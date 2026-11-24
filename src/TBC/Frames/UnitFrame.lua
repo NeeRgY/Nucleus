@@ -57,7 +57,7 @@ end
 
 local UNIT_EVENTS = {
     "UNIT_HEALTH", "UNIT_MAXHEALTH",
-    "UNIT_NAME_UPDATE", "UNIT_CONNECTION",
+    "UNIT_NAME_UPDATE", "UNIT_CONNECTION", "UNIT_FLAGS",
     "UNIT_THREAT_SITUATION_UPDATE",
 }
 -- Power events are registered only while the power bar or its text is shown.
@@ -762,7 +762,7 @@ local function render(b)
     -- Dead color: fill the bar fully so the color shows.
     if b.connected and b.dead and appearance.deadColorEnabled and appearance.deadColor then
         b.health:SetValue(b.hpMax)
-    elseif b.connected then
+    elseif b.connected and not b.dead then
         b.health:SetValue(b.hp)
     else
         b.health:SetValue(0)
@@ -888,7 +888,13 @@ local function refreshPower(b)
     renderPower(b, N.db[b.groupKey].indicators)
 end
 
+-- Death and resurrection change flags, not always health: read the state again when it differs.
+local function refreshFlags(b)
+    if desecret(UnitIsDeadOrGhost(b.unit), false) ~= b.dead then fullUpdate(b) end
+end
+
 local FAST_EVENTS = {
+    UNIT_FLAGS = { "flags", refreshFlags },
     UNIT_POWER_UPDATE = { "power", refreshPower },
 }
 local dirty, flushQueued = {}, false

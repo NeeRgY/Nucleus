@@ -981,13 +981,19 @@ Indicators.Register("lowMana", {
             local m = b._mock
             local low = b._previewOnly == "lowMana" or not (m.pp and m.ppMax and m.ppMax > 0)
                 or m.pp / m.ppMax * 100 < (o.threshold or 20)
-            if low then fs:Show() else fs:Hide() end
+            if low and not m.dead then fs:Show() else fs:Hide() end
             return
         end
         local unit = b.unit
         local class = b.class
-        if not unit or (type(class) == "string" and not IsSecret(class) and NO_MANA[class])
+        if not unit or b.dead or b.connected == false or (type(class) == "string" and not IsSecret(class) and NO_MANA[class])
             or not showsFor(b, (o.showFor and o.showFor ~= "auto") and o.showFor or (o.healersOnly == false and "all" or "healers")) then
+            fs:Hide()
+            return
+        end
+        -- Cat and Bear form read 0 mana for a moment: hidden while the shown power is not mana.
+        local shown = UnitPowerType(unit)
+        if shown ~= nil and not IsSecret(shown) and shown ~= MANA then
             fs:Hide()
             return
         end

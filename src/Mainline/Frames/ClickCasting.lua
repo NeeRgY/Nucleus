@@ -283,7 +283,7 @@ function CC.ClearAll(button)
 end
 
 -- Wheel bindings use an override binding set from a secure handler (works in combat).
-local wheelHandler = CreateFrame("Frame", "NucleusWheelHandler", UIParent, "SecureHandlerBaseTemplate")
+local wheelHandler = CreateFrame("Frame", "NucleusWheelHandler", UIParent, "SecureHandlerStateTemplate")
 local wheelWrapped = setmetatable({}, { __mode = "k" })
 
 local function wheelSnippet(bindings)
@@ -303,19 +303,60 @@ local function wheelSnippet(bindings)
     return #lines > 1 and table.concat(lines, "\n") or ""
 end
 
+-- The frame that owns the bindings; also checked by hand out of combat (the state driver misses a move straight onto another unit).
+local hoveredWheel
+local function releaseWheel()
+    if InCombatLockdown() then return end
+    hoveredWheel = nil
+    pcall(wheelHandler.Execute, wheelHandler, "self:ClearBindings() nucHover = nil")
+end
+
 local function wrapWheel(button)
     if wheelWrapped[button] or not button:GetName() then return end -- the click target is found by name
     wheelWrapped[button] = true
+    button:HookScript("OnEnter", function(self) hoveredWheel = self end)
+    button:HookScript("OnLeave", function(self) if hoveredWheel == self then hoveredWheel = nil end end)
+    button:HookScript("OnHide", function(self) if hoveredWheel == self then hoveredWheel = nil end end)
     pcall(function()
         SecureHandlerWrapScript(button, "OnEnter", wheelHandler, [=[
+            nucHover = self
             owner:ClearBindings()
             local snippet = owner:GetAttribute("wheelsnippet")
             if snippet and snippet ~= "" then owner:Run(snippet, self:GetName()) end
         ]=])
-        SecureHandlerWrapScript(button, "OnLeave", wheelHandler, [=[ owner:ClearBindings() ]=])
+        SecureHandlerWrapScript(button, "OnLeave", wheelHandler, [=[ owner:ClearBindings() nucHover = nil ]=])
         SecureHandlerWrapScript(button, "OnHide", wheelHandler, [=[ owner:ClearBindings() ]=])
     end)
 end
+
+-- The game can skip OnLeave: with the mouse over no unit the bindings are cleared here.
+wheelHandler:SetAttribute("_onstate-nucmouse", [=[
+    if newstate == "on" then return end
+    if nucHover and nucHover:IsUnderMouse() then return end
+    self:ClearBindings()
+    nucHover = nil
+]=])
+RegisterStateDriver(wheelHandler, "nucmouse", "[@mouseover,exists] on; off")
+
+local worldReset = CreateFrame("Frame")
+worldReset:RegisterEvent("PLAYER_ENTERING_WORLD")
+worldReset:SetScript("OnEvent", function()
+    if not InCombatLockdown() then pcall(wheelHandler.Execute, wheelHandler, "self:ClearBindings() nucHover = nil") end
+end)
+
+local wheelWatch, wheelElapsed = CreateFrame("Frame"), 0
+wheelWatch:SetScript("OnUpdate", function(_, dt)
+    if not hoveredWheel then return end
+    wheelElapsed = wheelElapsed + dt
+    if wheelElapsed < 0.1 then return end
+    wheelElapsed = 0
+    if not (hoveredWheel:IsVisible() and hoveredWheel:IsMouseOver()) then releaseWheel() end
+end)
+wheelWatch:RegisterEvent("PLAYER_REGEN_ENABLED")
+wheelWatch:RegisterEvent("PLAYER_TARGET_CHANGED")
+wheelWatch:SetScript("OnEvent", function()
+    if hoveredWheel and not hoveredWheel:IsMouseOver() then releaseWheel() end
+end)
 
 function CC.Apply(button, bindings)
     local menuOnRight = false
