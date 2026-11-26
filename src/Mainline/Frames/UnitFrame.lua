@@ -1498,6 +1498,9 @@ function N.StyleUnitButton(name)
     child:HookScript("OnLeave", function()
         for i = 1, #b.hoverEdges do b.hoverEdges[i]:Hide() end
     end)
+    child:HookScript("OnClick", function(_, button)
+        if N.PrivateMarker then N.PrivateMarker.Click(b, button) end
+    end)
     b:SetScript("OnEvent", onEvent)
 
     bindUnit(b)
@@ -1515,6 +1518,43 @@ local function forEachButton(fn)
     end
 end
 UF.ForEachButton = forEachButton
+
+-- MiniAuras (MiniCC) anchors its icons to the frames a provider hands over.
+local miniRefresh
+local miniRegistered
+local function registerMiniAuras()
+    if miniRegistered then return end
+    local api = _G.MiniAurasApi or _G.MiniCCApi
+    local v1 = api and api.v1
+    if not (v1 and v1.RegisterFrameProvider) then return end
+    miniRegistered = true
+    v1:RegisterFrameProvider({
+        Name = "Nucleus",
+        GetFrames = function()
+            local frames = {}
+            forEachButton(function(b) frames[#frames + 1] = b._secure or b end)
+            return frames
+        end,
+        RegisterRefreshFrames = function(cb) miniRefresh = cb end,
+    })
+end
+
+local miniWatch = CreateFrame("Frame")
+miniWatch:RegisterEvent("ADDON_LOADED")
+miniWatch:RegisterEvent("PLAYER_LOGIN")
+miniWatch:RegisterEvent("GROUP_ROSTER_UPDATE")
+local miniPending
+miniWatch:SetScript("OnEvent", function(_, event)
+    registerMiniAuras()
+    if event == "GROUP_ROSTER_UPDATE" and miniRefresh and not miniPending then
+        miniPending = true
+        C_Timer.After(0.5, function()
+            miniPending = nil
+            if miniRefresh then miniRefresh() end
+        end)
+    end
+end)
+registerMiniAuras()
 
 -- A button keeps its token when the person behind it changes: compare the GUID, outside the header update.
 local rosterWatch = CreateFrame("Frame")

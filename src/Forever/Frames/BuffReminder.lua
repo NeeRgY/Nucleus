@@ -554,6 +554,18 @@ local function highlight(ic, c, size)
         ic._glowSig = nil
         ic.glow:Hide()
     end
+    if mode == "blink" then
+        if not ic._blink then
+            ic._blink = true
+            ic:SetScript("OnUpdate", function(self)
+                self:SetAlpha(0.3 + 0.7 * math.abs(1 - 2 * (GetTime() % 1)))
+            end)
+        end
+    elseif ic._blink then
+        ic._blink = nil
+        ic:SetScript("OnUpdate", nil)
+        ic:SetAlpha(1)
+    end
 end
 
 -- Timers on the icons, refreshed twice a second; a timer that ran out asks for a new look.

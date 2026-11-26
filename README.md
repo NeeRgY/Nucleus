@@ -21,7 +21,7 @@ For help, feel free to join the Discord server.
 
 ---
 
-**Current version:** `1.1.8`
+**Current version:** `1.1.9`
 
 </div>
 

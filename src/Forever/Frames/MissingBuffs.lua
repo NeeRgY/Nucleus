@@ -92,8 +92,20 @@ local function buffTexture(buff)
     return t or 134400
 end
 
+-- Longest time left per buff; a permanent or hidden time counts as not expiring.
+local function noteLeft(left, key, d)
+    local exp, dur = d.expirationTime, d.duration
+    if exp == nil or dur == nil or IsSecret(exp) or IsSecret(dur) or dur <= 0 or exp <= 0 then
+        left[key] = math.huge
+        return
+    end
+    local t = exp - GetTime()
+    if not left[key] or t > left[key] then left[key] = t end
+end
+
 local function scan(u, o)
     local present, unknown = {}, false
+    local warn, left = (o.warnMinutes or 0) * 60, {}
     if not (N.AuraCache and N.AuraCache.Each) then return nil end
     for _, d in ipairs(N.AuraCache.Each(u, "HELPFUL")) do
         local id = d.spellId
@@ -101,37 +113,50 @@ local function scan(u, o)
             unknown = true
         else
             local key = idToKey[id]
-            if key then present[key] = true end
+            if key then
+                present[key] = true
+                if warn > 0 then noteLeft(left, key, d) end
+            end
         end
         local name = d.name
         if type(name) == "string" and not IsSecret(name) then
             local key = names()[name]
-            if key then present[key] = true end
+            if key then
+                present[key] = true
+                if warn > 0 then noteLeft(left, key, d) end
+            end
         end
     end
     if not (N.AuraCache.Scanned and N.AuraCache.Scanned(u)) then return nil end
-    local missing = {}
+    local function up(key)
+        return present[key] and not (warn > 0 and left[key] and left[key] < warn)
+    end
+    local missing, soon = {}, {}
     for _, buff in ipairs(BUFFS) do
         if o.buffs and o.buffs[buff.key] ~= false then
             if buff.key == "blessing" then
                 -- missing while none of the enabled blessings is on them (and the player can cast one)
-                local wanted, have, can = false, false, false
+                local wanted, have, can, expSub = false, false, false, false
                 for _, sub in ipairs(BLESSINGS) do
                     if o.buffs[sub.key] ~= false then
                         wanted = true
-                        if present[sub.key] then have = true end
+                        if up(sub.key) then have = true elseif present[sub.key] then expSub = true end
                         if canCast(sub) or (o.trackAll and groupHas("PALADIN")) then can = true end
                     end
                 end
-                if wanted and can and not have then missing[#missing + 1] = buff.key end
-            elseif (canCast(buff) or (o.trackAll and groupHas(buff.class))) and not present[buff.key] then
+                if wanted and can and not have then
+                    missing[#missing + 1] = buff.key
+                    if expSub then soon[buff.key] = true end
+                end
+            elseif (canCast(buff) or (o.trackAll and groupHas(buff.class))) and not up(buff.key) then
                 missing[#missing + 1] = buff.key
+                if present[buff.key] then soon[buff.key] = true end
             end
         end
     end
     -- Only trust "missing" when every aura was readable.
     if unknown and #missing > 0 then return nil end
-    return missing
+    return missing, soon
 end
 
 local function isOwnFrame(b)
@@ -156,7 +181,7 @@ local function refresh(b)
     C_Timer.After(0, function()
         b._mbPending = nil
         local o = N.db and N.db[b.groupKey] and N.db[b.groupKey].indicators.missingBuffs
-        local missing
+        local missing, soon
         local u = b.unit
         if o and o.enabled and allowedFor(b, o) and u and UnitExists(u) and not (o.hideInCombat and N.InCombat()) then
             local connected, dead = UnitIsConnected(u), UnitIsDeadOrGhost(u)
@@ -164,14 +189,17 @@ local function refresh(b)
             local visible = UnitIsVisible(u)
             if not IsSecret(connected) and connected and not IsSecret(dead) and not dead
                 and not IsSecret(visible) and visible then
-                missing = scan(u, o)
+                missing, soon = scan(u, o)
             end
         end
         missing = missing or {}
-        local sig = table.concat(missing, ",")
+        local parts = {}
+        for i, key in ipairs(missing) do parts[i] = (soon and soon[key]) and (key .. "*") or key end
+        local sig = table.concat(parts, ",")
         if sig ~= b._mbSig then
             b._mbSig = sig
             b._mbMissing = missing
+            b._mbSoon = soon or {}
             Indicators.UpdateAll(b)
         end
     end)
@@ -216,6 +244,26 @@ local function makeIcon(parent)
     return f
 end
 
+-- A buff runs out without an aura event, so the frames are judged again every 5 seconds while the warning is on.
+local warnTicker
+local function startWarnTicker()
+    if warnTicker then return end
+    warnTicker = C_Timer.NewTicker(5, function()
+        local any = false
+        N.UnitFrame.ForEachButton(function(b)
+            local o = N.db[b.groupKey] and N.db[b.groupKey].indicators.missingBuffs
+            if o and o.enabled and (o.warnMinutes or 0) > 0 then
+                any = true
+                refresh(b)
+            end
+        end)
+        if not any then
+            warnTicker:Cancel()
+            warnTicker = nil
+        end
+    end)
+end
+
 Indicators.Register("missingBuffs", {
     events = {
         "UNIT_AURA", "GROUP_ROSTER_UPDATE", "PLAYER_REGEN_ENABLED", "PLAYER_REGEN_DISABLED",
@@ -231,6 +279,7 @@ Indicators.Register("missingBuffs", {
     update = function(b, obj)
         local o = N.db[b.groupKey].indicators.missingBuffs
         local keys
+        local soon = {}
         if b._mock then
             keys = {}
             for _, buff in ipairs(BUFFS) do
@@ -245,7 +294,9 @@ Indicators.Register("missingBuffs", {
             end
         else
             refresh(b)
+            if (o.warnMinutes or 0) > 0 then startWarnTicker() end
             keys = b._mbMissing or {}
+            soon = b._mbSoon or {}
         end
 
         if b._mock and not allowedFor(b, o) then keys = {} end
@@ -270,10 +321,14 @@ Indicators.Register("missingBuffs", {
                 end
                 ic:SetSize(size, size)
                 ic.tex:SetTexture(buffTexture(buff))
-                local hl = o.highlight or "none"
-                local hc = o.highlightColor or { 1, 0.85, 0.1 }
-                local th = o.highlightThickness or 1
-                local dist, speed, len = o.highlightDistance or 0, o.highlightSpeed or 0.3, o.highlightLength or 4
+                local hl, hc, th, dist, speed, len
+                if soon[keys[i]] then
+                    hl, hc = o.warnHighlight or "border", o.warnColor or { 1, 0.55, 0.1 }
+                    th, dist, speed, len = o.warnThickness or 1, o.warnDistance or 0, o.warnSpeed or 0.3, o.warnLength or 4
+                else
+                    hl, hc = o.highlight or "none", o.highlightColor or { 1, 0.85, 0.1 }
+                    th, dist, speed, len = o.highlightThickness or 1, o.highlightDistance or 0, o.highlightSpeed or 0.3, o.highlightLength or 4
+                end
                 N.SetPanelBorder(ic, M.color.border)
                 -- Border: colored strips along the inside of the icon edge.
                 if hl == "border" then
@@ -309,6 +364,18 @@ Indicators.Register("missingBuffs", {
                 elseif ic.glow and ic._glowSig then
                     ic._glowSig = nil
                     ic.glow:Hide()
+                end
+                if hl == "blink" then
+                    if not ic._blink then
+                        ic._blink = true
+                        ic:SetScript("OnUpdate", function(self)
+                            self:SetAlpha(0.3 + 0.7 * math.abs(1 - 2 * (GetTime() % 1)))
+                        end)
+                    end
+                elseif ic._blink then
+                    ic._blink = nil
+                    ic:SetScript("OnUpdate", nil)
+                    ic:SetAlpha(1)
                 end
                 local off = (i - 1) * (size + spacing)
                 local dx, dy = 0, 0

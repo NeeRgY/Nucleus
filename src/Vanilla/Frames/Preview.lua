@@ -87,7 +87,7 @@ local function freshMock(filter, stateKey)
         hpMax = 100, hp = 100, ppMax = 100, pp = 45, ppType = 0,
         connected = true, dead = false, aggro = false,
         role = "HEALER", isLeader = true, isSelf = true, raidRole = "CYCLE", isTarget = false,
-        raidMarker = 8, targetedBy = 2, combat = true, phased = false, summon = false,
+        raidMarker = 8, privateMarker = 3, targetedBy = 2, combat = true, phased = false, summon = false,
         readyCheck = "ready",
         buffs = {
             { icon = 135953, applications = 3, duration = 30, expirationTime = now + 21 },

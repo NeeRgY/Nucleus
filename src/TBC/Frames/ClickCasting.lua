@@ -402,25 +402,61 @@ local function bindingsSig(bindings, snippet)
     return table.concat(t, "\n")
 end
 
+function CC.CliqueLoaded()
+    local isLoaded = (C_AddOns and C_AddOns.IsAddOnLoaded) or _G.IsAddOnLoaded
+    return isLoaded and isLoaded("Clique") and true or false
+end
+
+-- Clique finds frames through the global ClickCastFrames list; false takes a frame off it again.
+local function listWithClique(child, on)
+    if on then
+        if type(_G.ClickCastFrames) ~= "table" then _G.ClickCastFrames = {} end
+        _G.ClickCastFrames[child] = true
+    elseif type(_G.ClickCastFrames) == "table" and _G.ClickCastFrames[child] then
+        _G.ClickCastFrames[child] = false
+    end
+end
+
 function CC.ApplyToAll()
     if not N.db or not N.UnitFrame then return end
     N.RunWhenSafe(function()
+        local clique = CC.CliqueLoaded() and N.db.clickCasting and N.db.clickCasting.useClique == true
         local bindings = N.db.clickCasting and N.db.clickCasting.bindings
-        local snippet = wheelSnippet(bindings)
+        local snippet = clique and "" or wheelSnippet(bindings)
         wheelHandler:SetAttribute("wheelsnippet", snippet)
-        local sig = bindingsSig(bindings, snippet)
+        local baseSig = clique and "clique" or bindingsSig(bindings, snippet)
         N.UnitFrame.ForEachButton(function(b)
             local child = b._secure or b -- bindings live on the secure button
+            -- The keys of the private marker click must not also run the unit's own action.
+            local pm = N.db[b.groupKey] and N.db[b.groupKey].indicators.privateMarker
+            local pmIdx = (not clique) and pm and pm.enabled and mouseIndex(pm.button or "RightButton") or nil
+            local pmMod = CC.NormalizeModifier(pm and pm.modifier or "alt-ctrl")
+            if pmMod == "none" then pmIdx = nil end
+            local sig = baseSig .. "|" .. (pmIdx and (pmMod .. pmIdx) or "")
             if appliedSig[child] == sig then return end
             appliedSig[child] = sig
             CC.ClearAll(child)
             child:SetAttribute("*type1", "target")
             child:SetAttribute("*type2", "togglemenu")
-            CC.Apply(child, bindings)
-            if snippet ~= "" then wrapWheel(child) end
+            listWithClique(child, clique)
+            if not clique then
+                CC.Apply(child, bindings)
+                if snippet ~= "" then wrapWheel(child) end
+                if pmIdx then
+                    local prefix = modPrefix(pmMod)
+                    if not child:GetAttribute(prefix .. "type" .. pmIdx) then
+                        child:SetAttribute(prefix .. "type" .. pmIdx, "macro")
+                        child:SetAttribute(prefix .. "macrotext" .. pmIdx, "")
+                    end
+                end
+            end
         end)
     end, "clickcasting-apply")
 end
+
+N:On("NUCLEUS_SETTING_CHANGED", function(_, _, path)
+    if path and path:find("indicators%.privateMarker") then CC.ApplyToAll() end
+end)
 
 N:On("NUCLEUS_SETTING_CHANGED", function(_, section)
     if section == "clickCasting" then

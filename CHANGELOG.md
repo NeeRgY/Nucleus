@@ -1,5 +1,18 @@
 # Nucleus Changelog
 
+## 1.1.9 (2026-11-26)
+
+### New
+
+- New in Missing Buffs: Warn below (minutes left). A buff that is about to run out shows up again with its own highlight (border, glow, pulse or the new blink), set apart from the highlight for a missing buff, so you can rebuff in time. The new Blink highlight can also be used for missing buffs, in the Buff Tracker and in the Forever Buff Reminder.
+- When Clique is installed, the Click-Casting tab shows a warning and a new option Use Clique for click-casting. With it on, Nucleus lists its frames with Clique and no longer applies its own click-cast bindings. Switching it on or off asks for a reload.
+- MiniAuras (formerly MiniCC) support: Nucleus hands its group frames to MiniAuras, so its CC, defensive and important spell icons can show on Nucleus frames (Retail and Forever).
+- New Private Marker indicator (Indicators > Private Marker, off by default): a marker icon that only you see. Hold the chosen keys and click a frame (default Alt + Ctrl + right click). Each click shows the next icon, after the last one it is removed. Nothing is sent to the group.
+
+### Fixes
+
+- The move handle no longer starts a move in combat, and the game no longer remembers the frame position on its own. This may fix raid frames not following the handle.
+
 ## 1.1.8 (2026-11-24)
 
 ### New

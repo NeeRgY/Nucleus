@@ -210,6 +210,7 @@ Indicators.builtins = {
     { name = "raidRole", label = "Raid Role Icon", icon = true, iconPosition = true },
     { name = "readyCheck", label = "Ready Check", icon = true, iconPosition = true },
     { name = "raidMarker", label = "Raid Marker", icon = true, iconPosition = true },
+    { name = "privateMarker", label = "Private Marker", icon = true, iconPosition = true, privateMarker = true },
     { name = "combatIcon", label = "Combat Icon", icon = true, iconPosition = true },
     { name = "missingBuffs", label = "Missing Buffs", missing = true },
     { name = "targetCounter", label = "Target Counter", text = true },
@@ -533,6 +534,75 @@ Indicators.Register("raidMarker", {
         end
     end,
 })
+
+-- Private markers: kept on this client for the session, nothing is sent to the group.
+local PM = {}
+N.PrivateMarker = PM
+local marks = {} -- unit GUID -> icon 1-8
+
+local function markKey(unit)
+    local g = unit and UnitGUID(unit)
+    if g ~= nil and not IsSecret(g) then return g end
+end
+
+-- The icon of this button's unit; a hidden GUID keeps the last one seen.
+function PM.IndexFor(b)
+    local key = markKey(b.unit)
+    if key then b._pmKey = key else key = b._pmKey end
+    return key and marks[key] or nil
+end
+
+local function refreshMarked(key)
+    N.UnitFrame.ForEachButton(function(b)
+        if key == nil or b._pmKey == key then Indicators.UpdateOne(b, "privateMarker") end
+    end)
+end
+
+function PM.Cycle(b)
+    local key = markKey(b.unit) or b._pmKey
+    if not key then return end
+    b._pmKey = key
+    local idx = (marks[key] or 0) + 1
+    marks[key] = idx <= 8 and idx or nil
+    refreshMarked(key)
+end
+
+function PM.ClearAll()
+    wipe(marks)
+    refreshMarked(nil)
+end
+
+-- Runs after every click on a unit frame.
+function PM.Click(b, button)
+    local o = N.db[b.groupKey] and N.db[b.groupKey].indicators.privateMarker
+    if not (o and o.enabled) or button ~= (o.button or "RightButton") then return end
+    local CC = N.ClickCasting
+    local want = CC.NormalizeModifier(o.modifier or "alt-ctrl")
+    if want == "none" or CC.CurrentModifier() ~= want then return end
+    PM.Cycle(b)
+end
+
+Indicators.Register("privateMarker", {
+    anchor = "RIGHT",
+    events = { "GROUP_ROSTER_UPDATE" },
+    create = function(b)
+        local t = (b.overlay or b):CreateTexture(nil, "OVERLAY", nil, 4)
+        t:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcons")
+        t:Hide()
+        return t
+    end,
+    update = function(b, icon)
+        local idx
+        if b._mock then idx = b._mock.privateMarker else idx = PM.IndexFor(b) end
+        if idx then
+            SetRaidTargetIconTexture(icon, idx)
+            icon:Show()
+        else
+            icon:Hide()
+        end
+    end,
+})
+
 
 
 -- Accepted / declined summons drop off after a few seconds (`since` stamps the first sighting).

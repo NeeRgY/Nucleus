@@ -105,10 +105,11 @@ local function makeAnchor(key)
 
     a:RegisterForDrag("LeftButton")
     a:SetScript("OnDragStart", function()
-        if not N.MoverMayDrag() then return end
+        if not N.MoverMayDrag() or InCombatLockdown() then return end
         local m = mover()
         m:SetMovable(true)
         m:StartMoving()
+        m:SetUserPlaced(false)
         a._moving = m
     end)
     a:SetScript("OnDragStop", function()

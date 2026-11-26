@@ -1067,6 +1067,9 @@ function N.StyleUnitButton(name)
     child:HookScript("OnLeave", function()
         for i = 1, #b.hoverEdges do b.hoverEdges[i]:Hide() end
     end)
+    child:HookScript("OnClick", function(_, button)
+        if N.PrivateMarker then N.PrivateMarker.Click(b, button) end
+    end)
     b:SetScript("OnEvent", onEvent)
 
     bindUnit(b)

@@ -109,6 +109,7 @@ local function mockFor(i, key)
         crowd = crowd,
         outOfRange = (i == 3) or (i % 7 == 4),
         raidMarker = (i <= 8) and i or nil,
+        privateMarker = (i % 3 == 0) and (i % 8 + 1) or nil,
         targetedBy = i % 3,
         combat = (i % 2 == 0),
         phased = (i == 4),
@@ -379,7 +380,7 @@ local function buildKey(key, force)
         local mock = mockFor(order and order[i] or i, key)
         if N.PET_KEYS[key] then
             mock.name = PET_NAMES[key][(i - 1) % #PET_NAMES[key] + 1]
-            mock.role, mock.isLeader, mock.readyCheck, mock.raidMarker, mock.raidRole = nil, false, nil, nil, nil
+            mock.role, mock.isLeader, mock.readyCheck, mock.raidMarker, mock.raidRole = nil, false, nil, nil, nil; mock.privateMarker = nil
         end
         UF.ApplyMock(b, mock)
         b:SetAlpha(mock.outOfRange and (cfg.appearance.outOfRangeAlpha or 0.45) or 1)

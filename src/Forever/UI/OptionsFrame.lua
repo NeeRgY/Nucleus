@@ -1429,6 +1429,35 @@ local function BuildIndicator(p, key, meta)
             function() return o.showAssist ~= false end, function(v) N:Set(pth("showAssist"), v) end))
     end
 
+    if meta.privateMarker then
+        local modOpts = {}
+        for _, m in ipairs({
+            { "alt-ctrl", "Alt + Ctrl" }, { "alt", "Alt" }, { "ctrl", "Ctrl" }, { "shift", "Shift" },
+            { "alt-shift", "Alt + Shift" }, { "ctrl-shift", "Ctrl + Shift" }, { "alt-ctrl-shift", "Alt + Ctrl + Shift" },
+        }) do
+            modOpts[#modOpts + 1] = { value = m[1], text = m[2] }
+        end
+        c:AddRow(N.MakeDropdown(c, L["PM_MODIFIER"], modOpts,
+            function() return o.modifier or "alt-ctrl" end, function(v) N:Set(pth("modifier"), v) end))
+        c:AddRow(N.MakeDropdown(c, L["PM_BUTTON"], {
+            { value = "LeftButton", text = L["Left Click"] },
+            { value = "RightButton", text = L["Right Click"] },
+            { value = "MiddleButton", text = L["Middle Click"] },
+        }, function() return o.button or "RightButton" end, function(v) N:Set(pth("button"), v) end))
+        c:AddRow(ActionButton(c, L["PM_CLEAR"], function()
+            if N.PrivateMarker then N.PrivateMarker.ClearAll() end
+        end))
+        local hint = CreateFrame("Frame", nil, c)
+        local ht = N.FontString(hint, 11)
+        ht:SetPoint("TOPLEFT", hint, "TOPLEFT", 0, 0)
+        ht:SetWidth(c:GetWidth() - 2 * N.CARD_PAD)
+        ht:SetJustifyH("LEFT")
+        ht:SetTextColor(uc(M.color.textDim))
+        ht:SetText(L["PM_HINT"])
+        hint._rowHeight = ht:GetStringHeight() + 6
+        c:AddRow(hint)
+    end
+
     if meta.threat then
         local function note(row, text)
             local info = N.FontString(row, 11)
@@ -1623,17 +1652,32 @@ local function BuildIndicator(p, key, meta)
         c:AddRow(N.MakeCheckbox(c, L["Hide in combat"],
             function() return o.hideInCombat end, function(v) N:Set(pth("hideInCombat"), v) end))
         local hlReflow
-        c:AddRow(N.MakeDropdown(c, L["Highlight"], {
-            { value = "none", text = L["None"] },
-            { value = "border", text = L["Border"] },
-            { value = "pixel", text = L["GLOW_pixel"] },
-            { value = "halo", text = L["GLOW_halo"] },
-            { value = "pulse", text = L["GLOW_pulse"] },
-        }, function() return o.highlight or "none" end,
+        local function section(text)
+            local row = CreateFrame("Frame", nil, c)
+            local fs = N.FontString(row, 12)
+            fs:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
+            fs:SetTextColor(uc(M.color.accentBright))
+            fs:SetText(text)
+            row._rowHeight = 22
+            return row
+        end
+        local function modes()
+            return {
+                { value = "none", text = L["None"] },
+                { value = "border", text = L["Border"] },
+                { value = "pixel", text = L["GLOW_pixel"] },
+                { value = "halo", text = L["GLOW_halo"] },
+                { value = "pulse", text = L["GLOW_pulse"] },
+                { value = "blink", text = L["Blink"] },
+            }
+        end
+        c:AddRow(section(L["MB_SEC_MISSING"]))
+        c:AddRow(N.MakeDropdown(c, L["Highlight"], modes(), function() return o.highlight or "none" end,
            function(v) N:Set(pth("highlight"), v); if hlReflow then hlReflow() end end))
         c:AddRow(N.MakeColorPicker(c, L["Color"],
             function() return o.highlightColor end, function(v) N:Set(pth("highlightColor"), v) end))
         local HL_USES = {
+            color = { border = true, pixel = true, halo = true, pulse = true },
             thick = { border = true, pixel = true, halo = true, pulse = true },
             len = { pixel = true },
             speed = { pixel = true, halo = true, pulse = true },
@@ -1641,10 +1685,10 @@ local function BuildIndicator(p, key, meta)
             hint = { border = true, pixel = true, halo = true, pulse = true },
         }
         local hlItems, hlY0, hlGap = {}, c._y, nil
-        local function hlAdd(which, row)
+        local function hlAdd(which, row, src)
             c:AddRow(row)
             if not hlGap then hlGap = (hlY0 - c._y) - (row._rowHeight or 0) end
-            hlItems[#hlItems + 1] = { row = row, which = which }
+            hlItems[#hlItems + 1] = { row = row, which = which, src = src or "highlight" }
         end
         hlAdd("thick", N.MakeSlider(c, L["Thickness"], 1, 6, 1,
             function() return o.highlightThickness or 1 end, function(v) N:Set(pth("highlightThickness"), N.Round(v)) end))
@@ -1663,12 +1707,36 @@ local function BuildIndicator(p, key, meta)
         hlText:SetText(L["MB_HIGHLIGHT_HINT"])
         hlRow._rowHeight = hlText:GetStringHeight() + 6
         hlAdd("hint", hlRow)
+        -- About-to-expire settings, shown while the warning time is above 0.
+        hlAdd("always", section(L["MB_SEC_EXPIRING"]))
+        local warn = N.MakeSlider(c, L["MB_WARN"], 0, 30, 1,
+            function() return o.warnMinutes or 0 end,
+            function(v) N:Set(pth("warnMinutes"), N.Round(v)); if hlReflow then hlReflow() end end)
+        N.SetTip(warn, L["MB_WARN"], L["MB_WARN_TIP"])
+        hlAdd("always", warn)
+        hlAdd("warn", N.MakeDropdown(c, L["Highlight"], modes(), function() return o.warnHighlight or "border" end,
+           function(v) N:Set(pth("warnHighlight"), v); if hlReflow then hlReflow() end end), "warnHighlight")
+        hlAdd("color", N.MakeColorPicker(c, L["Color"],
+            function() return o.warnColor end, function(v) N:Set(pth("warnColor"), v) end), "warnHighlight")
+        hlAdd("thick", N.MakeSlider(c, L["Thickness"], 1, 6, 1,
+            function() return o.warnThickness or 1 end, function(v) N:Set(pth("warnThickness"), N.Round(v)) end), "warnHighlight")
+        hlAdd("len", N.MakeSlider(c, L["Line length"], 2, 20, 1,
+            function() return o.warnLength or 4 end, function(v) N:Set(pth("warnLength"), N.Round(v)) end), "warnHighlight")
+        hlAdd("speed", N.MakeSlider(c, L["Speed"], 0.05, 1.5, 0.05,
+            function() return o.warnSpeed or 0.3 end, function(v) N:Set(pth("warnSpeed"), v) end), "warnHighlight")
+        hlAdd("dist", N.MakeSlider(c, L["Distance"], -6, 12, 1,
+            function() return o.warnDistance or 0 end, function(v) N:Set(pth("warnDistance"), N.Round(v)) end), "warnHighlight")
+        local function wanted(it)
+            if it.src == "warnHighlight" and (o.warnMinutes or 0) <= 0 then return false end
+            if it.which == "warn" or it.which == "always" then return true end
+            local mode = o[it.src] or (it.src == "warnHighlight" and "border" or "none")
+            return HL_USES[it.which][mode] == true
+        end
         -- Show only the settings that the chosen highlight uses and move the cards below along.
         function hlReflow()
-            local h = o.highlight or "none"
             local oldY, y = c._y, hlY0
             for _, it in ipairs(hlItems) do
-                local show = HL_USES[it.which][h] == true
+                local show = wanted(it)
                 it.row:SetShown(show)
                 if show then
                     it.row:ClearAllPoints()
@@ -3195,6 +3263,7 @@ local function BuildTools(p, kind)
             { value = "pixel", text = L["GLOW_pixel"] },
             { value = "halo", text = L["GLOW_halo"] },
             { value = "pulse", text = L["GLOW_pulse"] },
+            { value = "blink", text = L["Blink"] },
         }, function() return o.highlight or "none" end,
            function(v) N:Set(pth("highlight"), v); if hlReflow then hlReflow() end end))
         local HL_USES = {
@@ -3328,6 +3397,7 @@ local function BuildTools(p, kind)
             { value = "pixel", text = L["GLOW_pixel"] },
             { value = "halo", text = L["GLOW_halo"] },
             { value = "pulse", text = L["GLOW_pulse"] },
+            { value = "blink", text = L["Blink"] },
         }, function() return o.highlight or "none" end,
            function(v) N:Set(pth("highlight"), v); if hlReflow then hlReflow() end end))
         local HL_USES = {
@@ -4450,6 +4520,28 @@ local function BuildClickCasting(p)
         ccScopeSet = true
         local inUse = N.Profiles and N.Profiles.GetSpec and N.Profiles.GetSpec()
         if inUse and type(cc.bySpec[inUse]) == "table" then ccScope = inUse end
+    end
+
+    if N.ClickCasting.CliqueLoaded() then
+        local cq = N.MakeCard(p, L["CLIQUE_CARD"])
+        local warn = CreateFrame("Frame", nil, cq)
+        local wt = N.FontString(warn, 11)
+        wt:SetPoint("TOPLEFT", warn, "TOPLEFT", 0, 0)
+        wt:SetWidth(cq:GetWidth() - 2 * N.CARD_PAD)
+        wt:SetJustifyH("LEFT")
+        wt:SetTextColor(1, 0.78, 0.25)
+        wt:SetText(L["CLIQUE_WARN"])
+        warn._rowHeight = wt:GetStringHeight() + 8
+        cq:AddRow(warn)
+        local useCq = N.MakeCheckbox(cq, L["Use Clique for click-casting"],
+            function() return cc.useClique == true end,
+            function(v)
+                N:Set("clickCasting.useClique", v)
+                N.Dialog.Reload(L["CLIQUE_RELOAD"])
+            end)
+        N.SetTip(useCq, L["Use Clique for click-casting"], L["CLIQUE_TIP"])
+        cq:AddRow(useCq)
+        p:AddCard(cq)
     end
 
     local specs = PlayerSpecs()

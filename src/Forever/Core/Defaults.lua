@@ -134,6 +134,9 @@ local function groupDefaults(overrides)
                            showTank = true, showAssist = true },
             readyCheck = { enabled = true,  position = "center", size = 16, x = 0, y = 0 },
             raidMarker    = { enabled = true,  position = "top", size = 14, x = 0,  y = 0 },
+            -- Private marker: the keys and mouse button of the click that sets it.
+            privateMarker = { enabled = false, position = "right", size = 14, x = 0, y = 0,
+                              modifier = "alt-ctrl", button = "RightButton" },
             -- Status Icon: `show` = kinds that may appear (Indicators.statusIconKinds).
             statusIcon    = { enabled = true,  position = "center", size = 24, x = 0,  y = 0,
                               show = { otherParty = true, incomingRez = true, rezDebuff = true,
@@ -176,7 +179,8 @@ local function groupDefaults(overrides)
             levelText     = { enabled = false, size = 10, x = 0, y = -16, color = { 0.85, 0.85, 0.87 }, format = "full", classColor = false },
             -- Missing Buffs: an icon per missing raid buff; `buffs` switches each one.
             missingBuffs  = { enabled = false, size = 13, spacing = 1, position = "bottomright",
-                              growth = "LEFT", x = 0, y = 4, hideInCombat = true,
+                              growth = "LEFT", x = 0, y = 4, hideInCombat = true, warnMinutes = 0, warnHighlight = "border", warnColor = { 1, 0.55, 0.1 },
+                              warnThickness = 1, warnDistance = 0, warnSpeed = 0.3, warnLength = 4,
                               showFor = "all", -- "all" | "self" | "others"
                               own = { enabled = false, position = "topleft", growth = "RIGHT", size = 16, x = 0, y = -4 },
                               highlight = "none", highlightColor = { 1, 0.85, 0.1 }, highlightThickness = 1, highlightLength = 4,
@@ -552,6 +556,7 @@ N.Defaults = {
         -- "off" | "normal" | "combat" (also the class's combat resurrection)
         smartRes = "off",
         selfCastDeclined = "",
+        useClique = false, -- let Clique handle click-casting on these frames
         highestRank = false,
 
         -- Left select and right menu: ordinary rows the user can change.
